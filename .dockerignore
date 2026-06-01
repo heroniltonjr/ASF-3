@@ -1,0 +1,16 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+portal.sqlite3
+portal.sqlite3.bak
+uploads/
+.git/
+.github/
+docs/
+tests/
+*.md
+pytest.ini
+ruff.toml

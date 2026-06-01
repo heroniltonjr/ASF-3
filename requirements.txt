@@ -1,0 +1,10 @@
+fastapi>=0.128
+uvicorn[standard]>=0.39
+httpx>=0.28
+python-dotenv>=1.0
+python-multipart>=0.0.9
+
+# dev / test
+pytest>=8.0
+pytest-asyncio>=1.0
+asgi-lifespan>=2.1

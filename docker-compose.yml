@@ -1,0 +1,48 @@
+services:
+  app:
+    build: .
+    image: formula-os:latest
+    container_name: formula-os
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+      SQLITE_PATH: /data/portal.sqlite3
+      UPLOADS_DIR: /data/uploads
+      COOKIE_SECURE: "true"
+    volumes:
+      - formula-data:/data
+    expose:
+      - "4173"
+    networks:
+      - edge
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: formula-caddy
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?defina DOMAIN no .env (ex: portal.suaempresa.com)}
+      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - edge
+
+volumes:
+  formula-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  edge:

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Veículos — Auto Shopping Fórmula</title>
+  <link rel="stylesheet" href="/portal/assets/portal.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body data-page="estoque">
+
+  <div class="topbar">
+    <div class="container">
+      <div class="topbar-info">
+        <span>📍 Av. da FEB, Cerrados 2222 — Várzea Grande/MT</span>
+        <span>📞 (65) 3029-7777</span>
+      </div>
+      <div class="topbar-social">
+        <a class="topbar-system" href="/">🔐 Sistema</a>
+        <a href="https://wa.me/556592156577" target="_blank">WhatsApp</a>
+      </div>
+    </div>
+  </div>
+
+  <nav class="navbar">
+    <div class="container">
+      <a class="brand" href="/portal/">
+        <span class="brand-logo">F</span>
+        <div class="brand-text"><strong>Auto Shopping Fórmula</strong><small>Você tem um sonho, nós somos a fórmula!</small></div>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/portal/">Início</a></li>
+        <li><a href="/portal/estoque.html">Veículos</a></li>
+        <li><a href="/portal/lojas.html">Lojas</a></li>
+        <li><a href="/portal/vender.html">Quero vender</a></li>
+        <li><a href="/portal/sobre.html">Quem somos</a></li>
+        <li><a class="nav-cta" href="https://wa.me/556592156577" target="_blank">Falar conosco</a></li>
+      </ul>
+      <button class="mobile-toggle" aria-label="Abrir menu">☰</button>
+    </div>
+  </nav>
+
+  <section style="background: linear-gradient(180deg, var(--asf-blue-900), var(--asf-blue-700)); color: #fff; padding: 60px 0 40px;">
+    <div class="container">
+      <span class="hero-eyebrow">Catálogo unificado</span>
+      <h1 style="font-size: 36px; margin: 8px 0 6px; font-weight: 800;">Veículos disponíveis</h1>
+      <p style="color: rgba(255,255,255,0.8); margin: 0;">Veja todo o estoque consolidado das 22 lojas parceiras.</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <div class="catalogo">
+      <aside class="filters">
+        <h3>Filtrar</h3>
+        <form id="filter-form">
+          <div class="field">
+            <label>Buscar</label>
+            <input type="text" name="q" placeholder="Ex: Honda City" />
+          </div>
+          <div class="field">
+            <label>Loja</label>
+            <select name="store_id" id="filter-store">
+              <option value="">Todas as lojas</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Câmbio</label>
+            <select name="transmission">
+              <option value="">Qualquer</option>
+              <option>Automático</option>
+              <option>Manual</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Combustível</label>
+            <select name="fuel">
+              <option value="">Qualquer</option>
+              <option>Flex</option>
+              <option>Hatch</option>
+              <option>Picape</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Preço mínimo (R$)</label>
+            <input type="number" name="min_price" placeholder="0" />
+          </div>
+          <div class="field">
+            <label>Preço máximo (R$)</label>
+            <input type="number" name="max_price" placeholder="Sem limite" />
+          </div>
+          <div class="field">
+            <label>Ordenar por</label>
+            <select name="sort">
+              <option value="recentes">Mais recentes</option>
+              <option value="preco_asc">Menor preço</option>
+              <option value="preco_desc">Maior preço</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Aplicar filtros</button>
+        </form>
+      </aside>
+
+      <div>
+        <div class="results-head">
+          <div class="results-count" id="results-count">Carregando…</div>
+        </div>
+        <div class="vehicle-grid" id="catalogo-grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <span>© 2026 Auto Shopping Fórmula — <a href="/portal/" style="color: rgba(255,255,255,0.55);">Voltar à página inicial</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/portal/assets/portal.js"></script>
+</body>
+</html>

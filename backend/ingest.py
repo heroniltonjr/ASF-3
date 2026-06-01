@@ -1,0 +1,209 @@
+"""Orquestra o ingest de mensagens WhatsApp e a resposta do SDR."""
+from __future__ import annotations
+
+import json
+import logging
+from typing import Optional
+
+from . import db, sdr
+from .events import bus
+from .whatsapp import InboundMessage, Provider, ProviderError
+
+logger = logging.getLogger(__name__)
+
+# Preços-base do WhatsApp (BRL/mensagem). Tunáveis no futuro por env/tenant.
+WHATSAPP_IN_BRL = 0.05
+WHATSAPP_OUT_BRL = 0.10
+# Conversão USD→BRL para custo IA (snapshot — refinar via API de câmbio depois).
+USD_TO_BRL = 5.0
+
+
+def _find_or_create_conversation(conn, store_id: int, phone: str, lead_name: Optional[str] = None) -> dict:
+    row = conn.execute(
+        "SELECT * FROM conversations WHERE store_id = ? AND customer_phone = ? ORDER BY id DESC LIMIT 1",
+        (store_id, phone),
+    ).fetchone()
+    if row:
+        return dict(row)
+
+    cur = conn.execute(
+        """
+        INSERT INTO conversations
+            (store_id, lead_name, intent, status, details_json, customer_phone)
+        VALUES (?, ?, ?, ?, '{}', ?)
+        """,
+        (store_id, lead_name or f"WhatsApp {phone}", None, "SDR ativo", phone),
+    )
+    cid = cur.lastrowid
+    out = conn.execute("SELECT * FROM conversations WHERE id = ?", (cid,)).fetchone()
+    return dict(out)
+
+
+def _persist_message(conn, conversation_id: int, sender: str, body: str) -> int:
+    cur = conn.execute(
+        "INSERT INTO messages (conversation_id, sender, body) VALUES (?, ?, ?)",
+        (conversation_id, sender, body),
+    )
+    conn.execute("UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (conversation_id,))
+    return cur.lastrowid
+
+
+def _billing(conn, *, store_id: int, tenant_id: int, kind: str, amount: float, qty: int = 1, metadata: Optional[dict] = None) -> None:
+    conn.execute(
+        """
+        INSERT INTO billing_events (tenant_id, store_id, kind, amount, qty, metadata_json)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (tenant_id, store_id, kind, amount, qty, json.dumps(metadata or {}, ensure_ascii=False)),
+    )
+
+
+def _tenant_for_store(conn, store_id: int) -> Optional[int]:
+    row = conn.execute("SELECT tenant_id FROM stores WHERE id = ?", (store_id,)).fetchone()
+    return row["tenant_id"] if row else None
+
+
+def _log_event(
+    conn,
+    *,
+    provider_id: Optional[int],
+    store_id: int,
+    direction: str,
+    kind: str,
+    wa_message_id: Optional[str] = None,
+    from_number: Optional[str] = None,
+    to_number: Optional[str] = None,
+    body: Optional[str] = None,
+    raw: Optional[dict] = None,
+    conversation_id: Optional[int] = None,
+    message_id: Optional[int] = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO whatsapp_events
+            (provider_id, store_id, direction, kind, wa_message_id,
+             from_number, to_number, body, raw_json, conversation_id, message_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            provider_id, store_id, direction, kind, wa_message_id,
+            from_number, to_number, body,
+            json.dumps(raw, ensure_ascii=False) if raw is not None else None,
+            conversation_id, message_id,
+        ),
+    )
+
+
+async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbound: InboundMessage) -> None:
+    """Persiste a mensagem recebida, chama o SDR, envia a resposta e persiste tudo."""
+    store_id = provider.cfg.store_id
+
+    # 1) abre/cria conversa, persiste mensagem inbound e loga evento + billing.
+    with db.tx() as conn:
+        conv = _find_or_create_conversation(conn, store_id, inbound.from_number)
+        inbound_msg_id = _persist_message(conn, conv["id"], "lead", inbound.body)
+        _log_event(
+            conn,
+            provider_id=provider_db_id, store_id=store_id,
+            direction="inbound", kind="message",
+            wa_message_id=inbound.wa_message_id,
+            from_number=inbound.from_number, to_number=inbound.to_number,
+            body=inbound.body, raw=inbound.raw,
+            conversation_id=conv["id"], message_id=inbound_msg_id,
+        )
+        tenant_id = _tenant_for_store(conn, store_id)
+        if tenant_id:
+            _billing(conn, store_id=store_id, tenant_id=tenant_id,
+                     kind="whatsapp_message_in", amount=WHATSAPP_IN_BRL, qty=1,
+                     metadata={"wa_id": inbound.wa_message_id})
+        # snapshot do histórico para o SDR
+        history_rows = conn.execute(
+            "SELECT sender, body FROM messages WHERE conversation_id = ? ORDER BY id",
+            (conv["id"],),
+        ).fetchall()
+        history = [dict(r) for r in history_rows]
+        store_row = conn.execute("SELECT name FROM stores WHERE id = ?", (store_id,)).fetchone()
+        store_name = store_row["name"] if store_row else f"Loja #{store_id}"
+
+    await bus.publish({
+        "type": "message.created",
+        "store_id": store_id,
+        "conversation_id": conv["id"],
+        "sender": "lead",
+        "body": inbound.body,
+    })
+
+    # 2) chama o SDR fora da transação (latência de rede)
+    result = await sdr.generate_reply(
+        store_name=store_name,
+        intent=conv.get("intent"),
+        history=history[:-1],  # sem a última (que é a inbound — já entra como user prompt)
+        incoming_text=inbound.body,
+    )
+    if not result:
+        logger.info("SDR sem resposta para conversa %s (chave não configurada ou erro).", conv["id"])
+        return
+    reply, usage = result
+
+    # billing do consumo IA
+    if tenant_id and (usage.get("total_tokens") or usage.get("cost_usd")):
+        with db.tx() as conn:
+            _billing(
+                conn,
+                store_id=store_id, tenant_id=tenant_id,
+                kind="ai_token",
+                amount=float(usage.get("cost_usd") or 0) * USD_TO_BRL,
+                qty=int(usage.get("total_tokens") or 0),
+                metadata={
+                    "model": usage.get("model"),
+                    "prompt_tokens": usage.get("prompt_tokens"),
+                    "completion_tokens": usage.get("completion_tokens"),
+                    "cost_usd": usage.get("cost_usd"),
+                },
+            )
+
+    # 3) persiste o reply do SDR antes de tentar entregar
+    #    (armazenamento e entrega são independentes — falha de envio não perde a mensagem)
+    with db.tx() as conn:
+        outbound_msg_id = _persist_message(conn, conv["id"], "agent", reply)
+        if tenant_id:
+            _billing(conn, store_id=store_id, tenant_id=tenant_id,
+                     kind="whatsapp_message_out", amount=WHATSAPP_OUT_BRL, qty=1,
+                     metadata={"wa_id": None})
+
+    await bus.publish({
+        "type": "message.created",
+        "store_id": store_id,
+        "conversation_id": conv["id"],
+        "sender": "agent",
+        "body": reply,
+    })
+
+    # 4) tenta enviar via provider (creds podem ser fake em dev — não bloqueia o fluxo)
+    try:
+        out = await provider.send_text(inbound.from_number, reply)
+    except ProviderError as exc:
+        logger.warning("Falha ao enviar via provider (provider=%s store=%s): %s",
+                       provider.cfg.kind, store_id, exc)
+        with db.tx() as conn:
+            _log_event(
+                conn,
+                provider_id=provider_db_id, store_id=store_id,
+                direction="outbound", kind="error",
+                from_number=provider.cfg.display_number, to_number=inbound.from_number,
+                body=reply, raw={"error": str(exc)},
+                conversation_id=conv["id"], message_id=outbound_msg_id,
+            )
+        return
+
+    # 5) atualiza o evento de saída com o wa_message_id real
+    with db.tx() as conn:
+        _log_event(
+            conn,
+            provider_id=provider_db_id, store_id=store_id,
+            direction="outbound", kind="message",
+            wa_message_id=out.wa_message_id,
+            from_number=provider.cfg.display_number, to_number=inbound.from_number,
+            body=reply, raw=out.raw,
+            conversation_id=conv["id"], message_id=outbound_msg_id,
+        )

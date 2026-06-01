@@ -1,0 +1,40 @@
+# Caddyfile — proxy reverso com HTTPS automático (Let's Encrypt).
+# Aponte o A record do DOMAIN para o IP público do servidor antes de subir.
+
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+    encode zstd gzip
+
+    # SSE precisa de buffering desligado e timeouts longos.
+    @sse {
+        path /api/events
+    }
+    reverse_proxy @sse app:4173 {
+        flush_interval -1
+        transport http {
+            read_timeout 24h
+        }
+    }
+
+    # Webhooks WhatsApp — somente POST/GET, sem cache.
+    reverse_proxy /webhooks/* app:4173
+
+    # API + estáticos.
+    reverse_proxy /* app:4173
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        # Strict-Transport-Security adicionado automaticamente pelo Caddy
+        -Server
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

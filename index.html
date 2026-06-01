@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portal Auto Shopping Formula</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">F</div>
+          <div>
+            <strong>Formula OS</strong>
+            <span>Portal comercial</span>
+          </div>
+        </div>
+
+        <div class="role-panel">
+          <span class="eyebrow">Acesso</span>
+          <div class="role-switch" role="tablist" aria-label="Selecionar acesso">
+            <button class="active" data-role="master" type="button">Master</button>
+            <button data-role="shopping" type="button">Gestor</button>
+            <button data-role="lojista" type="button">Lojista</button>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Menu principal">
+          <button class="active" data-view="overview" data-nav-default="Visão geral" type="button">
+            <span class="nav-icon dashboard-icon"></span>
+            <span class="nav-label">Visão geral</span>
+          </button>
+          <button data-view="crm" data-nav-default="CRM de leads" type="button">
+            <span class="nav-icon funnel-icon"></span>
+            <span class="nav-label">CRM de leads</span>
+          </button>
+          <button data-view="inbox" data-nav-default="Multi-atendimento" type="button">
+            <span class="nav-icon chat-icon"></span>
+            <span class="nav-label">Multi-atendimento</span>
+          </button>
+          <button data-view="vehicles" data-nav-default="Veículos" type="button">
+            <span class="nav-icon car-icon"></span>
+            <span class="nav-label">Veículos</span>
+          </button>
+          <button data-view="stores" data-nav-default="Lojistas" type="button">
+            <span class="nav-icon store-icon"></span>
+            <span class="nav-label">Lojistas</span>
+          </button>
+          <button data-view="billing" data-nav-default="Custos e cobrança" type="button">
+            <span class="nav-icon cost-icon"></span>
+            <span class="nav-label">Custos e cobrança</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-card">
+          <span class="status-dot"></span>
+          <div>
+            <strong>SDR IA ativo</strong>
+            <span>42 conversas em andamento</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="roleEyebrow">Camada Master</p>
+            <h1 id="pageTitle">Comando comercial do ecossistema</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="session-chip" id="sessionButton" type="button">Entrar</button>
+            <label class="search">
+              <span></span>
+              <input id="globalSearch" type="search" placeholder="Buscar lead, carro ou lojista" />
+            </label>
+            <button class="icon-button" id="notificationButton" type="button" aria-label="Notificações">
+              <span class="bell-icon"></span>
+              <i>8</i>
+            </button>
+          </div>
+        </header>
+
+        <section class="hero-band" aria-label="Resumo do Auto Shopping Formula">
+          <img
+            src="assets/asf-hero.jpeg"
+            alt="Fachada e estrutura do Auto Shopping Formula"
+          />
+          <div class="hero-content">
+            <span id="heroKicker">Auto Shopping Formula</span>
+            <h2 id="heroTitle">A operação de IA, CRM, estoque e atendimento em um só painel.</h2>
+            <p id="heroText">Avenida da FEB, 2222, Várzea Grande. Mais de 30 lojas, mais de 1.500 carros e uma esteira de leads pronta para escalar.</p>
+          </div>
+        </section>
+
+        <section class="workspace">
+          <div class="view active" id="overview">
+            <div class="metric-grid" id="metricsGrid"></div>
+
+            <div class="role-command-grid" id="roleCommandGrid"></div>
+
+            <div class="split-layout">
+              <article class="panel">
+                <div class="panel-header">
+                  <div>
+                    <span class="eyebrow">Saúde da operação</span>
+                    <h3>Performance por etapa</h3>
+                  </div>
+                  <button class="ghost-button" type="button">Exportar</button>
+                </div>
+                <div class="pipeline-bars" id="pipelineBars"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-header">
+                  <div>
+                    <span class="eyebrow">Alertas úteis</span>
+                    <h3>Fila de decisões</h3>
+                  </div>
+                </div>
+                <div class="decision-list" id="decisionList"></div>
+              </article>
+            </div>
+          </div>
+
+          <div class="view" id="crm">
+            <div class="board-toolbar">
+              <div>
+                <span class="eyebrow">CRM consolidado</span>
+                <h3>Leads qualificados pelo SDR</h3>
+              </div>
+              <div class="filter-row">
+                <select id="storeFilter" aria-label="Filtrar por lojista">
+                  <option value="todos">Todos os lojistas</option>
+                </select>
+                <select id="stageFilter" aria-label="Filtrar por estágio">
+                  <option value="todos">Todos os estágios</option>
+                  <option value="Novo">Novo</option>
+                  <option value="Qualificado">Qualificado</option>
+                  <option value="Humano">Humano</option>
+                  <option value="Visita">Visita</option>
+                  <option value="Fechado">Fechado</option>
+                </select>
+              </div>
+            </div>
+            <div class="kanban" id="kanban"></div>
+          </div>
+
+          <div class="view" id="inbox">
+            <div class="inbox-layout">
+              <aside class="conversation-list" id="conversationList"></aside>
+              <section class="chat-window">
+                <div class="chat-header">
+                  <div>
+                    <span class="eyebrow" id="chatStore">Betania Automoveis</span>
+                    <h3 id="chatLead">Mariana Souza</h3>
+                  </div>
+                  <div class="chat-actions">
+                    <button class="ghost-button" id="assumeConversationButton" type="button">Assumir</button>
+                    <button class="ghost-button" id="closeConversationButton" type="button">Encerrar</button>
+                    <button class="primary-button" id="sendToCrmButton" type="button">Enviar para CRM</button>
+                  </div>
+                </div>
+                <div class="messages" id="messages"></div>
+                <form class="reply-box" id="replyForm">
+                  <input type="text" id="replyInput" placeholder="Responder como atendente humano" />
+                  <button class="primary-button" type="submit">Enviar</button>
+                </form>
+              </section>
+              <aside class="lead-context">
+                <span class="eyebrow">Contexto do lead</span>
+                <h3 id="leadIntent">Honda City Touring</h3>
+                <dl id="leadDetails"></dl>
+              </aside>
+            </div>
+          </div>
+
+          <div class="view" id="vehicles">
+            <div class="board-toolbar">
+              <div>
+                <span class="eyebrow">Estoque conectado</span>
+                <h3>Cadastro central de veículos</h3>
+              </div>
+              <button class="primary-button" id="newVehicleButton" type="button">Cadastrar veículo</button>
+            </div>
+            <div class="vehicle-grid" id="vehicleGrid"></div>
+          </div>
+
+          <div class="view" id="stores">
+            <div class="board-toolbar">
+              <div>
+                <span class="eyebrow">Gestão de lojistas</span>
+                <h3>Rede de lojas e agentes vinculados</h3>
+              </div>
+              <button class="primary-button" id="newStoreButton" type="button">Convidar lojista</button>
+            </div>
+            <div class="store-table" id="storeTable"></div>
+          </div>
+
+          <div class="view" id="billing">
+            <div class="billing-grid">
+              <article class="panel">
+                <div class="panel-header">
+                  <div>
+                    <span class="eyebrow">Custos variáveis</span>
+                    <h3>WhatsApp e IA por tenant</h3>
+                  </div>
+                </div>
+                <div class="cost-list" id="costList"></div>
+              </article>
+              <article class="panel qr-panel">
+                <span class="eyebrow">Vincular WhatsApp</span>
+                <h3>QR Code do lojista</h3>
+                <div class="qr-code" aria-label="QR code demonstrativo">
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <p>O lojista escaneia, conecta o WhatsApp e autoriza o agente a captar e qualificar leads usando a estrutura central.</p>
+                <button class="primary-button" id="qrActionButton" type="button">Gerar novo QR</button>
+              </article>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="modal-layer" id="modalLayer" aria-hidden="true"></div>
+    <section class="login-layer show" id="loginLayer" aria-label="Entrar no portal">
+      <div class="login-card">
+        <div class="brand">
+          <div class="brand-mark">F</div>
+          <div>
+            <strong>Formula OS</strong>
+            <span>Entrar no portal</span>
+          </div>
+        </div>
+        <p>Entre com seu e-mail e senha. Senha demo: <code>demo123</code>.</p>
+        <form class="login-form" id="loginForm">
+          <label class="form-field">
+            <span>E-mail</span>
+            <input id="loginEmail" name="email" type="email" required placeholder="seu@email.com" autocomplete="username" />
+          </label>
+          <label class="form-field">
+            <span>Senha</span>
+            <input id="loginPassword" name="password" type="password" required placeholder="••••••" autocomplete="current-password" />
+          </label>
+          <p class="login-error" id="loginError" hidden></p>
+          <button class="primary-button" type="submit">Entrar</button>
+        </form>
+        <p class="eyebrow" style="margin-top:1.5rem">Acessos demo</p>
+        <div class="login-options">
+          <button data-login-role="master" data-email="master@collab.com" type="button">
+            <strong>Master</strong>
+            <span>COLLAB / Arara Azul</span>
+          </button>
+          <button data-login-role="shopping" data-email="gestor@asformula.com" type="button">
+            <strong>Gestor</strong>
+            <span>Dono do Auto Shopping</span>
+          </button>
+          <button data-login-role="lojista" data-email="betania@betania.com" type="button">
+            <strong>Lojista</strong>
+            <span>Betania Automoveis</span>
+          </button>
+        </div>
+      </div>
+    </section>
+    <script src="app.js"></script>
+  </body>
+</html>

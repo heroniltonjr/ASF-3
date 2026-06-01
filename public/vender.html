@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vender meu carro — Auto Shopping Fórmula</title>
+  <link rel="stylesheet" href="/portal/assets/portal.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body data-page="vender">
+
+  <div class="topbar">
+    <div class="container">
+      <div class="topbar-info"><span>📍 Av. da FEB, Cerrados 2222 — Várzea Grande/MT</span><span>📞 (65) 3029-7777</span></div>
+      <div class="topbar-social"><a class="topbar-system" href="/">🔐 Sistema</a><a href="https://wa.me/556592156577" target="_blank">WhatsApp</a></div>
+    </div>
+  </div>
+
+  <nav class="navbar">
+    <div class="container">
+      <a class="brand" href="/portal/">
+        <span class="brand-logo">F</span>
+        <div class="brand-text"><strong>Auto Shopping Fórmula</strong><small>Você tem um sonho, nós somos a fórmula!</small></div>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/portal/">Início</a></li>
+        <li><a href="/portal/estoque.html">Veículos</a></li>
+        <li><a href="/portal/lojas.html">Lojas</a></li>
+        <li><a href="/portal/vender.html">Quero vender</a></li>
+        <li><a href="/portal/sobre.html">Quem somos</a></li>
+        <li><a class="nav-cta" href="https://wa.me/556592156577" target="_blank">Falar conosco</a></li>
+      </ul>
+      <button class="mobile-toggle">☰</button>
+    </div>
+  </nav>
+
+  <section style="background: linear-gradient(180deg, var(--asf-blue-900), var(--asf-blue-700)); color: #fff; padding: 80px 0;">
+    <div class="container">
+      <span class="hero-eyebrow">Vender seu carro</span>
+      <h1 style="font-size: 42px; max-width: 720px; margin: 12px 0; line-height: 1.15;">Avaliamos, fechamos e pagamos no PIX. Sem dor de cabeça.</h1>
+      <p style="font-size: 18px; color: rgba(255,255,255,0.85); max-width: 620px; margin: 0;">
+        Conte com a infraestrutura de 22 lojas pra vender seu carro mais rápido e pelo melhor preço.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h3>Solicite avaliação</h3>
+          <p>Preencha o formulário ao lado com nome, telefone e dados do carro. Vamos analisar em até 24h.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h3>Receba a proposta</h3>
+          <p>Nosso consultor te envia a oferta de compra à vista ou de troca por algum carro do estoque.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h3>Documentação e PIX</h3>
+          <p>Aceitou? A gente cuida da burocracia e o pagamento cai no seu PIX no mesmo dia.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background: #fff;">
+    <div class="container" style="max-width: 720px;">
+      <div class="section-head" style="text-align: center; margin: 0 auto 32px;">
+        <span class="section-eyebrow">Solicitar avaliação</span>
+        <h2>Mande os dados do seu carro</h2>
+        <p>Em até 24h um consultor vai te chamar no WhatsApp com a proposta.</p>
+      </div>
+      <form class="lead-form" id="lead-form">
+        <div class="field">
+          <label>Nome completo</label>
+          <input name="name" required placeholder="Como podemos te chamar?" />
+        </div>
+        <div class="field">
+          <label>WhatsApp (DDD + número)</label>
+          <input name="phone" required placeholder="(65) 99999-0000" />
+        </div>
+        <div class="field">
+          <label>Faixa de valor desejada (opcional)</label>
+          <input name="budget" placeholder="Ex: R$ 60 mil" />
+        </div>
+        <div class="field">
+          <label>Detalhes do seu carro</label>
+          <textarea name="message" rows="4" required placeholder="Marca, modelo, ano, km, opcionais, condição"></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">Quero ser avaliado</button>
+        <div id="lead-result"></div>
+      </form>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom"><span>© 2026 Auto Shopping Fórmula</span></div>
+    </div>
+  </footer>
+
+  <script src="/portal/assets/portal.js"></script>
+</body>
+</html>

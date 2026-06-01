@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "formula-os",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "cd '/Users/heroniltonjunior/Documents/ASF - 3' && exec python3 server.py"],
+      "port": 4173
+    }
+  ]
+}

@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Multiatendimento — Formula OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== RESET + VARS ================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand:       #e60023;
+      --brand-dark:  #b80019;
+      --bg:          #f4f6f9;
+      --surface:     #ffffff;
+      --border:      #e8ecf2;
+      --text:        #1a1f2e;
+      --text-soft:   #52596b;
+      --text-muted:  #9aa0b0;
+      --green:       #25D366;
+      --unread-bg:   #e60023;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --shell-top:   56px;
+      --shell-nav:   64px;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== MOBILE SHELL ================================================= */
+    .shell-header {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--shell-top);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px;
+      z-index: 100;
+    }
+    .shell-logo {
+      display: flex; align-items: center; gap: 10px; text-decoration: none;
+    }
+    .shell-logo-icon {
+      width: 32px; height: 32px;
+      background: var(--brand); color: #fff;
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-weight: 900; font-size: 16px;
+    }
+    .shell-logo-text { font-weight: 700; font-size: 15px; color: var(--text); }
+    .shell-user {
+      font-size: 13px; color: var(--text-soft);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .shell-avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%; background: var(--brand);
+      color: #fff; font-weight: 700; font-size: 13px;
+      display: grid; place-items: center;
+    }
+
+    .shell-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: calc(var(--shell-nav) + var(--safe-bottom));
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
+      padding-bottom: var(--safe-bottom);
+    }
+    .nav-tab {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 4px; cursor: pointer; font-size: 11px;
+      color: var(--text-muted); text-decoration: none;
+      font-weight: 500; transition: color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-tab .nav-icon { font-size: 22px; line-height: 1; }
+    .nav-tab.active { color: var(--brand); }
+    .nav-tab .badge-dot {
+      position: absolute; top: 8px;
+      background: var(--brand); color: #fff;
+      width: 16px; height: 16px; border-radius: 50%;
+      font-size: 10px; font-weight: 700;
+      display: grid; place-items: center;
+      margin-left: 12px; margin-top: -4px;
+    }
+
+    /* ===== MAIN CONTENT ================================================= */
+    .main {
+      position: fixed;
+      top: var(--shell-top); bottom: var(--shell-nav);
+      left: 0; right: 0;
+      overflow: hidden;
+    }
+
+    /* ===== CONVERSATION LIST ============================================ */
+    #view-lista {
+      display: flex; flex-direction: column; height: 100%;
+    }
+
+    /* Filtros */
+    .filters-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex; flex-direction: column; gap: 8px;
+      flex-shrink: 0;
+    }
+    .filters-tabs {
+      display: flex; gap: 6px;
+    }
+    .filter-tab {
+      padding: 5px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      border: 1.5px solid var(--border); background: transparent;
+      color: var(--text-soft); cursor: pointer; transition: all 0.15s;
+    }
+    .filter-tab.active {
+      background: var(--brand); border-color: var(--brand); color: #fff;
+    }
+    .search-input {
+      width: 100%; padding: 9px 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; font-family: inherit; background: var(--bg);
+      color: var(--text); outline: none;
+    }
+    .search-input:focus { border-color: var(--brand); }
+    .tag-chips {
+      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .tag-chips::-webkit-scrollbar { display: none; }
+    .tag-chip {
+      flex-shrink: 0; padding: 4px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 600; cursor: pointer; border: 2px solid transparent;
+      opacity: 0.7; transition: all 0.15s;
+    }
+    .tag-chip.selected { opacity: 1; border-color: #000; }
+
+    /* Lista */
+    .conv-list {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    .conv-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer; background: var(--surface);
+      transition: background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      text-decoration: none; color: inherit;
+    }
+    .conv-item:active { background: var(--bg); }
+    .conv-item.unread { background: #fff8f8; }
+
+    .conv-avatar {
+      flex-shrink: 0; width: 46px; height: 46px; border-radius: 50%;
+      background: var(--brand); color: #fff;
+      font-weight: 700; font-size: 18px;
+      display: grid; place-items: center;
+      position: relative;
+    }
+    .conv-avatar.online::after {
+      content: ''; position: absolute; bottom: 1px; right: 1px;
+      width: 11px; height: 11px; border-radius: 50%;
+      background: #22c55e; border: 2px solid #fff;
+    }
+    .conv-body { flex: 1; min-width: 0; }
+    .conv-name {
+      font-weight: 700; font-size: 15px; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .conv-preview {
+      font-size: 13px; color: var(--text-soft);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    .conv-meta {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px;
+      align-items: center;
+    }
+    .status-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+      background: #f0f4ff; color: #2657b8;
+    }
+    .status-badge.sdr { background: #f0fdf4; color: #16a34a; }
+    .status-badge.humano { background: #fffbeb; color: #b45309; }
+    .tag-pill {
+      font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+      color: #fff;
+    }
+
+    .conv-right {
+      flex-shrink: 0; display: flex; flex-direction: column;
+      align-items: flex-end; gap: 6px;
+    }
+    .conv-time { font-size: 11px; color: var(--text-muted); }
+    .unread-badge {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--unread-bg); color: #fff;
+      font-size: 11px; font-weight: 800;
+      display: grid; place-items: center;
+    }
+
+    .empty-state {
+      padding: 60px 24px; text-align: center; color: var(--text-muted);
+      font-size: 15px;
+    }
+    .loading-dots { animation: blink 1.2s steps(3) infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ===== CONVERSATION VIEW ============================================ */
+    #view-conversa {
+      display: none; flex-direction: column; height: 100%;
+    }
+    #view-conversa.open { display: flex; }
+
+    .conv-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .back-btn {
+      background: none; border: none; font-size: 22px; cursor: pointer;
+      color: var(--text); padding: 4px; -webkit-tap-highlight-color: transparent;
+    }
+    .conv-header-info { flex: 1; min-width: 0; }
+    .conv-header-name {
+      font-weight: 700; font-size: 16px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .conv-header-sub { font-size: 12px; color: var(--text-soft); }
+    .conv-header-actions { display: flex; gap: 8px; }
+    .icon-btn {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px; font-size: 16px; cursor: pointer;
+    }
+
+    .messages-area {
+      flex: 1; overflow-y: auto; padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 8px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .msg {
+      display: flex; flex-direction: column; max-width: 80%;
+    }
+    .msg.incoming { align-self: flex-start; }
+    .msg.outgoing { align-self: flex-end; }
+
+    .bubble {
+      padding: 10px 14px; border-radius: 12px;
+      font-size: 14px; line-height: 1.45; word-break: break-word;
+    }
+    .incoming .bubble {
+      background: var(--surface); border: 1px solid var(--border);
+      border-bottom-left-radius: 4px; color: var(--text);
+    }
+    .outgoing .bubble {
+      background: var(--brand); color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .outgoing .bubble.agent { background: #1e293b; }
+
+    .msg-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; padding: 0 4px; }
+    .outgoing .msg-meta { text-align: right; }
+    .msg-sender { font-weight: 600; font-size: 11px; margin-bottom: 2px; color: var(--text-soft); }
+    .agent-tag {
+      font-size: 10px; background: rgba(255,255,255,0.2);
+      padding: 1px 5px; border-radius: 4px; margin-left: 6px;
+    }
+
+    /* Message input */
+    .input-bar {
+      padding: 10px 12px; background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 6px;
+      flex-shrink: 0;
+    }
+    .input-row { display: flex; align-items: flex-end; gap: 8px; }
+    .media-btn {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: var(--bg); border: 1px solid var(--border);
+      font-size: 18px; cursor: pointer; display: grid; place-items: center;
+      flex-shrink: 0; transition: background 0.15s;
+    }
+    .media-btn:hover { background: var(--border); }
+    .msg-input {
+      flex: 1; padding: 10px 13px;
+      border: 1px solid var(--border); border-radius: 24px;
+      font-size: 14px; font-family: inherit; background: var(--bg);
+      color: var(--text); outline: none; resize: none;
+      max-height: 100px; line-height: 1.4;
+    }
+    .msg-input:focus { border-color: var(--brand); }
+    .send-btn {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--brand); border: none;
+      color: #fff; font-size: 18px; cursor: pointer;
+      display: grid; place-items: center;
+      flex-shrink: 0; transition: background 0.15s;
+    }
+    .send-btn:disabled { background: var(--border); cursor: default; }
+    .send-btn:not(:disabled):active { background: var(--brand-dark); }
+
+    /* Imagem preview antes de enviar */
+    .img-preview-bar {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px 12px;
+    }
+    .img-preview-bar img { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; }
+    .img-preview-bar span { font-size: 13px; color: var(--text-soft); flex: 1; }
+    .img-preview-bar button { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted); }
+
+    /* Bolha de imagem */
+    .bubble-image { max-width: 220px; border-radius: 10px; display: block; cursor: pointer; }
+    .bubble-image:active { opacity: 0.85; }
+    .msg-audio audio { max-width: 200px; }
+
+    /* ===== DESKTOP: side-by-side ======================================== */
+    @media (min-width: 768px) {
+      .main { display: flex; }
+
+      #view-lista {
+        width: 360px; flex-shrink: 0;
+        border-right: 1px solid var(--border);
+      }
+      #view-conversa {
+        display: flex; flex: 1;
+      }
+      #view-conversa .back-btn { display: none; }
+
+      /* Desktop: show placeholder when no convo selected */
+      #view-conversa.no-selection {
+        align-items: center; justify-content: center;
+        color: var(--text-muted); font-size: 15px;
+      }
+      #view-conversa.no-selection .conv-view-content { display: none; }
+    }
+
+    /* ===== LEAD SIDEBAR ================================================= */
+    .lead-drawer {
+      position: fixed; top: 0; right: -100%; width: min(360px, 100vw); height: 100%;
+      background: var(--surface); z-index: 200;
+      border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+      transition: right 0.3s ease;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+    }
+    .lead-drawer.open { right: 0; }
+    .drawer-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 199;
+    }
+    .drawer-backdrop.open { display: block; }
+    .drawer-header {
+      padding: 16px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .drawer-header h3 { font-size: 16px; font-weight: 700; }
+    .close-btn { background: none; border: none; font-size: 22px; cursor: pointer; }
+    .drawer-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .drawer-field { display: flex; flex-direction: column; gap: 4px; }
+    .drawer-field label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .drawer-field p { font-size: 14px; color: var(--text); }
+    .drawer-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .drawer-notes { display: flex; flex-direction: column; gap: 8px; }
+    .note-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    }
+    .note-card p { font-size: 13px; line-height: 1.5; }
+    .note-card small { font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px; }
+    .note-input-row { display: flex; gap: 8px; }
+    .note-input-row textarea {
+      flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 13px; font-family: inherit; resize: none; background: var(--bg);
+    }
+    .note-input-row button {
+      background: var(--brand); color: #fff; border: none; border-radius: 8px;
+      padding: 0 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+
+    /* ===== TOAST ======================================================== */
+    #toast {
+      position: fixed; bottom: calc(var(--shell-nav) + 12px); left: 50%; transform: translateX(-50%) translateY(16px);
+      background: #1a1f2e; color: #fff; padding: 10px 20px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; z-index: 300; opacity: 0;
+      transition: all 0.25s; white-space: nowrap; pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+  <!-- Shell header -->
+  <header class="shell-header">
+    <a class="shell-logo" href="/">
+      <span class="shell-logo-icon">F</span>
+      <span class="shell-logo-text">Formula OS</span>
+    </a>
+    <div class="shell-user">
+      <span id="user-name">…</span>
+      <div class="shell-avatar" id="user-avatar">?</div>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Lista de conversas -->
+    <div id="view-lista">
+      <div class="filters-bar">
+        <div class="filters-tabs" id="scope-tabs">
+          <button class="filter-tab active" data-scope="mine">Minhas</button>
+          <button class="filter-tab" data-scope="all" id="tab-all" style="display:none">Todas</button>
+        </div>
+        <input class="search-input" id="search" placeholder="Buscar lead ou telefone…" />
+        <div class="tag-chips" id="tag-chips"></div>
+      </div>
+      <div class="conv-list" id="conv-list">
+        <div class="empty-state"><span class="loading-dots">Carregando conversas…</span></div>
+      </div>
+    </div>
+
+    <!-- Visão da conversa -->
+    <div id="view-conversa" class="no-selection">
+      <div id="conv-placeholder" style="padding:40px;text-align:center;color:var(--text-muted);font-size:15px;">
+        Selecione uma conversa
+      </div>
+      <div class="conv-view-content" style="display:contents">
+        <div class="conv-header">
+          <button class="back-btn" id="back-btn">←</button>
+          <div class="conv-header-info">
+            <div class="conv-header-name" id="ch-name">—</div>
+            <div class="conv-header-sub" id="ch-sub">—</div>
+          </div>
+          <div class="conv-header-actions">
+            <button class="icon-btn" id="claim-btn" title="Assumir atendimento" style="display:none">🙋</button>
+            <button class="icon-btn" id="open-drawer-btn" title="Ficha do lead">👤</button>
+          </div>
+        </div>
+
+        <div class="messages-area" id="messages-area">
+          <div class="empty-state">Selecione uma conversa</div>
+        </div>
+
+        <div class="input-bar">
+          <div id="img-preview-bar" class="img-preview-bar" style="display:none">
+            <img id="img-preview-thumb" src="" alt="preview" />
+            <span id="img-preview-name">imagem.jpg</span>
+            <button onclick="clearMediaPreview()">✕</button>
+          </div>
+          <div class="input-row">
+            <button class="media-btn" id="media-btn" title="Enviar foto">📎</button>
+            <input type="file" id="file-input" accept="image/*,audio/*" style="display:none" />
+            <textarea class="msg-input" id="msg-input" rows="1" placeholder="Mensagem…"></textarea>
+            <button class="send-btn" id="send-btn" disabled>➤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="shell-nav">
+    <a class="nav-tab active" href="/atendimento.html">
+      <span class="nav-icon">💬</span>Conversas
+    </a>
+    <a class="nav-tab" href="/">
+      <span class="nav-icon">🎯</span>Leads
+    </a>
+    <a class="nav-tab" href="/">
+      <span class="nav-icon">🚗</span>Veículos
+    </a>
+    <a class="nav-tab" href="/">
+      <span class="nav-icon">⚙️</span>Sistema
+    </a>
+  </nav>
+
+  <!-- Lead drawer -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="lead-drawer" id="lead-drawer">
+    <div class="drawer-header">
+      <h3>Ficha do Lead</h3>
+      <button class="close-btn" id="close-drawer">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <div class="empty-state">Carregando…</div>
+    </div>
+  </aside>
+
+  <div id="toast"></div>
+
+  <script>
+  // =========================================================================
+  // Multiatendimento — Formula OS
+  // =========================================================================
+  const API = '';
+  let currentUser = null;
+  let conversations = [];
+  let activeConvId = null;
+  let allTags = [];
+  let selectedTag = null;
+  let scopeFilter = 'mine'; // mine | all
+  let searchQ = '';
+  let sseSource = null;
+
+  // --- Utils ---------------------------------------------------------------
+  async function api(path, opts = {}) {
+    const r = await fetch(API + path, {
+      headers: {'Content-Type': 'application/json', ...(opts.headers || {})},
+      credentials: 'include', ...opts,
+    });
+    if (r.status === 401) { location.href = '/'; throw new Error('Não autenticado'); }
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({error: r.statusText}));
+      throw new Error(e.error || `HTTP ${r.status}`);
+    }
+    return r.json();
+  }
+
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  function relTime(iso) {
+    if (!iso) return '';
+    const diff = (Date.now() - new Date(iso.replace(' ','T') + (iso.includes('+') ? '' : 'Z'))) / 1000;
+    if (diff < 60) return 'agora';
+    if (diff < 3600) return `${Math.floor(diff/60)}m`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h`;
+    return `${Math.floor(diff/86400)}d`;
+  }
+
+  function initials(name) {
+    return (name || '?').trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
+  }
+
+  // Avatar color stable por nome (hash simples)
+  const AVATAR_COLORS = ['#e60023','#2563eb','#16a34a','#7c3aed','#ea580c','#0891b2','#be185d'];
+  function avatarColor(name) {
+    let h = 0;
+    for (let i = 0; i < (name||'').length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xFFFFFF;
+    return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  }
+
+  // --- Auth ----------------------------------------------------------------
+  async function boot() {
+    try {
+      const data = await api('/api/me');
+      if (!data.user) { location.href = '/'; return; }
+      currentUser = data.user;
+      document.getElementById('user-name').textContent = currentUser.name.split(' ')[0];
+      document.getElementById('user-avatar').textContent = initials(currentUser.name);
+
+      // Gestor vê todas; vendedor só "Minhas"
+      const canAll = ['gestor','shopping','master'].includes(currentUser.role);
+      document.getElementById('tab-all').style.display = canAll ? '' : 'none';
+
+      await loadTags();
+      await loadConversations();
+      connectSSE();
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+  // --- Tags ----------------------------------------------------------------
+  async function loadTags() {
+    try {
+      const data = await api('/api/tags');
+      allTags = data.tags || [];
+      renderTagChips();
+    } catch(e) { console.error('tags', e); }
+  }
+
+  function renderTagChips() {
+    const el = document.getElementById('tag-chips');
+    if (!allTags.length) { el.innerHTML = ''; return; }
+    el.innerHTML = allTags.map(t => `
+      <span class="tag-chip ${selectedTag === t.id ? 'selected' : ''}"
+            style="background:${t.color}20; color:${t.color}; border-color:${selectedTag===t.id?t.color:'transparent'}"
+            data-tid="${t.id}">${t.name}</span>
+    `).join('');
+    el.querySelectorAll('.tag-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const tid = Number(chip.dataset.tid);
+        selectedTag = selectedTag === tid ? null : tid;
+        renderTagChips();
+        renderConvList();
+      });
+    });
+  }
+
+  // --- Conversations -------------------------------------------------------
+  async function loadConversations() {
+    try {
+      const data = await api('/api/conversations');
+      conversations = data.conversations || [];
+      renderConvList();
+    } catch(e) {
+      document.getElementById('conv-list').innerHTML = '<div class="empty-state">Erro ao carregar conversas.</div>';
+    }
+  }
+
+  function filterConvs() {
+    let list = [...conversations];
+
+    // "Minhas":
+    //  - lojista: já recebe só as da loja pela API — mostra todas
+    //  - vendedor: API já filtra pelas atribuídas a ele — mostra todas
+    //  - gestor/shopping/master: filtra por owner_user_id = eu
+    if (scopeFilter === 'mine' && ['gestor','shopping','master'].includes(currentUser.role)) {
+      list = list.filter(c => c.owner_user_id === currentUser.id || !c.owner_user_id);
+    }
+
+    if (searchQ) {
+      const q = searchQ.toLowerCase();
+      list = list.filter(c =>
+        (c.lead_name||'').toLowerCase().includes(q) ||
+        (c.customer_phone||'').includes(q)
+      );
+    }
+
+    // tag filter — simplificado (filtra só pela tag aplicada no lead, carregada inline)
+    if (selectedTag) {
+      list = list.filter(c => c._tags && c._tags.some(t => t.id === selectedTag));
+    }
+
+    return list;
+  }
+
+  function renderConvList() {
+    const list = filterConvs();
+    const el = document.getElementById('conv-list');
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state">Nenhuma conversa encontrada.</div>';
+      return;
+    }
+
+    el.innerHTML = list.map(c => {
+      const unread = c.unread_count || 0;
+      const preview = c.last_preview || c.intent || 'Sem mensagens';
+      const statusClass = (c.status||'').toLowerCase().includes('sdr') ? 'sdr'
+                        : (c.status||'').toLowerCase().includes('human') ? 'humano' : '';
+      const tags = (c._tags||[]).slice(0,2).map(t =>
+        `<span class="tag-pill" style="background:${t.color}">${t.name}</span>`
+      ).join('');
+      const ownerBadge = c.owner_name
+        ? `<span style="font-size:11px;color:var(--text-muted)">👤 ${c.owner_name.split(' ')[0]}</span>`
+        : '';
+
+      return `
+        <div class="conv-item ${unread > 0 ? 'unread' : ''} ${activeConvId === c.id ? 'active-conv' : ''}"
+             data-cid="${c.id}">
+          <div class="conv-avatar" style="background:${avatarColor(c.lead_name)}">${initials(c.lead_name)}</div>
+          <div class="conv-body">
+            <div class="conv-name">${c.lead_name || 'Lead'}</div>
+            <div class="conv-preview">${preview}</div>
+            <div class="conv-meta">
+              ${c.status ? `<span class="status-badge ${statusClass}">${c.status}</span>` : ''}
+              ${ownerBadge}
+              ${tags}
+            </div>
+          </div>
+          <div class="conv-right">
+            <span class="conv-time">${relTime(c.updated_at)}</span>
+            ${unread > 0 ? `<span class="unread-badge">${unread > 9 ? '9+' : unread}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    el.querySelectorAll('.conv-item').forEach(item => {
+      item.addEventListener('click', () => openConv(Number(item.dataset.cid)));
+    });
+  }
+
+  // --- Open conversation ---------------------------------------------------
+  async function openConv(cid) {
+    activeConvId = cid;
+    const conv = conversations.find(c => c.id === cid);
+    if (!conv) return;
+
+    // Mobile: show conversa view
+    const lista = document.getElementById('view-lista');
+    const vista = document.getElementById('view-conversa');
+    if (window.innerWidth < 768) {
+      lista.style.display = 'none';
+      vista.style.display = 'flex';
+    }
+    vista.classList.remove('no-selection');
+    document.getElementById('conv-placeholder').style.display = 'none';
+
+    document.getElementById('ch-name').textContent = conv.lead_name || 'Lead';
+    const ownerTxt = conv.owner_name ? ` · 👤 ${conv.owner_name.split(' ')[0]}` : '';
+    document.getElementById('ch-sub').textContent =
+      (conv.store_name ? conv.store_name + ' · ' : '') + (conv.status || '') + ownerTxt;
+
+    // Mostra botão "Assumir" apenas se não tiver owner ou owner ≠ eu
+    const claimBtn = document.getElementById('claim-btn');
+    claimBtn.style.display = (!conv.owner_user_id || conv.owner_user_id !== currentUser.id) ? '' : 'none';
+
+    // Mark read
+    await api(`/api/conversations/${cid}/read`, {method: 'POST'}).catch(() => {});
+    conv.unread_count = 0;
+    renderConvList();
+
+    // Load messages
+    await loadMessages(cid);
+  }
+
+  async function loadMessages(cid) {
+    const area = document.getElementById('messages-area');
+    area.innerHTML = '<div class="empty-state"><span class="loading-dots">…</span></div>';
+    try {
+      const data = await api(`/api/conversations/${cid}`);
+      const msgs = data.conversation.messages || [];
+      if (!msgs.length) {
+        area.innerHTML = '<div class="empty-state" style="flex-direction:column;gap:8px">'
+          + '<span style="font-size:40px">💬</span>'
+          + '<p>Nenhuma mensagem ainda.<br>Comece a conversa abaixo.</p></div>';
+        return;
+      }
+      area.innerHTML = msgs.map(m => buildBubble(m)).join('');
+      area.scrollTo({top: area.scrollHeight, behavior: 'instant'});
+    } catch(e) {
+      area.innerHTML = '<div class="empty-state">Erro ao carregar mensagens.</div>';
+    }
+  }
+
+  function buildBubble(m) {
+    const dir = m.sender === 'lead' ? 'incoming' : 'outgoing';
+    const isAgent = m.sender === 'agent';
+    const senderLabel = m.sender === 'lead' ? 'Lead'
+                      : m.sender === 'agent' ? 'Rafael IA'
+                      : 'Você';
+    const type = m.msg_type || 'texto';
+
+    let content = '';
+    if (type === 'image' && m.media_url) {
+      content = `<img class="bubble-image" src="${m.media_url}" alt="imagem" onclick="window.open('${m.media_url}')" />
+                 ${m.body ? `<div style="margin-top:6px;font-size:13px">${m.body}</div>` : ''}`;
+    } else if (type === 'audio' && m.media_url) {
+      content = `<div class="msg-audio"><audio controls src="${m.media_url}"></audio></div>`;
+    } else {
+      content = `${m.body || ''}${isAgent ? ' <span class="agent-tag">🤖</span>' : ''}`;
+    }
+
+    const statusTick = m.delivery_status === 'enviada' ? ' ✓✓'
+                     : m.delivery_status === 'falhou'  ? ' ❌' : '';
+
+    return `
+      <div class="msg ${dir}">
+        <div class="bubble ${isAgent ? 'agent' : ''}">${content}</div>
+        <div class="msg-meta">${senderLabel} · ${relTime(m.created_at)}${statusTick}</div>
+      </div>
+    `;
+  }
+
+  // --- Send message --------------------------------------------------------
+  // --- Variáveis de estado de mídia ------------------------------------
+  let pendingMedia = null; // { file, url: objectURL, serverUrl: null }
+
+  document.getElementById('msg-input').addEventListener('input', function() {
+    document.getElementById('send-btn').disabled = !this.value.trim() && !pendingMedia;
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+  });
+
+  document.getElementById('msg-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+  // Botão 📎
+  document.getElementById('media-btn').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+
+  document.getElementById('file-input').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const objectURL = URL.createObjectURL(file);
+    pendingMedia = {file, objectURL, serverUrl: null};
+
+    // Preview
+    const bar = document.getElementById('img-preview-bar');
+    const thumb = document.getElementById('img-preview-thumb');
+    const nameEl = document.getElementById('img-preview-name');
+    if (file.type.startsWith('image/')) {
+      thumb.src = objectURL; thumb.style.display = '';
+    } else {
+      thumb.style.display = 'none';
+    }
+    nameEl.textContent = file.name;
+    bar.style.display = '';
+    document.getElementById('send-btn').disabled = false;
+
+    // Faz upload imediatamente pra ter a URL quando o usuário enviar
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch('/api/media/upload', {method:'POST', body: fd, credentials:'include'});
+      if (!r.ok) { toast('Erro no upload da imagem'); clearMediaPreview(); return; }
+      const data = await r.json();
+      pendingMedia.serverUrl = data.url;
+      pendingMedia.kind = data.kind;
+    } catch { toast('Falha ao fazer upload'); clearMediaPreview(); }
+  });
+
+  window.clearMediaPreview = function() {
+    if (pendingMedia?.objectURL) URL.revokeObjectURL(pendingMedia.objectURL);
+    pendingMedia = null;
+    document.getElementById('img-preview-bar').style.display = 'none';
+    const inp = document.getElementById('msg-input');
+    document.getElementById('send-btn').disabled = !inp.value.trim();
+  };
+
+  async function sendMessage() {
+    if (!activeConvId) return;
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    const media = pendingMedia;
+    if (!text && !media?.serverUrl) return;
+
+    input.value = ''; input.style.height = 'auto';
+    document.getElementById('send-btn').disabled = true;
+    if (media) clearMediaPreview();
+
+    // Optimistic append
+    const area = document.getElementById('messages-area');
+    const dummy = document.createElement('div');
+    dummy.className = 'msg outgoing';
+    let bubbleContent = '';
+    if (media?.objectURL && media?.kind === 'image') {
+      bubbleContent = `<img class="bubble-image" src="${media.objectURL}" alt="imagem" />
+                       ${text ? `<div style="margin-top:6px;font-size:13px">${text}</div>` : ''}`;
+    } else {
+      bubbleContent = text;
+    }
+    dummy.innerHTML = `<div class="bubble">${bubbleContent}</div><div class="msg-meta" style="opacity:.5">Enviando…</div>`;
+    area.appendChild(dummy);
+    area.scrollTo({top: area.scrollHeight, behavior: 'smooth'});
+
+    try {
+      const payload = {body: text};
+      if (media?.serverUrl) {
+        payload.media_url = media.serverUrl;
+        payload.msg_type = media.kind || 'image';
+      }
+      const r = await api(`/api/conversations/${activeConvId}/send`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      const icon = r.delivery === 'sent' ? ' ✓✓' : r.delivery === 'sent_offline' ? ' ✓' : ' ❌';
+      dummy.querySelector('.msg-meta').textContent = `Você · agora${icon}`;
+    } catch(e) {
+      dummy.querySelector('.msg-meta').textContent = '❌ Falha ao enviar';
+      dummy.querySelector('.bubble').style.opacity = '0.5';
+      toast('Falha ao enviar: ' + e.message);
+    }
+  }
+
+  // Assumir conversa
+  document.getElementById('claim-btn').addEventListener('click', async () => {
+    if (!activeConvId) return;
+    try {
+      const r = await api(`/api/conversations/${activeConvId}/claim`, {method: 'POST'});
+      const conv = conversations.find(c => c.id === activeConvId);
+      if (conv) {
+        conv.owner_user_id = currentUser.id;
+        conv.owner_name = r.owner.name;
+      }
+      document.getElementById('claim-btn').style.display = 'none';
+      const sub = document.getElementById('ch-sub');
+      sub.textContent = sub.textContent.replace(/·\s*👤.*$/, '') + ` · 👤 ${r.owner.name.split(' ')[0]}`;
+      toast('Conversa assumida!');
+      renderConvList();
+    } catch(e) { toast('Erro ao assumir: ' + e.message); }
+  });
+
+  // --- Back button (mobile) -----------------------------------------------
+  document.getElementById('back-btn').addEventListener('click', () => {
+    document.getElementById('view-lista').style.display = '';
+    const vista = document.getElementById('view-conversa');
+    vista.style.display = 'none';
+    vista.classList.add('no-selection');
+    activeConvId = null;
+    renderConvList();
+  });
+
+  // --- Lead drawer ---------------------------------------------------------
+  document.getElementById('open-drawer-btn').addEventListener('click', openDrawer);
+  document.getElementById('close-drawer').addEventListener('click', closeDrawer);
+  document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+
+  function openDrawer() {
+    document.getElementById('lead-drawer').classList.add('open');
+    document.getElementById('drawer-backdrop').classList.add('open');
+    loadDrawer();
+  }
+  function closeDrawer() {
+    document.getElementById('lead-drawer').classList.remove('open');
+    document.getElementById('drawer-backdrop').classList.remove('open');
+  }
+
+  async function loadDrawer() {
+    const body = document.getElementById('drawer-body');
+    if (!activeConvId) return;
+    const conv = conversations.find(c => c.id === activeConvId);
+    if (!conv) return;
+    body.innerHTML = '<div class="empty-state"><span class="loading-dots">Carregando…</span></div>';
+
+    let notes = [], tags = [];
+    if (conv.lead_id) {
+      try { notes = (await api(`/api/leads/${conv.lead_id}/notes`)).notes; } catch {}
+      try { tags = (await api(`/api/leads/${conv.lead_id}/tags`)).tags; } catch {}
+    }
+
+    // carrega stage atual do lead
+    let leadStage = null;
+    if (conv.lead_id) {
+      try {
+        const ld = await api(`/api/leads/${conv.lead_id}`);
+        leadStage = ld.lead?.stage || null;
+      } catch {}
+    }
+
+    const stageOpts = ['Novo','Qualificado','Humano','Visita','Fechado','Em atendimento','Em negociação','Perdido','Vácuo'];
+
+    body.innerHTML = `
+      <div class="drawer-field">
+        <label>Lead</label>
+        <p style="font-weight:700;font-size:16px">${conv.lead_name}</p>
+      </div>
+      ${conv.customer_phone ? `<div class="drawer-field"><label>Telefone</label><p>${conv.customer_phone}</p></div>` : ''}
+      ${conv.intent ? `<div class="drawer-field"><label>Interesse</label><p>${conv.intent}</p></div>` : ''}
+
+      ${conv.lead_id ? `
+        <div class="drawer-field">
+          <label>Estágio do lead</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="lead-stage-sel" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit">
+              ${stageOpts.map(s => `<option value="${s}" ${s===leadStage?'selected':''}>${s}</option>`).join('')}
+            </select>
+            <button onclick="saveStage(${conv.lead_id})" style="background:var(--brand);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">Salvar</button>
+          </div>
+        </div>` : ''}
+
+      ${conv.store_name ? `<div class="drawer-field"><label>Loja</label><p>${conv.store_name}</p></div>` : ''}
+
+      ${tags.length ? `
+        <div class="drawer-field">
+          <label>Tags</label>
+          <div class="drawer-tags">
+            ${tags.map(t => `<span class="tag-pill" style="background:${t.color}">${t.name}</span>`).join('')}
+          </div>
+        </div>` : ''}
+
+      <div class="drawer-field">
+        <label>Anotações privadas</label>
+        <div class="drawer-notes">
+          ${notes.length ? notes.map(n => `
+            <div class="note-card">
+              <p>${n.body}</p>
+              <small>${n.author_name} · ${relTime(n.created_at)}</small>
+            </div>
+          `).join('') : '<p style="color:var(--text-muted);font-size:13px">Nenhuma anotação ainda.</p>'}
+
+          ${conv.lead_id ? `
+            <div class="note-input-row">
+              <textarea id="new-note" rows="2" placeholder="Adicionar anotação…"></textarea>
+              <button onclick="addNote(${conv.lead_id})">+</button>
+            </div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  window.saveStage = async function(leadId) {
+    const stage = document.getElementById('lead-stage-sel').value;
+    try {
+      await api(`/api/leads/${leadId}`, {method: 'PATCH', body: JSON.stringify({stage})});
+      toast(`Estágio → ${stage}`);
+      // Atualiza status da conversa na lista
+      const conv = conversations.find(c => c.lead_id === leadId);
+      if (conv) { conv.status = stage; renderConvList(); }
+    } catch(e) { toast('Erro ao salvar estágio: ' + e.message); }
+  };
+
+  window.addNote = async function(leadId) {
+    const ta = document.getElementById('new-note');
+    const body = ta.value.trim();
+    if (!body) return;
+    try {
+      await api(`/api/leads/${leadId}/notes`, {method:'POST', body: JSON.stringify({body})});
+      ta.value = '';
+      toast('Anotação salva');
+      loadDrawer();
+    } catch(e) { toast('Erro ao salvar anotação'); }
+  };
+
+  // --- Filters -------------------------------------------------------------
+  document.getElementById('scope-tabs').addEventListener('click', e => {
+    const btn = e.target.closest('[data-scope]');
+    if (!btn) return;
+    document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    scopeFilter = btn.dataset.scope;
+    renderConvList();
+  });
+
+  let searchTimer;
+  document.getElementById('search').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { searchQ = e.target.value; renderConvList(); }, 250);
+  });
+
+  // --- SSE real-time -------------------------------------------------------
+  function connectSSE() {
+    if (sseSource) sseSource.close();
+    sseSource = new EventSource('/api/events', {withCredentials: true});
+
+    sseSource.addEventListener('message.created', async e => {
+      const evt = JSON.parse(e.data);
+      // Atualiza a conversa na lista
+      const conv = conversations.find(c => c.id === evt.conversation_id);
+      if (conv) {
+        conv.last_preview = evt.body;
+        conv.updated_at = new Date().toISOString();
+        if (evt.sender === 'lead' && evt.conversation_id !== activeConvId) {
+          conv.unread_count = (conv.unread_count || 0) + 1;
+        }
+        // Empurra pro topo
+        conversations = [conv, ...conversations.filter(c => c.id !== conv.id)];
+        renderConvList();
+      } else {
+        // Nova conversa — recarrega a lista
+        await loadConversations();
+      }
+
+      // Se é a conversa ativa, adiciona a mensagem na UI
+      if (activeConvId === evt.conversation_id) {
+        const area = document.getElementById('messages-area');
+        if (evt.sender === 'lead') {
+          const msg = {sender: evt.sender, body: evt.body, created_at: new Date().toISOString()};
+          const el = document.createElement('div');
+          el.innerHTML = buildBubble(msg);
+          const emptyState = area.querySelector('.empty-state');
+          if (emptyState) emptyState.remove();
+          area.appendChild(el.firstElementChild);
+          area.scrollTo({top: area.scrollHeight, behavior: 'smooth'});
+          await api(`/api/conversations/${activeConvId}/read`, {method:'POST'}).catch(() => {});
+        }
+        // Para mensagens outgoing, o optimistic já está na UI — nada a fazer
+      }
+    });
+
+    sseSource.onerror = () => setTimeout(connectSSE, 5000);
+  }
+
+  // --- Boot ----------------------------------------------------------------
+  boot();
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+portal.sqlite3
+portal.sqlite3.bak
+uploads/

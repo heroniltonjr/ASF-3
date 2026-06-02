@@ -6,3 +6,7 @@ __pycache__/
 portal.sqlite3
 portal.sqlite3.bak
 uploads/
+deploy.sh
+fix_deploy.sh
+cookies.txt
+cookies_prod.txt

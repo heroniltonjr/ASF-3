@@ -8,6 +8,7 @@ from .. import db
 from .base import Provider, ProviderConfig, ProviderError
 from .evolution import EvolutionProvider
 from .meta import MetaCloudProvider
+from .zapi import ZApiProvider
 
 
 def build_provider(cfg: ProviderConfig) -> Provider:
@@ -15,6 +16,8 @@ def build_provider(cfg: ProviderConfig) -> Provider:
         return MetaCloudProvider(cfg)
     if cfg.kind == "evolution":
         return EvolutionProvider(cfg)
+    if cfg.kind == "zapi":
+        return ZApiProvider(cfg)
     raise ProviderError(f"Provider desconhecido: {cfg.kind}")
 
 

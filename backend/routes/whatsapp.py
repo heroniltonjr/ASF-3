@@ -41,7 +41,7 @@ def get_provider(store_id: int, user: dict = Depends(_MGMT)):
     data = dict(row)
     # Redacta segredos antes de devolver
     cfg = json.loads(data.pop("config_json") or "{}")
-    for k in ("access_token", "api_key"):
+    for k in ("access_token", "api_key", "client_token", "instance_token"):
         if k in cfg and cfg[k]:
             cfg[k] = "***"
     data["config"] = cfg
@@ -52,8 +52,8 @@ def get_provider(store_id: int, user: dict = Depends(_MGMT)):
 def upsert_provider(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
     _scope_check(user, store_id)
     kind = payload.get("kind")
-    if kind not in ("meta", "evolution"):
-        raise HTTPException(400, "kind deve ser 'meta' ou 'evolution'")
+    if kind not in ("meta", "evolution", "zapi"):
+        raise HTTPException(400, "kind deve ser 'meta', 'evolution' ou 'zapi'")
     display_number = payload.get("display_number")
     config = payload.get("config") or {}
     if not isinstance(config, dict):
@@ -149,6 +149,21 @@ async def evolution_inbound(store_id: int, payload: dict, request: Request):
             await ingest.handle_inbound(provider, provider_db_id, inbound)
         except Exception:
             logger.exception("Falha ao processar inbound Evolution (store=%s)", store_id)
+    return {"ok": True, "ingested": len(inbounds)}
+
+
+@router.post("/webhooks/whatsapp/zapi/{store_id}")
+async def zapi_inbound(store_id: int, payload: dict):
+    provider = load_provider_for_store(store_id)
+    if not provider or provider.cfg.kind != "zapi":
+        raise HTTPException(404, "Provider Z-API não configurado para esta loja")
+    provider_db_id = _provider_db_id(store_id)
+    inbounds = provider.parse_inbound(payload)
+    for inbound in inbounds:
+        try:
+            await ingest.handle_inbound(provider, provider_db_id, inbound)
+        except Exception:
+            logger.exception("Falha ao processar inbound Z-API (store=%s)", store_id)
     return {"ok": True, "ingested": len(inbounds)}
 
 

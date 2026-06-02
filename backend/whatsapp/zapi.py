@@ -27,10 +27,11 @@ class ZApiProvider:
         return str(v)
 
     def _headers(self) -> dict:
-        return {
-            "Client-Token": self._required("client_token"),
-            "Content-Type": "application/json",
-        }
+        headers = {"Content-Type": "application/json"}
+        client_token = self.cfg.config.get("client_token")
+        if client_token:
+            headers["Client-Token"] = str(client_token)
+        return headers
 
     def _base_url(self) -> str:
         return self.cfg.config.get("base_url", "https://api.z-api.io").rstrip("/")

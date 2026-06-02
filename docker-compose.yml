@@ -30,8 +30,8 @@ services:
       - "443:443"
       - "443:443/udp"
     environment:
-      DOMAIN: ${DOMAIN:?defina DOMAIN no .env (ex: portal.suaempresa.com)}
-      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no .env}
+      DOMAIN: "${DOMAIN:?defina DOMAIN no .env}"
+      ACME_EMAIL: "${ACME_EMAIL:?defina ACME_EMAIL no .env}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

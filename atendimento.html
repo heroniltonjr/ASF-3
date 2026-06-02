@@ -965,11 +965,37 @@
 
       ${conv.store_name ? `<div class="drawer-field"><label>Loja</label><p>${conv.store_name}</p></div>` : ''}
 
-      ${tags.length ? `
+      ${conv.lead_id ? `
         <div class="drawer-field">
           <label>Tags</label>
-          <div class="drawer-tags">
-            ${tags.map(t => `<span class="tag-pill" style="background:${t.color}">${t.name}</span>`).join('')}
+          <div class="drawer-tags" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+            ${tags.map(t => `
+              <span class="tag-pill" style="background:${t.color}; display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; color:#fff; font-size:11px; font-weight:700;">
+                ${t.name}
+                <button onclick="removeLeadTag(${conv.lead_id}, ${t.id})" style="background:none; border:none; color:#fff; font-size:14px; cursor:pointer; font-weight:bold; line-height:1; padding:0; display:inline-flex; align-items:center; justify-content:center; margin-left:2px; transform:translateY(-1px);">×</button>
+              </span>
+            `).join('')}
+            ${tags.length === 0 ? '<p style="color:var(--text-muted);font-size:13px;margin:2px 0;">Nenhuma tag vinculada.</p>' : ''}
+          </div>
+          
+          <div style="display:flex; flex-direction:column; gap:8px; border-top:1px dashed var(--border); padding-top:8px; margin-top:4px;">
+            <!-- Vincular existente -->
+            <div style="display:flex; gap:8px;">
+              <select id="exist-tag-sel" style="flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px; font-family:inherit; background:var(--bg); color:var(--text);">
+                <option value="">-- Vincular Tag existente --</option>
+                ${allTags.filter(t => !tags.some(applied => applied.id === t.id)).map(t => `
+                  <option value="${t.id}">${t.name}</option>
+                `).join('')}
+              </select>
+              <button onclick="bindTag(${conv.lead_id})" style="background:var(--brand); color:#fff; border:none; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer">Vincular</button>
+            </div>
+            
+            <!-- Criar nova tag -->
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="new-tag-name" placeholder="Nova tag..." style="flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px; background:var(--bg); color:var(--text);" />
+              <input type="color" id="new-tag-color" value="#e60023" style="width:34px; height:34px; padding:0; border:1px solid var(--border); border-radius:8px; cursor:pointer; background:none; box-sizing:border-box;" />
+              <button onclick="createNewTag(${conv.lead_id})" style="background:#1e293b; color:#fff; border:none; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer">Criar</button>
+            </div>
           </div>
         </div>` : ''}
 
@@ -1014,6 +1040,85 @@
       toast('Anotação salva');
       loadDrawer();
     } catch(e) { toast('Erro ao salvar anotação'); }
+  };
+
+  window.removeLeadTag = async function(leadId, tagId) {
+    try {
+      await api(`/api/leads/${leadId}/tags/${tagId}`, {method: 'DELETE'});
+      toast('Tag removida');
+      
+      // Atualiza a conversa ativa localmente para refletir na lista
+      const conv = conversations.find(c => c.lead_id === leadId);
+      if (conv && conv._tags) {
+        conv._tags = conv._tags.filter(t => t.id !== tagId);
+        renderConvList();
+      }
+      
+      loadDrawer();
+    } catch(e) { toast('Erro ao remover tag: ' + e.message); }
+  };
+
+  window.bindTag = async function(leadId) {
+    const sel = document.getElementById('exist-tag-sel');
+    const tagId = sel.value;
+    if (!tagId) return;
+    try {
+      await api(`/api/leads/${leadId}/tags/${tagId}`, {method: 'POST'});
+      toast('Tag vinculada');
+      
+      // Atualiza a conversa ativa localmente para refletir na lista
+      const conv = conversations.find(c => c.lead_id === leadId);
+      if (conv) {
+        const tagObj = allTags.find(t => t.id === Number(tagId));
+        if (tagObj) {
+          if (!conv._tags) conv._tags = [];
+          conv._tags.push(tagObj);
+          renderConvList();
+        }
+      }
+      
+      loadDrawer();
+    } catch(e) { toast('Erro ao vincular tag: ' + e.message); }
+  };
+
+  window.createNewTag = async function(leadId) {
+    const nameInput = document.getElementById('new-tag-name');
+    const colorInput = document.getElementById('new-tag-color');
+    const name = nameInput.value.trim();
+    const color = colorInput.value;
+    if (!name) { toast('Nome da tag é obrigatório'); return; }
+    
+    try {
+      const conv = conversations.find(c => c.lead_id === leadId);
+      const storeId = currentUser.store_id || (conv ? conv.store_id : null);
+      if (!storeId) { toast('ID da loja não encontrado'); return; }
+      
+      const payload = {
+        name,
+        color,
+        scope: 'personal',
+        store_id: storeId
+      };
+      const res = await api('/api/tags', {method: 'POST', body: JSON.stringify(payload)});
+      const newTag = res.tag;
+      
+      // Atualiza lista global de tags
+      allTags.push(newTag);
+      renderTagChips();
+      
+      // Vincular ao lead
+      await api(`/api/leads/${leadId}/tags/${newTag.id}`, {method: 'POST'});
+      toast('Tag criada e vinculada');
+      
+      // Atualiza a conversa ativa localmente para refletir na lista
+      if (conv) {
+        if (!conv._tags) conv._tags = [];
+        conv._tags.push(newTag);
+        renderConvList();
+      }
+      
+      loadDrawer();
+    } catch(e) { toast('Erro ao criar tag: ' + e.message); }
   };
 
   // --- Filters -------------------------------------------------------------

@@ -54,7 +54,36 @@ def list_conversations(user: dict = Depends(_ALL)):
             """,
             params,
         ).fetchall()
-    return {"conversations": [_row_to_conversation(r) for r in rows]}
+
+        # Carrega tags dos leads para evitar queries N+1 no frontend
+        lead_ids = [r["lead_id"] for r in rows if r["lead_id"]]
+        lead_tags_map = {}
+        if lead_ids:
+            placeholders = ",".join("?" for _ in lead_ids)
+            tag_rows = conn.execute(
+                f"""
+                SELECT lt.lead_id, t.id, t.name, t.color
+                FROM lead_tags lt
+                JOIN tags t ON t.id = lt.tag_id
+                WHERE lt.lead_id IN ({placeholders})
+                ORDER BY t.name
+                """,
+                lead_ids,
+            ).fetchall()
+            for tr in tag_rows:
+                lead_tags_map.setdefault(tr["lead_id"], []).append({
+                    "id": tr["id"],
+                    "name": tr["name"],
+                    "color": tr["color"]
+                })
+
+        conversations_list = []
+        for r in rows:
+            c_dict = _row_to_conversation(r)
+            c_dict["_tags"] = lead_tags_map.get(r["lead_id"], [])
+            conversations_list.append(c_dict)
+
+    return {"conversations": conversations_list}
 
 
 @router.get("/conversations/{cid}")
@@ -69,10 +98,27 @@ def get_conversation(cid: int, user: dict = Depends(_ALL)):
         if user["role"] in STORE_SCOPED_ROLES and row["store_id"] != user.get("store_id"):
             raise HTTPException(403, "Conversa de outra loja")
         msgs = conn.execute(
-            "SELECT id, sender, body, created_at FROM messages WHERE conversation_id = ? ORDER BY id",
+            "SELECT id, sender, body, created_at, msg_type, media_url, delivery_status FROM messages WHERE conversation_id = ? ORDER BY id",
             (cid,),
         ).fetchall()
-    return {"conversation": _row_to_conversation(row, msgs)}
+
+        lead_tags = []
+        if row["lead_id"]:
+            tag_rows = conn.execute(
+                """
+                SELECT t.id, t.name, t.color
+                FROM lead_tags lt
+                JOIN tags t ON t.id = lt.tag_id
+                WHERE lt.lead_id = ?
+                ORDER BY t.name
+                """,
+                (row["lead_id"],),
+            ).fetchall()
+            lead_tags = [dict(tr) for tr in tag_rows]
+
+        c_dict = _row_to_conversation(row, msgs)
+        c_dict["_tags"] = lead_tags
+    return {"conversation": c_dict}
 
 
 @router.post("/conversations/{cid}/messages", status_code=201)

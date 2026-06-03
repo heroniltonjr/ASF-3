@@ -95,6 +95,20 @@ def update_lead(lid: int, payload: dict, user: dict = Depends(_ALL)):
     return {"lead": dict(out)}
 
 
+@router.get("/leads/{lid}")
+def get_lead(lid: int, user: dict = Depends(_ALL)):
+    with db.tx() as conn:
+        row = conn.execute(
+            "SELECT l.*, s.name AS store_name FROM leads l JOIN stores s ON s.id = l.store_id WHERE l.id = ?",
+            (lid,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "Lead não encontrado")
+        if user["role"] in STORE_SCOPED_ROLES and row["store_id"] != user.get("store_id"):
+            raise HTTPException(403, "Lead de outra loja")
+    return {"lead": dict(row)}
+
+
 @router.post("/leads/{lid}/advance")
 def advance_lead(lid: int, user: dict = Depends(_ALL)):
     with db.tx() as conn:

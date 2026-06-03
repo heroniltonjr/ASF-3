@@ -63,7 +63,13 @@
       "Bash(git init *)",
       "Bash(git remote *)",
       "Bash(git branch *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m 'fix: Dockerfile simplificado \\(COPY . .\\) + .dockerignore para Railway *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'fix: railway.toml — uppercase DOCKERFILE e ON_FAILURE \\(enum case-sensitive\\) *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(git commit -m 'fix: healthcheckTimeout 10→300s \\(migrations+seed precisam de tempo no cold start\\) *)"
     ]
   }
 }

@@ -345,6 +345,9 @@
         color: var(--text-muted); font-size: 15px;
       }
       #view-conversa.no-selection .conv-view-content { display: none; }
+
+      /* No desktop, hide mobile-only views */
+      .mobile-view { display: none !important; }
     }
 
     /* ===== LEAD SIDEBAR ================================================= */
@@ -387,6 +390,113 @@
       background: var(--brand); color: #fff; border: none; border-radius: 8px;
       padding: 0 14px; font-size: 13px; font-weight: 700; cursor: pointer;
     }
+
+    /* ===== CLAIM/RELEASE BTN ============================================ */
+    .claim-release-btn {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; gap: 4px;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .claim-release-btn.claimed {
+      background: #fef3c7; border-color: #f59e0b; color: #92400e;
+    }
+    .claim-release-btn:active { transform: scale(0.96); }
+
+    /* ===== MOBILE VIEWS (Leads, Veículos, Sistema) ====================== */
+    .mobile-view {
+      display: none; flex-direction: column; height: 100%;
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    .mobile-view.active { display: flex; }
+    .mobile-view-header {
+      padding: 16px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .mobile-view-header h2 {
+      font-size: 18px; font-weight: 800; color: var(--text);
+    }
+    .mobile-view-header p { font-size: 13px; color: var(--text-soft); margin-top: 2px; }
+    .mobile-view-body {
+      flex: 1; overflow-y: auto; padding: 12px;
+    }
+
+    /* Cards genéricos mobile */
+    .mobile-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+      transition: box-shadow 0.15s;
+    }
+    .mobile-card:active { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .mobile-card-title {
+      font-weight: 700; font-size: 15px; color: var(--text);
+    }
+    .mobile-card-sub {
+      font-size: 13px; color: var(--text-soft); margin-top: 3px;
+    }
+    .mobile-card-meta {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+      align-items: center;
+    }
+    .mobile-card-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    }
+    .stage-novo { background: #dbeafe; color: #1e40af; }
+    .stage-qualificado { background: #dcfce7; color: #166534; }
+    .stage-humano { background: #fef3c7; color: #92400e; }
+    .stage-visita { background: #ede9fe; color: #5b21b6; }
+    .stage-fechado { background: #d1fae5; color: #065f46; }
+    .stage-perdido { background: #fee2e2; color: #991b1b; }
+    .stage-default { background: #f3f4f6; color: #374151; }
+
+    /* Veículos card */
+    .vehicle-price {
+      font-size: 16px; font-weight: 800; color: var(--brand);
+    }
+    .vehicle-specs {
+      font-size: 12px; color: var(--text-muted); display: flex; gap: 12px; margin-top: 4px;
+    }
+
+    /* Sistema view */
+    .settings-group {
+      margin-bottom: 20px;
+    }
+    .settings-group-title {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 0 4px 8px; border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+    .settings-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 8px; cursor: pointer;
+      transition: background 0.1s;
+    }
+    .settings-item:active { background: var(--bg); }
+    .settings-item-icon { font-size: 22px; flex-shrink: 0; }
+    .settings-item-info { flex: 1; }
+    .settings-item-info strong { font-size: 14px; font-weight: 600; }
+    .settings-item-info span { font-size: 12px; color: var(--text-soft); display: block; margin-top: 1px; }
+    .settings-item-arrow { color: var(--text-muted); font-size: 16px; }
+
+    .btn-danger {
+      width: 100%; padding: 12px; border: none; border-radius: 10px;
+      background: #fee2e2; color: #dc2626; font-size: 14px;
+      font-weight: 700; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-danger:active { background: #fecaca; }
+
+    /* Search input mobile views */
+    .mobile-search {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 14px; font-family: inherit;
+      background: var(--bg); color: var(--text); outline: none;
+      margin-top: 10px;
+    }
+    .mobile-search:focus { border-color: var(--brand); }
 
     /* ===== TOAST ======================================================== */
     #toast {
@@ -443,7 +553,7 @@
             <div class="conv-header-sub" id="ch-sub">—</div>
           </div>
           <div class="conv-header-actions">
-            <button class="icon-btn" id="claim-btn" title="Assumir atendimento" style="display:none">🙋</button>
+            <button class="claim-release-btn" id="claim-btn" title="Assumir atendimento" style="display:none">🙋 Assumir</button>
             <button class="icon-btn" id="open-drawer-btn" title="Ficha do lead">👤</button>
           </div>
         </div>
@@ -468,22 +578,57 @@
       </div>
     </div>
 
+    <!-- View: Leads -->
+    <div id="view-leads" class="mobile-view">
+      <div class="mobile-view-header">
+        <h2>🎯 Leads</h2>
+        <p>Gerencie seus leads e oportunidades</p>
+        <input class="mobile-search" id="leads-search" placeholder="Buscar lead por nome ou telefone…" />
+      </div>
+      <div class="mobile-view-body" id="leads-list">
+        <div class="empty-state"><span class="loading-dots">Carregando leads…</span></div>
+      </div>
+    </div>
+
+    <!-- View: Veículos -->
+    <div id="view-vehicles" class="mobile-view">
+      <div class="mobile-view-header">
+        <h2>🚗 Veículos</h2>
+        <p>Estoque de veículos disponíveis</p>
+        <input class="mobile-search" id="vehicles-search" placeholder="Buscar veículo…" />
+      </div>
+      <div class="mobile-view-body" id="vehicles-list">
+        <div class="empty-state"><span class="loading-dots">Carregando veículos…</span></div>
+      </div>
+    </div>
+
+    <!-- View: Sistema -->
+    <div id="view-system" class="mobile-view">
+      <div class="mobile-view-header">
+        <h2>⚙️ Sistema</h2>
+        <p>Configurações e perfil</p>
+      </div>
+      <div class="mobile-view-body" id="system-body">
+        <div class="empty-state">Carregando…</div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom nav -->
   <nav class="shell-nav">
-    <a class="nav-tab active" href="/atendimento.html">
+    <button class="nav-tab active" data-nav="conversas" type="button">
       <span class="nav-icon">💬</span>Conversas
-    </a>
-    <a class="nav-tab" href="/">
+    </button>
+    <button class="nav-tab" data-nav="leads" type="button">
       <span class="nav-icon">🎯</span>Leads
-    </a>
-    <a class="nav-tab" href="/">
+    </button>
+    <button class="nav-tab" data-nav="vehicles" type="button">
       <span class="nav-icon">🚗</span>Veículos
-    </a>
-    <a class="nav-tab" href="/">
+    </button>
+    <button class="nav-tab" data-nav="system" type="button">
       <span class="nav-icon">⚙️</span>Sistema
-    </a>
+    </button>
   </nav>
 
   <!-- Lead drawer -->
@@ -709,9 +854,28 @@
     document.getElementById('ch-sub').textContent =
       (conv.store_name ? conv.store_name + ' · ' : '') + (conv.status || '') + ownerTxt;
 
-    // Mostra botão "Assumir" apenas se não tiver owner ou owner ≠ eu
+    // Mostra botão Assumir/Devolver conforme ownership
     const claimBtn = document.getElementById('claim-btn');
-    claimBtn.style.display = (!conv.owner_user_id || conv.owner_user_id !== currentUser.id) ? '' : 'none';
+    const isMine = conv.owner_user_id === currentUser.id;
+    if (isMine) {
+      // Já é minha: mostra "Devolver para IA"
+      claimBtn.style.display = '';
+      claimBtn.innerHTML = '🤖 Devolver para IA';
+      claimBtn.classList.add('claimed');
+      claimBtn.dataset.mode = 'release';
+    } else if (!conv.owner_user_id) {
+      // Sem dono: mostra "Assumir"
+      claimBtn.style.display = '';
+      claimBtn.innerHTML = '🙋 Assumir';
+      claimBtn.classList.remove('claimed');
+      claimBtn.dataset.mode = 'claim';
+    } else {
+      // Dono é outra pessoa: mostrar "Assumir" (takeover)
+      claimBtn.style.display = '';
+      claimBtn.innerHTML = '🙋 Assumir';
+      claimBtn.classList.remove('claimed');
+      claimBtn.dataset.mode = 'claim';
+    }
 
     // Mark read
     await api(`/api/conversations/${cid}/read`, {method: 'POST'}).catch(() => {});
@@ -870,6 +1034,12 @@
       });
       const icon = r.delivery === 'sent' ? ' ✓✓' : r.delivery === 'sent_offline' ? ' ✓' : ' ❌';
       dummy.querySelector('.msg-meta').textContent = `Você · agora${icon}`;
+      if (r.delivery === 'send_failed') {
+        toast('❌ Mensagem não chegou no WhatsApp do lead');
+        dummy.querySelector('.bubble').style.opacity = '0.7';
+      } else if (r.delivery === 'sent_offline') {
+        toast('⚠️ Salva localmente (sem provider WhatsApp)');
+      }
     } catch(e) {
       dummy.querySelector('.msg-meta').textContent = '❌ Falha ao enviar';
       dummy.querySelector('.bubble').style.opacity = '0.5';
@@ -877,22 +1047,49 @@
     }
   }
 
-  // Assumir conversa
+  // Assumir / Devolver conversa (toggle)
   document.getElementById('claim-btn').addEventListener('click', async () => {
     if (!activeConvId) return;
-    try {
-      const r = await api(`/api/conversations/${activeConvId}/claim`, {method: 'POST'});
-      const conv = conversations.find(c => c.id === activeConvId);
-      if (conv) {
-        conv.owner_user_id = currentUser.id;
-        conv.owner_name = r.owner.name;
-      }
-      document.getElementById('claim-btn').style.display = 'none';
-      const sub = document.getElementById('ch-sub');
-      sub.textContent = sub.textContent.replace(/·\s*👤.*$/, '') + ` · 👤 ${r.owner.name.split(' ')[0]}`;
-      toast('Conversa assumida!');
-      renderConvList();
-    } catch(e) { toast('Erro ao assumir: ' + e.message); }
+    const btn = document.getElementById('claim-btn');
+    const mode = btn.dataset.mode;
+    
+    if (mode === 'release') {
+      // Devolver para IA
+      try {
+        await api(`/api/conversations/${activeConvId}/release`, {method: 'POST'});
+        const conv = conversations.find(c => c.id === activeConvId);
+        if (conv) {
+          conv.owner_user_id = null;
+          conv.owner_name = null;
+          conv.status = 'SDR ativo';
+        }
+        btn.innerHTML = '🙋 Assumir';
+        btn.classList.remove('claimed');
+        btn.dataset.mode = 'claim';
+        const sub = document.getElementById('ch-sub');
+        sub.textContent = sub.textContent.replace(/·\s*👤.*$/, '').trim();
+        toast('Conversa devolvida para IA 🤖');
+        renderConvList();
+      } catch(e) { toast('Erro ao devolver: ' + e.message); }
+    } else {
+      // Assumir
+      try {
+        const r = await api(`/api/conversations/${activeConvId}/claim`, {method: 'POST'});
+        const conv = conversations.find(c => c.id === activeConvId);
+        if (conv) {
+          conv.owner_user_id = currentUser.id;
+          conv.owner_name = r.owner.name;
+          conv.status = 'Humano';
+        }
+        btn.innerHTML = '🤖 Devolver para IA';
+        btn.classList.add('claimed');
+        btn.dataset.mode = 'release';
+        const sub = document.getElementById('ch-sub');
+        sub.textContent = sub.textContent.replace(/·\s*👤.*$/, '') + ` · 👤 ${r.owner.name.split(' ')[0]}`;
+        toast('Conversa assumida!');
+        renderConvList();
+      } catch(e) { toast('Erro ao assumir: ' + e.message); }
+    }
   });
 
   // --- Back button (mobile) -----------------------------------------------
@@ -1178,6 +1375,275 @@
     });
 
     sseSource.onerror = () => setTimeout(connectSSE, 5000);
+  }
+
+  // --- Mobile SPA Navigation ------------------------------------------------
+  let activeNav = 'conversas';
+  let leadsData = [];
+  let vehiclesData = [];
+
+  function switchNav(target) {
+    if (activeNav === target) return;
+    activeNav = target;
+
+    // Hide all views
+    document.getElementById('view-lista').style.display = 'none';
+    document.getElementById('view-conversa').style.display = 'none';
+    document.getElementById('view-conversa').classList.add('no-selection');
+    document.getElementById('view-leads').classList.remove('active');
+    document.getElementById('view-vehicles').classList.remove('active');
+    document.getElementById('view-system').classList.remove('active');
+
+    // Activate target
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.nav-tab[data-nav="${target}"]`).classList.add('active');
+
+    switch (target) {
+      case 'conversas':
+        document.getElementById('view-lista').style.display = '';
+        activeConvId = null;
+        break;
+      case 'leads':
+        document.getElementById('view-leads').classList.add('active');
+        loadLeadsView();
+        break;
+      case 'vehicles':
+        document.getElementById('view-vehicles').classList.add('active');
+        loadVehiclesView();
+        break;
+      case 'system':
+        document.getElementById('view-system').classList.add('active');
+        loadSystemView();
+        break;
+    }
+  }
+
+  // Nav tab clicks
+  document.querySelectorAll('.nav-tab[data-nav]').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchNav(tab.dataset.nav);
+    });
+  });
+
+  // --- Leads View ----------------------------------------------------------
+  async function loadLeadsView() {
+    const el = document.getElementById('leads-list');
+    el.innerHTML = '<div class="empty-state"><span class="loading-dots">Carregando leads…</span></div>';
+    try {
+      const data = await api('/api/leads');
+      leadsData = data.leads || [];
+      renderLeadsList();
+    } catch(e) {
+      el.innerHTML = '<div class="empty-state">Erro ao carregar leads.</div>';
+    }
+  }
+
+  function renderLeadsList(filter = '') {
+    const el = document.getElementById('leads-list');
+    let list = [...leadsData];
+    if (filter) {
+      const q = filter.toLowerCase();
+      list = list.filter(l =>
+        (l.name||'').toLowerCase().includes(q) ||
+        (l.car_interest||'').toLowerCase().includes(q) ||
+        (l.source||'').toLowerCase().includes(q)
+      );
+    }
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state">Nenhum lead encontrado.</div>';
+      return;
+    }
+    el.innerHTML = list.map(l => {
+      const stageClass = getStageClass(l.stage);
+      const score = l.score != null ? `<span style="font-size:12px;color:var(--text-muted)">Score: ${l.score}</span>` : '';
+      return `
+        <div class="mobile-card">
+          <div class="mobile-card-title">${l.name || 'Sem nome'}</div>
+          <div class="mobile-card-sub">${l.car_interest || 'Sem interesse informado'}</div>
+          <div class="mobile-card-meta">
+            <span class="mobile-card-badge ${stageClass}">${l.stage || 'Novo'}</span>
+            ${l.source ? `<span style="font-size:11px;color:var(--text-muted)">📍 ${l.source}</span>` : ''}
+            ${score}
+          </div>
+          ${l.store_name ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">🏪 ${l.store_name}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function getStageClass(stage) {
+    const map = {
+      'Novo': 'stage-novo', 'Qualificado': 'stage-qualificado',
+      'Humano': 'stage-humano', 'Visita': 'stage-visita',
+      'Fechado': 'stage-fechado', 'Perdido': 'stage-perdido',
+      'Em atendimento': 'stage-humano', 'Em negociação': 'stage-visita',
+      'Vácuo': 'stage-perdido', 'SDR ativo': 'stage-qualificado',
+    };
+    return map[stage] || 'stage-default';
+  }
+
+  // Leads search
+  let leadsSearchTimer;
+  document.getElementById('leads-search').addEventListener('input', e => {
+    clearTimeout(leadsSearchTimer);
+    leadsSearchTimer = setTimeout(() => renderLeadsList(e.target.value), 250);
+  });
+
+  // --- Vehicles View -------------------------------------------------------
+  async function loadVehiclesView() {
+    const el = document.getElementById('vehicles-list');
+    el.innerHTML = '<div class="empty-state"><span class="loading-dots">Carregando veículos…</span></div>';
+    try {
+      const data = await api('/api/vehicles');
+      vehiclesData = data.vehicles || [];
+      renderVehiclesList();
+    } catch(e) {
+      el.innerHTML = '<div class="empty-state">Erro ao carregar veículos.</div>';
+    }
+  }
+
+  function renderVehiclesList(filter = '') {
+    const el = document.getElementById('vehicles-list');
+    let list = [...vehiclesData];
+    if (filter) {
+      const q = filter.toLowerCase();
+      list = list.filter(v =>
+        (v.model||'').toLowerCase().includes(q) ||
+        (v.brand||'').toLowerCase().includes(q) ||
+        (v.plate||'').toLowerCase().includes(q)
+      );
+    }
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state">Nenhum veículo encontrado.</div>';
+      return;
+    }
+    el.innerHTML = list.map(v => {
+      const price = v.price ? `R$ ${Number(v.price).toLocaleString('pt-BR')}` : 'Preço sob consulta';
+      return `
+        <div class="mobile-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div class="mobile-card-title">${v.brand || ''} ${v.model || 'Veículo'}</div>
+              <div class="vehicle-specs">
+                ${v.year ? `<span>📅 ${v.year}</span>` : ''}
+                ${v.km != null ? `<span>🛣️ ${Number(v.km).toLocaleString('pt-BR')} km</span>` : ''}
+                ${v.fuel ? `<span>⛽ ${v.fuel}</span>` : ''}
+                ${v.transmission ? `<span>⚙️ ${v.transmission}</span>` : ''}
+              </div>
+            </div>
+            <div class="vehicle-price">${price}</div>
+          </div>
+          <div class="mobile-card-meta">
+            ${v.color ? `<span style="font-size:11px;color:var(--text-muted)">🎨 ${v.color}</span>` : ''}
+            ${v.plate ? `<span style="font-size:11px;color:var(--text-muted)">🔢 ${v.plate}</span>` : ''}
+            ${v.store_name ? `<span style="font-size:11px;color:var(--text-muted)">🏪 ${v.store_name}</span>` : ''}
+            <span class="mobile-card-badge ${v.status === 'disponivel' ? 'stage-qualificado' : 'stage-perdido'}">${v.status || 'disponível'}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Vehicles search
+  let vehiclesSearchTimer;
+  document.getElementById('vehicles-search').addEventListener('input', e => {
+    clearTimeout(vehiclesSearchTimer);
+    vehiclesSearchTimer = setTimeout(() => renderVehiclesList(e.target.value), 250);
+  });
+
+  // --- System View ---------------------------------------------------------
+  function loadSystemView() {
+    const el = document.getElementById('system-body');
+    if (!currentUser) {
+      el.innerHTML = '<div class="empty-state">Carregando…</div>';
+      return;
+    }
+    const initial = initials(currentUser.name);
+    const avatarBg = avatarColor(currentUser.name);
+
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 24px;gap:10px;">
+        <div style="width:64px;height:64px;border-radius:50%;background:${avatarBg};color:#fff;font-weight:800;font-size:24px;display:grid;place-items:center">${initial}</div>
+        <div style="text-align:center">
+          <div style="font-weight:700;font-size:16px">${currentUser.name}</div>
+          <div style="font-size:13px;color:var(--text-soft)">${currentUser.role} ${currentUser.store_id ? '· Loja #' + currentUser.store_id : ''}</div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-title">Conta</div>
+        <div class="settings-item" id="sys-profile">
+          <span class="settings-item-icon">👤</span>
+          <div class="settings-item-info">
+            <strong>Perfil</strong>
+            <span>${currentUser.email || currentUser.name}</span>
+          </div>
+          <span class="settings-item-arrow">›</span>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-title">WhatsApp</div>
+        <div class="settings-item" id="sys-whatsapp">
+          <span class="settings-item-icon">📱</span>
+          <div class="settings-item-info">
+            <strong>Configuração do WhatsApp</strong>
+            <span>Provider, número, status da conexão</span>
+          </div>
+          <span class="settings-item-arrow">›</span>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-title">Informações</div>
+        <div class="settings-item">
+          <span class="settings-item-icon">📊</span>
+          <div class="settings-item-info">
+            <strong>Versão</strong>
+            <span>Formula OS v0.3.0</span>
+          </div>
+        </div>
+        <div class="settings-item">
+          <span class="settings-item-icon">🌐</span>
+          <div class="settings-item-info">
+            <strong>Painel Admin</strong>
+            <span>Abrir dashboard completo</span>
+          </div>
+          <span class="settings-item-arrow">›</span>
+        </div>
+      </div>
+
+      <button class="btn-danger" id="sys-logout">Sair da conta</button>
+    `;
+
+    // Logout
+    document.getElementById('sys-logout').addEventListener('click', async () => {
+      try {
+        await api('/api/logout', {method: 'POST'}).catch(() => {});
+      } catch {}
+      document.cookie = 'session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      location.href = '/';
+    });
+
+    // WhatsApp config
+    document.getElementById('sys-whatsapp').addEventListener('click', async () => {
+      if (!currentUser.store_id) { toast('Sem loja associada'); return; }
+      try {
+        const data = await api(`/api/stores/${currentUser.store_id}/whatsapp`);
+        const p = data.provider;
+        if (p) {
+          toast(`WhatsApp: ${p.kind.toUpperCase()} · ${p.display_number || 'sem número'} · Status: ${p.status}`);
+        } else {
+          toast('Nenhum provider WhatsApp configurado');
+        }
+      } catch(e) { toast('Erro: ' + e.message); }
+    });
+
+    // Admin panel link
+    el.querySelector('.settings-item:last-of-type')?.addEventListener('click', () => {
+      window.location.href = '/';
+    });
   }
 
   // --- Boot ----------------------------------------------------------------

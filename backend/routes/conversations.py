@@ -255,6 +255,7 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
     # Tenta enviar pelo provider (degrada graciosamente se não configurado)
     delivery = "sent_offline"
     provider = load_provider_for_store(conv["store_id"])
+    logger.info("Conv %s: provider=%s, phone=%s", cid, type(provider).__name__ if provider else None, conv["customer_phone"])
     if provider and conv["customer_phone"]:
         try:
             if media_url and hasattr(provider, "send_image") and msg_type == "image":
@@ -263,10 +264,13 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
                 if abs_url.startswith("/"):
                     from ..settings import settings as _s
                     abs_url = _s.public_base_url.rstrip("/") + media_url
+                logger.info("Conv %s: enviando imagem para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
                 out = await provider.send_image(conv["customer_phone"], abs_url, caption=text)
             else:
+                logger.info("Conv %s: enviando texto para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
                 out = await provider.send_text(conv["customer_phone"], text or f"[{msg_type}]")
             delivery = "sent"
+            logger.info("Conv %s: entregue com wa_message_id=%s", cid, out.wa_message_id)
             # atualiza wa_message_id na mensagem
             if out.wa_message_id:
                 with db.tx() as conn:
@@ -275,21 +279,29 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
                         (out.wa_message_id, msg_id),
                     )
         except ProviderError as exc:
-            logger.warning("Falha ao enviar via WhatsApp (conv=%s): %s", cid, exc)
+            logger.error("Falha ao enviar via WhatsApp (conv=%s, provider=%s): %s", cid, type(provider).__name__, exc)
+            delivery = "send_failed"
+            with db.tx() as conn:
+                conn.execute(
+                    "UPDATE messages SET delivery_status = 'falhou' WHERE id = ?", (msg_id,)
+                )
+        except Exception as exc:
+            logger.exception("Erro inesperado ao enviar WhatsApp (conv=%s): %s", cid, exc)
             delivery = "send_failed"
             with db.tx() as conn:
                 conn.execute(
                     "UPDATE messages SET delivery_status = 'falhou' WHERE id = ?", (msg_id,)
                 )
     else:
-        logger.info("Conv %s: sem provider configurado — mensagem salva sem envio WhatsApp.", cid)
+        logger.warning("Conv %s: sem provider (%s) ou sem telefone (%s) — mensagem salva sem envio WhatsApp.",
+                       cid, bool(provider), conv["customer_phone"])
 
     return {"message_id": msg_id, "delivery": delivery}
 
 
 @router.post("/conversations/{cid}/claim")
 def claim_conversation(cid: int, user: dict = Depends(_ALL)):
-    """Vendedor/gestor assume a conversa (owner_user_id = eu)."""
+    """Vendedor/gestor assume a conversa (owner_user_id = eu, status → Humano)."""
     with db.tx() as conn:
         conv = conn.execute(
             "SELECT store_id, owner_user_id FROM conversations WHERE id = ?", (cid,)
@@ -299,10 +311,28 @@ def claim_conversation(cid: int, user: dict = Depends(_ALL)):
         if user["role"] in STORE_SCOPED_ROLES and conv["store_id"] != user.get("store_id"):
             raise HTTPException(403, "Conversa de outra loja")
         conn.execute(
-            "UPDATE conversations SET owner_user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            "UPDATE conversations SET owner_user_id = ?, status = 'Humano', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (user["id"], cid),
         )
         owner_row = conn.execute(
             "SELECT id, name, role FROM users WHERE id = ?", (user["id"],)
         ).fetchone()
     return {"ok": True, "owner": dict(owner_row)}
+
+
+@router.post("/conversations/{cid}/release")
+def release_conversation(cid: int, user: dict = Depends(_ALL)):
+    """Devolve a conversa para o SDR (remove owner, status → SDR ativo)."""
+    with db.tx() as conn:
+        conv = conn.execute(
+            "SELECT store_id, owner_user_id FROM conversations WHERE id = ?", (cid,)
+        ).fetchone()
+        if not conv:
+            raise HTTPException(404, "Conversa não encontrada")
+        if user["role"] in STORE_SCOPED_ROLES and conv["store_id"] != user.get("store_id"):
+            raise HTTPException(403, "Conversa de outra loja")
+        conn.execute(
+            "UPDATE conversations SET owner_user_id = NULL, status = 'SDR ativo', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (cid,),
+        )
+    return {"ok": True}

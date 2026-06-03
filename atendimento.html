@@ -1520,15 +1520,14 @@
       return;
     }
     el.innerHTML = list.map(v => {
-      const price = v.price ? `R$ ${Number(v.price).toLocaleString('pt-BR')}` : 'Preço sob consulta';
+      const price = v.price ? (v.price.startsWith('R$') ? v.price : `R$ ${v.price}`) : 'Preço sob consulta';
       return `
         <div class="mobile-card">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
-              <div class="mobile-card-title">${v.brand || ''} ${v.model || 'Veículo'}</div>
+              <div class="mobile-card-title">${v.name || 'Veículo'}</div>
               <div class="vehicle-specs">
-                ${v.year ? `<span>📅 ${v.year}</span>` : ''}
-                ${v.km != null ? `<span>🛣️ ${Number(v.km).toLocaleString('pt-BR')} km</span>` : ''}
+                ${v.mileage ? `<span>🛣️ ${v.mileage}</span>` : ''}
                 ${v.fuel ? `<span>⛽ ${v.fuel}</span>` : ''}
                 ${v.transmission ? `<span>⚙️ ${v.transmission}</span>` : ''}
               </div>
@@ -1536,10 +1535,8 @@
             <div class="vehicle-price">${price}</div>
           </div>
           <div class="mobile-card-meta">
-            ${v.color ? `<span style="font-size:11px;color:var(--text-muted)">🎨 ${v.color}</span>` : ''}
-            ${v.plate ? `<span style="font-size:11px;color:var(--text-muted)">🔢 ${v.plate}</span>` : ''}
             ${v.store_name ? `<span style="font-size:11px;color:var(--text-muted)">🏪 ${v.store_name}</span>` : ''}
-            <span class="mobile-card-badge ${v.status === 'disponivel' ? 'stage-qualificado' : 'stage-perdido'}">${v.status || 'disponível'}</span>
+            <span class="mobile-card-badge ${v.status === 'Publicado' || v.status === 'disponivel' ? 'stage-qualificado' : 'stage-perdido'}">${v.status || 'disponível'}</span>
           </div>
         </div>
       `;

@@ -346,8 +346,9 @@
       }
       #view-conversa.no-selection .conv-view-content { display: none; }
 
-      /* No desktop, hide mobile-only views */
-      .mobile-view { display: none !important; }
+      /* No desktop, hide mobile-only views unless active */
+      .mobile-view:not(.active) { display: none !important; }
+      .mobile-view.active { display: flex !important; flex: 1; width: 100%; }
     }
 
     /* ===== LEAD SIDEBAR ================================================= */
@@ -1035,7 +1036,7 @@
       const icon = r.delivery === 'sent' ? ' ✓✓' : r.delivery === 'sent_offline' ? ' ✓' : ' ❌';
       dummy.querySelector('.msg-meta').textContent = `Você · agora${icon}`;
       if (r.delivery === 'send_failed') {
-        toast('❌ Mensagem não chegou no WhatsApp do lead');
+        toast('❌ Falha WhatsApp: ' + (r.error_details || 'Erro desconhecido'));
         dummy.querySelector('.bubble').style.opacity = '0.7';
       } else if (r.delivery === 'sent_offline') {
         toast('⚠️ Salva localmente (sem provider WhatsApp)');

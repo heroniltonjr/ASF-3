@@ -254,6 +254,7 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
 
     # Tenta enviar pelo provider (degrada graciosamente se não configurado)
     delivery = "sent_offline"
+    error_details = None
     provider = load_provider_for_store(conv["store_id"])
     logger.info("Conv %s: provider=%s, phone=%s", cid, type(provider).__name__ if provider else None, conv["customer_phone"])
     if provider and conv["customer_phone"]:
@@ -281,6 +282,7 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
         except ProviderError as exc:
             logger.error("Falha ao enviar via WhatsApp (conv=%s, provider=%s): %s", cid, type(provider).__name__, exc)
             delivery = "send_failed"
+            error_details = str(exc)
             with db.tx() as conn:
                 conn.execute(
                     "UPDATE messages SET delivery_status = 'falhou' WHERE id = ?", (msg_id,)
@@ -288,6 +290,7 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
         except Exception as exc:
             logger.exception("Erro inesperado ao enviar WhatsApp (conv=%s): %s", cid, exc)
             delivery = "send_failed"
+            error_details = str(exc)
             with db.tx() as conn:
                 conn.execute(
                     "UPDATE messages SET delivery_status = 'falhou' WHERE id = ?", (msg_id,)
@@ -296,7 +299,7 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
         logger.warning("Conv %s: sem provider (%s) ou sem telefone (%s) — mensagem salva sem envio WhatsApp.",
                        cid, bool(provider), conv["customer_phone"])
 
-    return {"message_id": msg_id, "delivery": delivery}
+    return {"message_id": msg_id, "delivery": delivery, "error_details": error_details}
 
 
 @router.post("/conversations/{cid}/claim")

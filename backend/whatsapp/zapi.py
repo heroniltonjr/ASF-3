@@ -9,11 +9,21 @@ Config esperada (em ProviderConfig.config):
 """
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 import httpx
 
 from .base import InboundMessage, OutboundResult, ProviderConfig, ProviderError
+
+
+def _format_br_number(phone: str) -> str:
+    """Adiciona o 9º dígito em celulares do Brasil caso esteja faltando."""
+    p = re.sub(r'\D', '', phone)
+    # Se for BR (55) e tiver 12 dígitos (falta o 9)
+    if p.startswith("55") and len(p) == 12:
+        return f"55{p[2:4]}9{p[4:]}"
+    return p
 
 
 class ZApiProvider:
@@ -40,6 +50,7 @@ class ZApiProvider:
         return self._required("instance_id"), self._required("instance_token")
 
     async def send_text(self, to: str, body: str) -> OutboundResult:
+        to = _format_br_number(to)
         base = self._base_url()
         instance, token = self._instance_and_token()
         async with httpx.AsyncClient(timeout=15) as client:
@@ -55,6 +66,7 @@ class ZApiProvider:
         return OutboundResult(wa_message_id=wa_message_id, raw=data)
 
     async def send_image(self, to: str, image_url: str, caption: str = "") -> OutboundResult:
+        to = _format_br_number(to)
         base = self._base_url()
         instance, token = self._instance_and_token()
         async with httpx.AsyncClient(timeout=15) as client:
@@ -110,6 +122,8 @@ class ZApiProvider:
         from_number = str(payload.get("phone") or "")
         if "@" in from_number:
             from_number = from_number.split("@")[0]
+            
+        from_number = _format_br_number(from_number)
 
         if not from_number:
             return []

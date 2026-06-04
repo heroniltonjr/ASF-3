@@ -43,7 +43,7 @@ def list_leads(user: dict = Depends(_ALL)):
 
 
 _REQUIRED = {"name", "car_interest", "store_id", "stage"}
-_FIELDS = ("store_id", "name", "car_interest", "stage", "score", "budget", "source")
+_FIELDS = ("store_id", "name", "car_interest", "stage", "score", "budget", "source", "phone")
 
 
 @router.post("/leads", status_code=201)
@@ -67,7 +67,7 @@ def create_lead(payload: dict, user: dict = Depends(_ALL)):
     return {"lead": dict(row)}
 
 
-_PATCHABLE = {"name", "car_interest", "stage", "score", "budget", "source"}
+_PATCHABLE = {"name", "car_interest", "stage", "score", "budget", "source", "phone"}
 
 
 @router.patch("/leads/{lid}")

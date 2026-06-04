@@ -24,19 +24,49 @@ def _find_or_create_conversation(conn, store_id: int, phone: str, lead_name: Opt
         (store_id, phone),
     ).fetchone()
     if row:
-        return dict(row)
+        conv = dict(row)
+        # Backfill: se a conversa já existe mas não tem lead, cria um agora.
+        if not conv.get("lead_id"):
+            lead_id = _ensure_lead(conn, store_id, phone, conv.get("lead_name") or lead_name)
+            conn.execute("UPDATE conversations SET lead_id = ? WHERE id = ?", (lead_id, conv["id"]))
+            conv["lead_id"] = lead_id
+        return conv
+
+    # Nova conversa — cria lead e conversa juntos.
+    display_name = lead_name or f"WhatsApp {phone}"
+    lead_id = _ensure_lead(conn, store_id, phone, display_name)
 
     cur = conn.execute(
         """
         INSERT INTO conversations
-            (store_id, lead_name, intent, status, details_json, customer_phone)
-        VALUES (?, ?, ?, ?, '{}', ?)
+            (store_id, lead_id, lead_name, intent, status, details_json, customer_phone)
+        VALUES (?, ?, ?, ?, ?, '{}', ?)
         """,
-        (store_id, lead_name or f"WhatsApp {phone}", None, "SDR ativo", phone),
+        (store_id, lead_id, display_name, None, "SDR ativo", phone),
     )
     cid = cur.lastrowid
     out = conn.execute("SELECT * FROM conversations WHERE id = ?", (cid,)).fetchone()
     return dict(out)
+
+
+def _ensure_lead(conn, store_id: int, phone: str, name: Optional[str] = None) -> int:
+    """Retorna lead_id existente para esse telefone/loja, ou cria um novo."""
+    existing = conn.execute(
+        "SELECT id FROM leads WHERE store_id = ? AND phone = ?",
+        (store_id, phone),
+    ).fetchone()
+    if existing:
+        return existing["id"]
+
+    cur = conn.execute(
+        """
+        INSERT INTO leads (store_id, name, car_interest, stage, score, source, phone)
+        VALUES (?, ?, 'A definir', 'Novo', 50, 'WhatsApp', ?)
+        """,
+        (store_id, name or f"WhatsApp {phone}", phone),
+    )
+    return cur.lastrowid
+
 
 
 def _persist_message(conn, conversation_id: int, sender: str, body: str) -> int:

@@ -825,12 +825,18 @@ async function deleteStore(storeId) {
 
 async function sendReply(text) {
   if (!currentConversationId) return;
-  await api(`/api/conversations/${currentConversationId}/messages`, {
+  const r = await api(`/api/conversations/${currentConversationId}/send`, {
     method: "POST",
-    body: JSON.stringify({ body: text, sender: "human" }),
+    body: JSON.stringify({ body: text }),
   });
   await refreshAndRender();
-  showToast(currentRole() === "master" ? "Nota registrada na auditoria" : "Resposta registrada no atendimento");
+  if (r.delivery === "sent") {
+    showToast("Mensagem enviada via WhatsApp ✓");
+  } else if (r.delivery === "send_failed") {
+    showToast("❌ Falha WhatsApp: " + (r.error_details || "Erro desconhecido"));
+  } else {
+    showToast("Mensagem salva (sem provider WhatsApp)");
+  }
 }
 
 async function updateConversationStatus(status) {

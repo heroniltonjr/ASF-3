@@ -164,6 +164,10 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     })
 
     # 2) chama o SDR fora da transação (latência de rede)
+    if conv.get("status") in ("Humano", "Encerrado"):
+        logger.info("Conversa %s no status %s. SDR ignorado.", conv["id"], conv.get("status"))
+        return
+
     result = await sdr.generate_reply(
         store_name=store_name,
         intent=conv.get("intent"),
@@ -174,6 +178,23 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
         logger.info("SDR sem resposta para conversa %s (chave não configurada ou erro).", conv["id"])
         return
     reply, usage = result
+
+    qualified = False
+    if "[TRANSFERIR]" in reply:
+        qualified = True
+        reply = reply.replace("[TRANSFERIR]", "").strip()
+
+    if qualified:
+        with db.tx() as conn:
+            conn.execute("UPDATE conversations SET status = 'Humano' WHERE id = ?", (conv["id"],))
+            if conv.get("lead_id"):
+                conn.execute("UPDATE leads SET stage = 'Qualificado' WHERE id = ?", (conv["lead_id"],))
+        await bus.publish({
+            "type": "conversation.updated",
+            "store_id": store_id,
+            "conversation_id": conv["id"],
+            "status": "Humano"
+        })
 
     # billing do consumo IA
     if tenant_id and (usage.get("total_tokens") or usage.get("cost_usd")):

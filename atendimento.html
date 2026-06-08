@@ -1589,8 +1589,7 @@
     if (filter) {
       const q = filter.toLowerCase();
       list = list.filter(v =>
-        (v.model||'').toLowerCase().includes(q) ||
-        (v.brand||'').toLowerCase().includes(q) ||
+        (v.name||'').toLowerCase().includes(q) ||
         (v.plate||'').toLowerCase().includes(q)
       );
     }

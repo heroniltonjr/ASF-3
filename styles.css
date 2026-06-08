@@ -817,7 +817,8 @@ select {
   display: grid;
   grid-template-columns: minmax(230px, 280px) minmax(360px, 1fr) minmax(230px, 280px);
   gap: 16px;
-  min-height: min(680px, calc(100vh - 210px));
+  height: calc(100vh - 210px);
+  max-height: 800px;
 }
 
 .conversation-list {

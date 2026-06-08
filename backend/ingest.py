@@ -172,11 +172,11 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     # Buscar veículos da loja para passar ao SDR
     with db.tx() as conn:
         vehicles_rows = conn.execute(
-            "SELECT make, model, version, year, price FROM vehicles WHERE store_id = ? AND status = 'Disponível'",
+            "SELECT name, price, mileage, transmission, fuel FROM vehicles WHERE store_id = ? AND status = 'Publicado'",
             (store_id,)
         ).fetchall()
         if vehicles_rows:
-            vehicles_info = "\n".join([f"- {r['make']} {r['model']} {r['version']} {r['year']} (R$ {r['price']})" for r in vehicles_rows])
+            vehicles_info = "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or ''} | {r['transmission'] or ''} | {r['fuel'] or ''}" for r in vehicles_rows])
         else:
             vehicles_info = "Nenhum veículo disponível no momento."
 

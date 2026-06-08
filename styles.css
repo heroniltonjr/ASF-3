@@ -703,6 +703,8 @@ h3 {
   background: var(--soft);
   border: 1px solid #e5ecef;
   border-radius: 8px;
+  content-visibility: auto;
+  contain-intrinsic-size: 80px;
 }
 
 .decision-item strong,
@@ -769,6 +771,8 @@ select {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 8px;
+  content-visibility: auto;
+  contain-intrinsic-size: 150px;
 }
 
 .lead-card strong,

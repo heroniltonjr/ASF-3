@@ -169,10 +169,22 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
         logger.info("Conversa %s no status %s. SDR ignorado.", conv["id"], conv.get("status"))
         return
 
+    # Buscar veículos da loja para passar ao SDR
+    with db.tx() as conn:
+        vehicles_rows = conn.execute(
+            "SELECT make, model, version, year, price FROM vehicles WHERE store_id = ? AND status = 'Disponível'",
+            (store_id,)
+        ).fetchall()
+        if vehicles_rows:
+            vehicles_info = "\n".join([f"- {r['make']} {r['model']} {r['version']} {r['year']} (R$ {r['price']})" for r in vehicles_rows])
+        else:
+            vehicles_info = "Nenhum veículo disponível no momento."
+
     result = await sdr.generate_reply(
         store_name=store_name,
         store_sdr_prompt=store_sdr_prompt,
         intent=conv.get("intent"),
+        vehicles_info=vehicles_info,
         history=history[:-1],  # sem a última (que é a inbound — já entra como user prompt)
         incoming_text=inbound.body,
     )

@@ -722,6 +722,13 @@
       await loadTags();
       await loadConversations();
       connectSSE();
+      
+      const params = new URLSearchParams(window.location.search);
+      const chatId = params.get('chat_id');
+      if (chatId) {
+        const conv = conversations.find(c => c.id === Number(chatId));
+        if (conv) openConv(conv.id);
+      }
     } catch(e) {
       console.error(e);
     }
@@ -889,8 +896,8 @@
       qualBtn.style.display = 'none';
     }
 
-    // Mark read
-    await api(`/api/conversations/${cid}/read`, {method: 'POST'}).catch(() => {});
+    // Mark read (não dar await para não travar a tela)
+    api(`/api/conversations/${cid}/read`, {method: 'POST'}).catch(() => {});
     conv.unread_count = 0;
     renderConvList();
 
@@ -1119,23 +1126,49 @@
     const conv = conversations.find(c => c.id === activeConvId);
     if (!conv || !conv.lead_id) return;
     
-    try {
-      await api(`/api/leads/${conv.lead_id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ stage: 'Qualificado' })
-      });
-      await api(`/api/conversations/${activeConvId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'Humano' })
-      });
-      conv.status = 'Humano';
-      document.getElementById('ch-sub').textContent =
-        (conv.store_name ? conv.store_name + ' · ' : '') + 'Humano' + (conv.owner_name ? ` · 👤 ${conv.owner_name.split(' ')[0]}` : '');
-      toast('Lead qualificado com sucesso! ✅');
-      renderConvList();
-    } catch(e) {
-      toast('Erro ao qualificar: ' + e.message);
-    }
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0'; modal.style.left = '0'; modal.style.right = '0'; modal.style.bottom = '0';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    modal.style.display = 'flex'; modal.style.alignItems = 'center'; modal.style.justifyContent = 'center';
+    modal.style.zIndex = '9999';
+    
+    modal.innerHTML = `
+      <div style="background:var(--surface); padding: 20px; border-radius: 12px; width: 300px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <h3 style="margin-bottom: 15px; font-size: 16px;">Qualificar para onde?</h3>
+        <button class="btn-option" data-stage="Humano" style="width:100%; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); cursor:pointer;">Atendimento Humano</button>
+        <button class="btn-option" data-stage="Visita" style="width:100%; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); cursor:pointer;">Visita</button>
+        <button class="btn-option" data-stage="Fechado" style="width:100%; padding:10px; margin-bottom:15px; border-radius:8px; border:1px solid var(--border); background:var(--bg); cursor:pointer;">Fechado</button>
+        <button id="cancel-qualify" style="width:100%; padding:10px; border-radius:8px; border:none; background:transparent; color:var(--text-muted); cursor:pointer;">Cancelar</button>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.querySelector('#cancel-qualify').onclick = () => modal.remove();
+    
+    modal.querySelectorAll('.btn-option').forEach(btn => {
+      btn.onclick = async () => {
+        const stage = btn.dataset.stage;
+        modal.remove();
+        try {
+          await api(`/api/leads/${conv.lead_id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ stage: stage })
+          });
+          await api(`/api/conversations/${activeConvId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: stage })
+          });
+          conv.status = stage;
+          document.getElementById('ch-sub').textContent =
+            (conv.store_name ? conv.store_name + ' · ' : '') + stage + (conv.owner_name ? ` · 👤 ${conv.owner_name.split(' ')[0]}` : '');
+          toast('Lead movido para: ' + stage + ' ✅');
+          renderConvList();
+        } catch(e) {
+          toast('Erro ao atualizar estágio: ' + e.message);
+        }
+      };
+    });
   });
 
   // --- Back button (mobile) -----------------------------------------------
@@ -1406,7 +1439,7 @@
       // Se é a conversa ativa, adiciona a mensagem na UI
       if (activeConvId === evt.conversation_id) {
         const area = document.getElementById('messages-area');
-        if (evt.sender === 'lead') {
+        if (evt.sender !== 'human') { // append both lead and agent (SDR) messages in real-time
           const msg = {sender: evt.sender, body: evt.body, created_at: new Date().toISOString()};
           const el = document.createElement('div');
           el.innerHTML = buildBubble(msg);
@@ -1414,9 +1447,10 @@
           if (emptyState) emptyState.remove();
           area.appendChild(el.firstElementChild);
           area.scrollTo({top: area.scrollHeight, behavior: 'smooth'});
-          await api(`/api/conversations/${activeConvId}/read`, {method:'POST'}).catch(() => {});
+          if (evt.sender === 'lead') {
+            api(`/api/conversations/${activeConvId}/read`, {method:'POST'}).catch(() => {});
+          }
         }
-        // Para mensagens outgoing, o optimistic já está na UI — nada a fazer
       }
     });
 

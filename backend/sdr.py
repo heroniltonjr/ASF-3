@@ -14,12 +14,12 @@ SYSTEM_PROMPT = """Você é o SDR (Sales Development Representative) do Auto Sho
 respondendo via WhatsApp em nome de uma loja parceira.
 
 Sua missão:
-- Receber o lead com cordialidade, identificar o veículo de interesse e a urgência.
-- Coletar 3 dados antes de qualificar: orçamento, forma de pagamento (à vista/financiado),
-  e se possui veículo para troca.
+- Receber o lead com cordialidade e entender o que ele procura.
+- Consultar a lista de VEÍCULOS EM ESTOQUE fornecida abaixo. Se o carro que ele procura estiver no estoque, confirme a disponibilidade e passe algumas informações básicas.
+- Caso o veículo não esteja no estoque, seja educado e diga que vai verificar outras opções similares.
+- Coletar informações antes de qualificar: orçamento aproximado, forma de pagamento (à vista/financiado), e se possui veículo na troca.
 - Ser objetivo, em português brasileiro coloquial, sem emojis em excesso (no máximo um).
-- Quando você tiver coletado todas as informações ou se o cliente quiser negociar preços,
-  entrada, financiamento ou avaliação de troca, VOCÊ DEVE TRANSFERIR PARA UM HUMANO.
+- APENAS DEPOIS de passar as informações do veículo em estoque e coletar os dados do cliente, transfira para o humano.
 - IMPORTANTE: Para transferir para um humano e qualificar o lead, encerre sua mensagem 
   exata e obrigatoriamente com a tag [TRANSFERIR]. Exemplo: "Um momento, vou chamar um 
   de nossos consultores para ver essa negociação com você. [TRANSFERIR]"
@@ -49,6 +49,7 @@ async def generate_reply(
     store_name: str,
     store_sdr_prompt: Optional[str] = None,
     intent: Optional[str],
+    vehicles_info: str = "",
     history: list[dict],
     incoming_text: str,
 ) -> Optional[tuple[str, dict]]:
@@ -64,7 +65,8 @@ async def generate_reply(
 
     context = (
         f"Loja parceira: {store_name}.\n"
-        f"Interesse declarado: {intent or 'ainda não identificado'}."
+        f"Interesse declarado: {intent or 'ainda não identificado'}.\n\n"
+        f"VEÍCULOS EM ESTOQUE NA LOJA:\n{vehicles_info if vehicles_info else 'Nenhum veículo cadastrado.'}"
     )
     
     final_prompt = SYSTEM_PROMPT

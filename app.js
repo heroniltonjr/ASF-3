@@ -411,6 +411,7 @@ function renderLeadCard(lead) {
   const stageIndex = STAGES.indexOf(lead.stage);
   const canAdvance = stageIndex < STAGES.length - 1;
   const nextStage = STAGES[Math.min(stageIndex + 1, STAGES.length - 1)];
+  const conv = conversations.find(c => c.lead_id === lead.id);
   return `
     <article class="lead-card">
       <strong>${lead.name}</strong>
@@ -424,6 +425,7 @@ function renderLeadCard(lead) {
       <div class="card-actions">
         ${canAdvance ? `<button class="mini-button" data-lead-action="advance" data-lead-id="${lead.id}" type="button">Mover para ${nextStage}</button>` : ""}
         <button class="mini-button" data-lead-action="human" data-lead-id="${lead.id}" type="button">Atendimento</button>
+        ${conv ? `<a class="mini-button" href="atendimento.html?chat_id=${conv.id}" target="_blank" style="text-decoration:none; text-align:center;">Abrir Chat</a>` : ""}
       </div>
     </article>
   `;

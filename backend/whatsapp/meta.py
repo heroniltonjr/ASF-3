@@ -68,6 +68,30 @@ class MetaCloudProvider:
             "image": {"link": image_url, "caption": caption},
         })
 
+    async def send_audio(self, to: str, audio_url: str) -> OutboundResult:
+        return await self._post({
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "audio",
+            "audio": {"link": audio_url},
+        })
+
+    async def send_video(self, to: str, video_url: str, caption: str = "") -> OutboundResult:
+        return await self._post({
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "video",
+            "video": {"link": video_url, "caption": caption},
+        })
+
+    async def send_document(self, to: str, document_url: str, filename: str = "", caption: str = "") -> OutboundResult:
+        return await self._post({
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "document",
+            "document": {"link": document_url, "filename": filename, "caption": caption},
+        })
+
     def parse_inbound(self, payload: dict) -> list[InboundMessage]:
         out: list[InboundMessage] = []
         for entry in payload.get("entry", []) or []:

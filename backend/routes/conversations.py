@@ -4,9 +4,9 @@ from __future__ import annotations
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 
-from .. import db
+from .. import db, sdr
 from ..deps import STORE_SCOPED_ROLES, require_roles
 from ..events import bus
 from ..whatsapp.base import ProviderError
@@ -165,8 +165,23 @@ def post_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
 _STATUS_PATCH = {"status", "owner_user_id", "intent"}
 
 
+async def _run_qa(cid: int):
+    with db.tx() as conn:
+        history_rows = conn.execute("SELECT sender, body FROM messages WHERE conversation_id = ? ORDER BY id", (cid,)).fetchall()
+        history = [dict(r) for r in history_rows]
+    
+    if not history: return
+    
+    result = await sdr.evaluate_conversation(history)
+    if result:
+        score, analysis = result
+        with db.tx() as conn:
+            conn.execute("UPDATE conversations SET quality_score = ?, quality_analysis = ? WHERE id = ?", (score, analysis, cid))
+        # Opcional: avisar front-end via evento SSE
+
+
 @router.patch("/conversations/{cid}")
-def update_conversation(cid: int, payload: dict, user: dict = Depends(_ALL)):
+def update_conversation(cid: int, payload: dict, background_tasks: BackgroundTasks, user: dict = Depends(_ALL)):
     updates = {k: v for k, v in payload.items() if k in _STATUS_PATCH}
     if "details" in payload and isinstance(payload["details"], dict):
         updates["details_json"] = json.dumps(payload["details"], ensure_ascii=False)
@@ -187,6 +202,10 @@ def update_conversation(cid: int, payload: dict, user: dict = Depends(_ALL)):
             "SELECT c.*, s.name AS store_name FROM conversations c JOIN stores s ON s.id = c.store_id WHERE c.id = ?",
             (cid,),
         ).fetchone()
+        
+    if "status" in updates and updates["status"] == "Encerrado":
+        background_tasks.add_task(_run_qa, cid)
+        
     return {"conversation": _row_to_conversation(out)}
 
 
@@ -259,14 +278,28 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
     logger.info("Conv %s: provider=%s, phone=%s", cid, type(provider).__name__ if provider else None, conv["customer_phone"])
     if provider and conv["customer_phone"]:
         try:
-            if media_url and hasattr(provider, "send_image") and msg_type == "image":
-                # Garante URL absoluta para a Meta/Evolution buscar a imagem.
+            if media_url:
                 abs_url = media_url
                 if abs_url.startswith("/"):
                     from ..settings import settings as _s
                     abs_url = _s.public_base_url.rstrip("/") + media_url
-                logger.info("Conv %s: enviando imagem para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
-                out = await provider.send_image(conv["customer_phone"], abs_url, caption=text)
+                
+                if msg_type == "image" and hasattr(provider, "send_image"):
+                    logger.info("Conv %s: enviando imagem para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
+                    out = await provider.send_image(conv["customer_phone"], abs_url, caption=text)
+                elif msg_type == "audio" and hasattr(provider, "send_audio"):
+                    logger.info("Conv %s: enviando áudio para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
+                    out = await provider.send_audio(conv["customer_phone"], abs_url)
+                elif msg_type == "video" and hasattr(provider, "send_video"):
+                    logger.info("Conv %s: enviando vídeo para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
+                    out = await provider.send_video(conv["customer_phone"], abs_url, caption=text)
+                elif msg_type == "document" and hasattr(provider, "send_document"):
+                    logger.info("Conv %s: enviando documento para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
+                    filename = abs_url.split("/")[-1]
+                    out = await provider.send_document(conv["customer_phone"], abs_url, filename=filename, caption=text)
+                else:
+                    logger.info("Conv %s: fallback de mídia (msg_type=%s) para texto via %s", cid, msg_type, type(provider).__name__)
+                    out = await provider.send_text(conv["customer_phone"], text or f"[{msg_type}] {abs_url}")
             else:
                 logger.info("Conv %s: enviando texto para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
                 out = await provider.send_text(conv["customer_phone"], text or f"[{msg_type}]")

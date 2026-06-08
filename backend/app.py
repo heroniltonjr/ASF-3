@@ -25,6 +25,9 @@ from .routes import (
     tags,
     vehicles,
     whatsapp,
+    dashboard,
+    push,
+    campaigns,
 )
 from .routes import events as events_route
 from .settings import settings
@@ -83,6 +86,9 @@ def create_app() -> FastAPI:
     app.include_router(tags.router, tags=["tags"])
     app.include_router(notes.router, tags=["notes"])
     app.include_router(media.router, tags=["media"])
+    app.include_router(dashboard.router, tags=["dashboard"])
+    app.include_router(push.router, tags=["push"])
+    app.include_router(campaigns.router, tags=["campaigns"])
 
     @app.get("/api/health", tags=["health"])
     def health():

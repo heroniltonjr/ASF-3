@@ -81,6 +81,59 @@ class ZApiProvider:
         wa_message_id = data.get("messageId")
         return OutboundResult(wa_message_id=wa_message_id, raw=data)
 
+    async def send_audio(self, to: str, audio_url: str) -> OutboundResult:
+        to = _format_br_number(to)
+        base = self._base_url()
+        instance, token = self._instance_and_token()
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{base}/instances/{instance}/token/{token}/send-audio",
+                json={"phone": to, "audio": audio_url},
+                headers=self._headers(),
+            )
+        if r.status_code >= 400:
+            raise ProviderError(f"Z-API send_audio {r.status_code}: {r.text}")
+        data = r.json() if r.content else {}
+        wa_message_id = data.get("messageId")
+        return OutboundResult(wa_message_id=wa_message_id, raw=data)
+
+    async def send_video(self, to: str, video_url: str, caption: str = "") -> OutboundResult:
+        to = _format_br_number(to)
+        base = self._base_url()
+        instance, token = self._instance_and_token()
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{base}/instances/{instance}/token/{token}/send-video",
+                json={"phone": to, "video": video_url, "caption": caption},
+                headers=self._headers(),
+            )
+        if r.status_code >= 400:
+            raise ProviderError(f"Z-API send_video {r.status_code}: {r.text}")
+        data = r.json() if r.content else {}
+        wa_message_id = data.get("messageId")
+        return OutboundResult(wa_message_id=wa_message_id, raw=data)
+
+    async def send_document(self, to: str, document_url: str, filename: str = "", caption: str = "") -> OutboundResult:
+        to = _format_br_number(to)
+        base = self._base_url()
+        instance, token = self._instance_and_token()
+        async with httpx.AsyncClient(timeout=15) as client:
+            payload = {"phone": to, "document": document_url}
+            if filename:
+                payload["fileName"] = filename
+            if caption:
+                payload["caption"] = caption
+            r = await client.post(
+                f"{base}/instances/{instance}/token/{token}/send-document/{ext if (ext:=filename.split('.')[-1]) else 'pdf'}",
+                json=payload,
+                headers=self._headers(),
+            )
+        if r.status_code >= 400:
+            raise ProviderError(f"Z-API send_document {r.status_code}: {r.text}")
+        data = r.json() if r.content else {}
+        wa_message_id = data.get("messageId")
+        return OutboundResult(wa_message_id=wa_message_id, raw=data)
+
     def parse_inbound(self, payload: dict) -> list[InboundMessage]:
         if not payload:
             return []

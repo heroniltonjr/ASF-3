@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Multiatendimento — Formula OS</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="apple-touch-icon" href="/assets/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
@@ -571,8 +574,8 @@
             <button onclick="clearMediaPreview()">✕</button>
           </div>
           <div class="input-row">
-            <button class="media-btn" id="media-btn" title="Enviar foto">📎</button>
-            <input type="file" id="file-input" accept="image/*,audio/*" style="display:none" />
+            <button class="media-btn" id="media-btn" title="Enviar anexo">📎</button>
+            <input type="file" id="file-input" accept="image/*,audio/*,video/*,.pdf" style="display:none" />
             <textarea class="msg-input" id="msg-input" rows="1" placeholder="Mensagem…"></textarea>
             <button class="send-btn" id="send-btn" disabled>➤</button>
           </div>
@@ -928,6 +931,16 @@
                  ${m.body ? `<div style="margin-top:6px;font-size:13px">${m.body}</div>` : ''}`;
     } else if (type === 'audio' && m.media_url) {
       content = `<div class="msg-audio"><audio controls src="${m.media_url}"></audio></div>`;
+    } else if (type === 'video' && m.media_url) {
+      content = `<div class="msg-video"><video controls src="${m.media_url}" style="max-width: 220px; border-radius: 10px;"></video></div>
+                 ${m.body ? `<div style="margin-top:6px;font-size:13px">${m.body}</div>` : ''}`;
+    } else if (type === 'document' && m.media_url) {
+      const filename = m.media_url.split('/').pop() || 'Documento';
+      content = `<div class="msg-doc" style="background: rgba(0,0,0,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+                   <span style="font-size: 20px;">📄</span>
+                   <a href="${m.media_url}" target="_blank" style="color: inherit; text-decoration: none; font-weight: 600; font-size: 13px;">${filename}</a>
+                 </div>
+                 ${m.body ? `<div style="margin-top:6px;font-size:13px">${m.body}</div>` : ''}`;
     } else {
       content = `${m.body || ''}${isAgent ? ' <span class="agent-tag">🤖</span>' : ''}`;
     }
@@ -1626,6 +1639,18 @@
       </div>
 
       <div class="settings-group">
+        <div class="settings-group-title">Notificações</div>
+        <div class="settings-item" id="sys-push">
+          <span class="settings-item-icon">🔔</span>
+          <div class="settings-item-info">
+            <strong>Habilitar Notificações</strong>
+            <span>Receba avisos de novos leads e mensagens</span>
+          </div>
+          <span class="settings-item-arrow">›</span>
+        </div>
+      </div>
+
+      <div class="settings-group">
         <div class="settings-group-title">Informações</div>
         <div class="settings-item">
           <span class="settings-item-icon">📊</span>
@@ -1670,6 +1695,49 @@
       } catch(e) { toast('Erro: ' + e.message); }
     });
 
+    // Notificações Push
+    document.getElementById('sys-push')?.addEventListener('click', async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        toast('Seu navegador não suporta notificações Push.');
+        return;
+      }
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          toast('Permissão negada para notificações.');
+          return;
+        }
+        toast('Registrando...');
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Chave pública VAPID (mock para ambiente dev se não tiver real)
+        const vapidPublicKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuB-5L1m2AAMHkO0O6qO0h4wYc'; 
+        const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
+        const base64 = (vapidPublicKey + padding).replace(/\\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: outputArray
+          });
+        }
+        
+        await api('/api/push/subscribe', {
+          method: 'POST',
+          body: JSON.stringify(subscription)
+        });
+        toast('Notificações ativadas com sucesso!');
+      } catch(e) {
+        toast('Erro ao ativar: ' + e.message);
+      }
+    });
+
     // Admin panel link
     el.querySelector('.settings-item:last-of-type')?.addEventListener('click', () => {
       window.location.href = '/';
@@ -1678,6 +1746,15 @@
 
   // --- Boot ----------------------------------------------------------------
   boot();
+
+  // --- PWA Service Worker --------------------------------------------------
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => {
+        console.error('Falha ao registrar Service Worker:', err);
+      });
+    });
+  }
   </script>
 </body>
 </html>

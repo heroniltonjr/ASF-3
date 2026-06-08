@@ -47,6 +47,7 @@ def _format_history(messages: list[dict]) -> list[dict]:
 async def generate_reply(
     *,
     store_name: str,
+    store_sdr_prompt: Optional[str] = None,
     intent: Optional[str],
     history: list[dict],
     incoming_text: str,
@@ -65,8 +66,13 @@ async def generate_reply(
         f"Loja parceira: {store_name}.\n"
         f"Interesse declarado: {intent or 'ainda não identificado'}."
     )
+    
+    final_prompt = SYSTEM_PROMPT
+    if store_sdr_prompt:
+        final_prompt += f"\n\nINSTRUÇÕES ESPECÍFICAS DA LOJA:\n{store_sdr_prompt}"
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": final_prompt},
         {"role": "system", "content": context},
         *_format_history(history),
         {"role": "user", "content": incoming_text},
@@ -130,3 +136,64 @@ async def generate_reply(
         "cost_usd": float(raw_usage.get("cost") or 0),
     }
     return text, usage
+
+
+async def evaluate_conversation(history: list[dict]) -> Optional[tuple[int, str]]:
+    """
+    Analisa a transcrição da conversa e retorna uma tupla (nota, justificativa).
+    A nota varia de 0 a 100. Retorna None se falhar.
+    """
+    if not settings.openrouter_api_key:
+        return None
+
+    # Filtra apenas mensagens do humano e do lead para avaliar a interação final
+    # (ou pode avaliar o contexto todo para ver se o SDR fez um bom trabalho tbm, mas o foco é a qualidade).
+    transcript = "\\n".join([f"{m.get('sender')}: {m.get('body')}" for m in history])
+
+    prompt = (
+        "Avalie o atendimento do vendedor humano nesta conversa.\\n"
+        "Critérios: cordialidade, velocidade (se possível inferir), clareza e poder de persuasão.\\n\\n"
+        "Responda EXATAMENTE neste formato JSON, sem crases:\\n"
+        "{\\n"
+        '  "score": <numero de 0 a 100>,\\n'
+        '  "analysis": "<breve justificativa em 2 frases>"\\n'
+        "}\\n\\n"
+        "Transcrição:\\n"
+        f"{transcript}"
+    )
+
+    messages = [
+        {"role": "system", "content": "Você é um auditor de qualidade de atendimento automotivo. Seja rigoroso, porém justo."},
+        {"role": "user", "content": prompt},
+    ]
+
+    url = f"{settings.openrouter_base_url.rstrip('/')}/chat/completions"
+    payload = {
+        "model": settings.openrouter_model,
+        "messages": messages,
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"}
+    }
+    headers = {
+        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": settings.public_base_url,
+        "X-Title": "Formula OS QA",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(url, json=payload, headers=headers)
+            if r.status_code >= 400:
+                logger.error("QA OpenRouter %s: %s", r.status_code, r.text[:400])
+                return None
+            data = r.json()
+            content = data["choices"][0]["message"].get("content")
+            if not content: return None
+            
+            import json
+            result = json.loads(content)
+            return int(result.get("score", 0)), result.get("analysis", "")
+    except Exception as exc:
+        logger.exception("Falha ao avaliar conversa: %s", exc)
+        return None

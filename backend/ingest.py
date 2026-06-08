@@ -152,8 +152,9 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
             (conv["id"],),
         ).fetchall()
         history = [dict(r) for r in history_rows]
-        store_row = conn.execute("SELECT name FROM stores WHERE id = ?", (store_id,)).fetchone()
+        store_row = conn.execute("SELECT name, sdr_prompt FROM stores WHERE id = ?", (store_id,)).fetchone()
         store_name = store_row["name"] if store_row else f"Loja #{store_id}"
+        store_sdr_prompt = store_row["sdr_prompt"] if store_row else None
 
     await bus.publish({
         "type": "message.created",
@@ -170,6 +171,7 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
 
     result = await sdr.generate_reply(
         store_name=store_name,
+        store_sdr_prompt=store_sdr_prompt,
         intent=conv.get("intent"),
         history=history[:-1],  # sem a última (que é a inbound — já entra como user prompt)
         incoming_text=inbound.body,

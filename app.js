@@ -97,6 +97,7 @@ let vehicles = [];
 let leads = [];
 let conversations = [];
 let currentConversationId = null;
+let funnelData = { metrics: {}, total_leads: 0 };
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -181,15 +182,17 @@ const sessionButton = $("#sessionButton");
 
 // ---------- Carga / refresh ----------
 async function fetchAll() {
-  const [s, v, l, c] = await Promise.all([
+  const [s, v, l, c, f] = await Promise.all([
     api("/api/stores"),
     api("/api/vehicles"),
     api("/api/leads"),
     api("/api/conversations"),
+    api("/api/dashboard/funnel"),
   ]);
   stores = (s.stores || []).map(normalizeStore);
   vehicles = (v.vehicles || []).map(normalizeVehicle);
   leads = (l.leads || []).map(normalizeLead);
+  funnelData = f || { metrics: {}, total_leads: 0 };
   const baseConvs = c.conversations || [];
 
   // hidrata mensagens em paralelo (n pequeno na demo)
@@ -354,9 +357,9 @@ function computeMetrics() {
 }
 
 function computePipeline() {
-  const total = Math.max(leads.length, 1);
+  const total = Math.max(funnelData.total_leads, 1);
   return STAGES.map((stage) => {
-    const count = leads.filter((l) => l.stage === stage).length;
+    const count = funnelData.metrics[stage] || 0;
     return [stage, Math.round((count / total) * 100), String(count)];
   });
 }
@@ -671,6 +674,14 @@ function renderField(field) {
       </label>
     `;
   }
+  if (field.type === "textarea") {
+    return `
+      <label class="form-field">
+        <span>${field.label}</span>
+        <textarea name="${field.name}" placeholder="${field.placeholder || ""}" ${field.required ? "required" : ""} rows="4">${escapeAttr(value)}</textarea>
+      </label>
+    `;
+  }
   return `
     <label class="form-field">
       <span>${field.label}</span>
@@ -739,6 +750,7 @@ function openStoreModal(store = null) {
     { label: isMaster ? "Nome do tenant" : "Nome da loja", name: "name", value: store?.name, placeholder: "Ex: Prime Motors", required: true },
     { label: "Plano", name: "plan", value: store?.plan || "Pro", type: "select", options: ["Start", "Pro", "Enterprise"], required: true },
     { label: "Status", name: "status", value: store?.status || "Ativo", type: "select", options: ["Ativo", "Atenção", "Pausado"], required: true },
+    { label: "Instruções do SDR (Prompt IA)", name: "sdr_prompt", value: store?.sdr_prompt, type: "textarea", placeholder: "Regras específicas de atendimento e tom de voz" },
   ];
   openModal(store ? "Editar lojista" : isMaster ? "Adicionar tenant" : "Adicionar lojista", fields, store ? "Salvar" : "Adicionar", async (data) => {
     if (store) {
@@ -1061,4 +1073,12 @@ $("#globalSearch").addEventListener("input", (event) => {
 (async function init() {
   const restored = await restoreSession();
   if (!restored) loginLayer.classList.add("show");
+  
+  if ('serviceWorker' in navigator) {
+    try {
+      await navigator.serviceWorker.register('/sw.js');
+    } catch (e) {
+      console.error('Falha ao registrar Service Worker', e);
+    }
+  }
 })();

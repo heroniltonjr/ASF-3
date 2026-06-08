@@ -23,6 +23,8 @@ ALLOWED_TYPES = {
     "image/jpeg", "image/png", "image/webp", "image/gif",
     "audio/ogg", "audio/mpeg", "audio/mp4", "audio/aac",
     "audio/wav", "audio/webm",
+    "video/mp4", "video/webm", "video/ogg",
+    "application/pdf",
 }
 
 EXTENSIONS = {
@@ -31,6 +33,8 @@ EXTENSIONS = {
     "audio/ogg": ".ogg", "audio/mpeg": ".mp3",
     "audio/mp4": ".m4a", "audio/aac": ".aac",
     "audio/wav": ".wav", "audio/webm": ".webm",
+    "video/mp4": ".mp4", "video/webm": ".webm", "video/ogg": ".ogv",
+    "application/pdf": ".pdf",
 }
 
 
@@ -45,7 +49,7 @@ async def upload_media(
     content_type = content_type.split(";")[0].strip()
 
     if content_type not in ALLOWED_TYPES:
-        raise HTTPException(415, f"Tipo não suportado: {content_type}. Permitidos: imagens e áudios.")
+        raise HTTPException(415, f"Tipo não suportado: {content_type}. Permitidos: imagens, áudios, vídeos e PDF.")
 
     data = await file.read()
     if len(data) > MAX_SIZE_BYTES:
@@ -56,7 +60,17 @@ async def upload_media(
     dest = UPLOADS_DIR / filename
     dest.write_bytes(data)
 
-    kind = "image" if content_type.startswith("image/") else "audio"
+    if content_type.startswith("image/"):
+        kind = "image"
+    elif content_type.startswith("audio/"):
+        kind = "audio"
+    elif content_type.startswith("video/"):
+        kind = "video"
+    elif content_type == "application/pdf":
+        kind = "document"
+    else:
+        kind = "file"
+
     return {
         "url": f"/uploads/{filename}",
         "filename": filename,

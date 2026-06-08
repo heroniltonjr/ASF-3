@@ -63,7 +63,7 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
     return {"store": dict(row)}
 
 
-_PATCHABLE = {"name", "type", "plan", "status", "response_time", "monthly_cost", "monthly_revenue"}
+_PATCHABLE = {"name", "type", "plan", "status", "response_time", "monthly_cost", "monthly_revenue", "sdr_prompt"}
 
 
 @router.patch("/stores/{store_id}")

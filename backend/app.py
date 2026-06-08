@@ -97,6 +97,11 @@ def create_app() -> FastAPI:
     # --- Portal público (cliente final) montado em /portal -------------------
     public_root = STATIC_ROOT / "public"
     if public_root.exists():
+        @app.get("/portal", include_in_schema=False)
+        def redirect_portal():
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url="/portal/")
+            
         app.mount("/portal", StaticFiles(directory=str(public_root), html=True), name="portal")
 
     # SPA admin + estáticos: index.html na raiz; demais arquivos via StaticFiles.

@@ -85,3 +85,70 @@ def delete_store(store_id: int, user: dict = Depends(_MASTER)):
     with db.tx() as conn:
         conn.execute("DELETE FROM stores WHERE id = ?", (store_id,))
     return None
+
+
+# ---------- Gerenciamento de vendedores da loja ----------
+
+_LOJISTA_MGMT = require_roles("master", "shopping", "lojista", "gestor")
+
+
+@router.get("/stores/{store_id}/sellers")
+def list_sellers(store_id: int, user: dict = Depends(_LOJISTA_MGMT)):
+    """Lista todos os vendedores vinculados a uma loja."""
+    from ..deps import STORE_SCOPED_ROLES
+    if user["role"] in STORE_SCOPED_ROLES and user.get("store_id") != store_id:
+        raise HTTPException(403, "Sem acesso a esta loja")
+    with db.tx() as conn:
+        rows = conn.execute(
+            "SELECT id, name, email, role, created_at FROM users WHERE store_id = ? AND role = 'vendedor' ORDER BY name",
+            (store_id,),
+        ).fetchall()
+    return {"sellers": [dict(r) for r in rows]}
+
+
+@router.post("/stores/{store_id}/sellers", status_code=201)
+def create_seller(store_id: int, payload: dict, user: dict = Depends(_LOJISTA_MGMT)):
+    """Cria um vendedor diretamente numa loja, sem necessidade de convite."""
+    from ..deps import STORE_SCOPED_ROLES
+    from .. import auth as _auth
+    if user["role"] in STORE_SCOPED_ROLES and user.get("store_id") != store_id:
+        raise HTTPException(403, "Sem acesso a esta loja")
+
+    name = (payload.get("name") or "").strip()
+    email = (payload.get("email") or "").strip().lower()
+    password = (payload.get("password") or "").strip()
+
+    if not name:
+        raise HTTPException(400, "Nome é obrigatório")
+    if not email or "@" not in email:
+        raise HTTPException(400, "Email inválido")
+    if len(password) < 6:
+        raise HTTPException(400, "Senha deve ter ao menos 6 caracteres")
+
+    with db.tx() as conn:
+        store = conn.execute("SELECT tenant_id FROM stores WHERE id = ?", (store_id,)).fetchone()
+        if not store:
+            raise HTTPException(404, "Loja não encontrada")
+        existing = conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
+        if existing:
+            raise HTTPException(409, "Já existe um usuário com este email")
+        cur = conn.execute(
+            "INSERT INTO users (email, password_hash, name, role, tenant_id, store_id) VALUES (?, ?, ?, 'vendedor', ?, ?)",
+            (email, _auth.hash_password(password), name, store["tenant_id"], store_id),
+        )
+        row = conn.execute("SELECT id, name, email, role, created_at FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return {"seller": dict(row)}
+
+
+@router.delete("/stores/{store_id}/sellers/{seller_id}", status_code=204)
+def delete_seller(store_id: int, seller_id: int, user: dict = Depends(_LOJISTA_MGMT)):
+    """Remove um vendedor da loja."""
+    from ..deps import STORE_SCOPED_ROLES
+    if user["role"] in STORE_SCOPED_ROLES and user.get("store_id") != store_id:
+        raise HTTPException(403, "Sem acesso a esta loja")
+    with db.tx() as conn:
+        row = conn.execute("SELECT 1 FROM users WHERE id = ? AND store_id = ? AND role = 'vendedor'", (seller_id, store_id)).fetchone()
+        if not row:
+            raise HTTPException(404, "Vendedor não encontrado nesta loja")
+        conn.execute("DELETE FROM users WHERE id = ?", (seller_id,))
+    return None

@@ -572,37 +572,70 @@ function renderTeam() {
   if (!table) return;
 
   if (teamData.length === 0) {
-    table.innerHTML = '<article class="panel empty-panel"><h3>Nenhuma equipe encontrada</h3><p>Cadastre vendedores para ver o desempenho individual.</p></article>';
+    table.innerHTML = '<article class="panel empty-panel"><h3>Nenhuma equipe encontrada</h3><p>Clique em "Adicionar Vendedor" para cadastrar o primeiro membro.</p></article>';
     return;
   }
 
   table.innerHTML = `
-    <div class="store-row store-head" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr !important">
+    <div class="store-row store-head" style="grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr !important">
       <span>Vendedor</span>
-      <span>Leads (Total)</span>
-      <span>Em Atendimento</span>
+      <span>E-mail</span>
+      <span>Leads Totais</span>
       <span>Fechados</span>
       <span>Ações</span>
     </div>
     ${teamData
       .map(
         (v) => `
-      <div class="store-row" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr !important">
-        <div>
-          <strong>${v.name}</strong><br>
-          <small style="color:var(--text-soft)">${v.email}</small>
-        </div>
+      <div class="store-row" style="grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr !important">
+        <strong>${v.name}</strong>
+        <span style="color:var(--text-soft); font-size:13px">${v.email}</span>
         <span>${v.total_leads}</span>
-        <span>${v.ativos}</span>
-        <span style="color:var(--green); font-weight:bold">${v.fechados}</span>
+        <span style="color:#16a34a; font-weight:700">${v.fechados}</span>
         <span class="row-actions">
-          <button class="mini-button" type="button">Ver detalhes</button>
+          <button class="mini-button danger" data-seller-action="delete" data-seller-id="${v.id}" type="button">Remover</button>
         </span>
       </div>
     `
       )
       .join("")}
   `;
+
+  table.querySelectorAll('[data-seller-action="delete"]').forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const sid = Number(btn.dataset.sellerId);
+      const storeId = currentUser?.store_id;
+      if (!storeId) return;
+      if (!confirm("Remover este vendedor?")) return;
+      try {
+        await api(`/api/stores/${storeId}/sellers/${sid}`, { method: "DELETE" });
+        const r = await api("/api/dashboard/team");
+        teamData = r.team || [];
+        renderTeam();
+        showToast("Vendedor removido");
+      } catch (err) { showToast(err.message); }
+    });
+  });
+}
+
+function openSellerModal() {
+  const storeId = currentUser?.store_id;
+  if (!storeId) { showToast("Sem loja vinculada ao seu usuário"); return; }
+  const fields = [
+    { label: "Nome do vendedor", name: "name", placeholder: "Ex: Carlos Silva", required: true },
+    { label: "E-mail", name: "email", type: "email", placeholder: "carlos@loja.com", required: true },
+    { label: "Senha inicial (mín. 6 caracteres)", name: "password", type: "password", placeholder: "••••••", required: true },
+  ];
+  openModal("Adicionar Vendedor", fields, "Criar Vendedor", async (data) => {
+    const r = await api(`/api/stores/${storeId}/sellers`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    const teamR = await api("/api/dashboard/team");
+    teamData = teamR.team || [];
+    renderTeam();
+    showToast(`Vendedor ${r.seller.name} criado com sucesso!`);
+  });
 }
 
 function renderCosts() {
@@ -1072,6 +1105,7 @@ $("#replyForm").addEventListener("submit", async (event) => {
 
 $("#newVehicleButton").addEventListener("click", () => openVehicleModal());
 $("#newStoreButton").addEventListener("click", () => openStoreModal());
+$("#newSellerButton").addEventListener("click", () => openSellerModal());
 $("#qrActionButton").addEventListener("click", runQrAction);
 $("#assumeConversationButton").addEventListener("click", () => updateConversationStatus("Em atendimento").catch((e) => showToast(e.message)));
 $("#closeConversationButton").addEventListener("click", () => updateConversationStatus("Encerrado").catch((e) => showToast(e.message)));

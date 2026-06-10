@@ -502,6 +502,41 @@
     }
     .mobile-search:focus { border-color: var(--brand); }
 
+    /* ===== LOGIN OVERLAY ================================================= */
+    .login-overlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 1000;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .login-overlay.active { display: flex; }
+    .login-card {
+      background: var(--surface); padding: 32px 24px; border-radius: 16px;
+      width: 100%; max-width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+    .login-logo {
+      display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 24px;
+    }
+    .login-logo-icon {
+      width: 40px; height: 40px; background: var(--brand); color: #fff;
+      border-radius: 10px; display: grid; place-items: center; font-weight: 900; font-size: 20px;
+    }
+    .login-logo-text { font-weight: 800; font-size: 20px; color: var(--text); }
+    .login-form { display: flex; flex-direction: column; gap: 16px; }
+    .login-field { display: flex; flex-direction: column; gap: 6px; }
+    .login-field label { font-size: 13px; font-weight: 700; color: var(--text-soft); }
+    .login-field input {
+      padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+      font-size: 15px; background: var(--bg); color: var(--text); outline: none;
+    }
+    .login-field input:focus { border-color: var(--brand); }
+    .login-btn {
+      padding: 14px; background: var(--brand); color: #fff; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: background 0.15s;
+    }
+    .login-btn:active { background: var(--brand-dark); }
+    .login-error { color: #dc2626; font-size: 13px; text-align: center; display: none; font-weight: 600; }
+
     /* ===== TOAST ======================================================== */
     #toast {
       position: fixed; bottom: calc(var(--shell-nav) + 12px); left: 50%; transform: translateX(-50%) translateY(16px);
@@ -513,6 +548,30 @@
   </style>
 </head>
 <body>
+
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">F</div>
+        <div class="login-logo-text">Formula OS</div>
+      </div>
+      <p style="text-align:center; font-size:14px; color:var(--text-soft); margin-bottom:24px;">
+        Acesso Mobile
+      </p>
+      <form id="mobile-login-form" class="login-form">
+        <div class="login-field">
+          <label>E-mail</label>
+          <input type="email" id="login-email" required placeholder="seu@email.com" autocomplete="username">
+        </div>
+        <div class="login-field">
+          <label>Senha</label>
+          <input type="password" id="login-password" required placeholder="••••••" autocomplete="current-password">
+        </div>
+        <div id="login-error-msg" class="login-error">Credenciais inválidas</div>
+        <button type="submit" class="login-btn">Entrar no Atendimento</button>
+      </form>
+    </div>
+  </div>
 
   <!-- Shell header -->
   <header class="shell-header">
@@ -710,29 +769,67 @@
   async function boot() {
     try {
       const data = await api('/api/me');
-      if (!data.user) { location.href = '/'; return; }
-      currentUser = data.user;
-      document.getElementById('user-name').textContent = currentUser.name.split(' ')[0];
-      document.getElementById('user-avatar').textContent = initials(currentUser.name);
-
-      // Gestor vê todas; vendedor só "Minhas"
-      const canAll = ['gestor','shopping','master'].includes(currentUser.role);
-      document.getElementById('tab-all').style.display = canAll ? '' : 'none';
-
-      await loadTags();
-      await loadConversations();
-      connectSSE();
-      
-      const params = new URLSearchParams(window.location.search);
-      const chatId = params.get('chat_id');
-      if (chatId) {
-        const conv = conversations.find(c => c.id === Number(chatId));
-        if (conv) openConv(conv.id);
+      if (!data.user) { 
+        document.getElementById('login-overlay').classList.add('active'); 
+        return; 
       }
+      initApp(data.user);
     } catch(e) {
       console.error(e);
+      document.getElementById('login-overlay').classList.add('active');
     }
   }
+
+  async function initApp(user) {
+    currentUser = user;
+    document.getElementById('login-overlay').classList.remove('active');
+    document.getElementById('user-name').textContent = currentUser.name.split(' ')[0];
+    document.getElementById('user-avatar').textContent = initials(currentUser.name);
+
+    // Gestor vê todas; vendedor só "Minhas"
+    const canAll = ['gestor','shopping','master'].includes(currentUser.role);
+    document.getElementById('tab-all').style.display = canAll ? '' : 'none';
+
+    await loadTags();
+    await loadConversations();
+    connectSSE();
+    
+    const params = new URLSearchParams(window.location.search);
+    const chatId = params.get('chat_id');
+    if (chatId) {
+      const conv = conversations.find(c => c.id === Number(chatId));
+      if (conv) openConv(conv.id);
+    }
+  }
+
+  document.getElementById('mobile-login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    const err = document.getElementById('login-error-msg');
+    btn.disabled = true; btn.textContent = 'Entrando...'; err.style.display = 'none';
+    
+    try {
+      const res = await fetch(API + '/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          email: document.getElementById('login-email').value,
+          password: document.getElementById('login-password').value
+        })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Credenciais inválidas');
+      }
+      const data = await res.json();
+      initApp(data.user);
+    } catch(errObj) {
+      err.textContent = errObj.message || 'Erro ao entrar';
+      err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Entrar no Atendimento';
+    }
+  });
 
   // --- Tags ----------------------------------------------------------------
   async function loadTags() {

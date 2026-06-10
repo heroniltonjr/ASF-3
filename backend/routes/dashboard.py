@@ -50,3 +50,39 @@ def get_funnel_metrics(user: dict = Depends(_ALL), start_date: str = "", end_dat
         "metrics": metrics,
         "total_leads": total_leads,
     }
+
+@router.get("/api/dashboard/team")
+def get_team_performance(user: dict = Depends(_ALL)):
+    """Retorna performance dos vendedores (leads atribuídos, fechados, etc)."""
+    if user["role"] not in ("master", "shopping", "lojista", "gestor"):
+        return {"team": []}  # Vendedores não veem a equipe toda
+
+    where_clauses = ["u.role = 'vendedor'"]
+    params = []
+
+    if user["role"] in STORE_SCOPED_ROLES:
+        where_clauses.append("u.store_id = ?")
+        params.append(user["store_id"])
+
+    where_sql = " AND ".join(where_clauses)
+
+    sql = f"""
+        SELECT 
+            u.id, 
+            u.name, 
+            u.email,
+            COUNT(l.id) AS total_leads,
+            SUM(CASE WHEN l.stage = 'Fechado' THEN 1 ELSE 0 END) AS fechados,
+            SUM(CASE WHEN l.stage IN ('Novo', 'Em atendimento', 'Em negociação', 'Humano', 'Visita') THEN 1 ELSE 0 END) AS ativos
+        FROM users u
+        LEFT JOIN leads l ON l.assigned_user_id = u.id
+        WHERE {where_sql}
+        GROUP BY u.id
+        ORDER BY fechados DESC, total_leads DESC
+    """
+    
+    with db.tx() as conn:
+        rows = conn.execute(sql, params).fetchall()
+
+    team = [dict(r) for r in rows]
+    return {"team": team}

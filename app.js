@@ -40,14 +40,15 @@ const ROLE_LABELS = {
       "O gestor acompanha todos os leads do SDR, performance das lojas, fila de atendimento, veículos publicados e gargalos da operação.",
     search: "Buscar lead, carro ou lojista",
     nav: {
-      overview: "Resumo do shopping",
-      crm: "CRM consolidado",
-      inbox: "Multi-atendimento",
+      overview: "Panorama",
+      crm: "Governança de leads",
+      inbox: "Auditoria de atendimento",
       vehicles: "Estoque central",
-      stores: "Lojistas",
-      billing: "Uso e repasses",
+      stores: "Lojistas assinantes",
+      team: "Equipe do Shopping",
+      billing: "Monetização",
     },
-    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores", "billing"],
+    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores", "billing", "team"],
     commands: [
       ["Fila humana", "Atendentes assumem conversas quando o SDR identifica negociação, troca ou dúvida sensível.", "Abrir inbox"],
       ["Performance por lojista", "Veja quem gera mais leads, quem responde melhor e quem está deixando oportunidade esfriar.", "Comparar lojas"],
@@ -73,9 +74,10 @@ const ROLE_LABELS = {
       inbox: "Minhas conversas",
       vehicles: "Meus veículos",
       stores: "Minha loja",
+      team: "Minha equipe",
       billing: "WhatsApp agente",
     },
-    allowedViews: ["overview", "crm", "inbox", "vehicles", "billing"],
+    allowedViews: ["overview", "crm", "inbox", "vehicles", "billing", "team"],
     commands: [
       ["QR Code do agente", "Conecte seu WhatsApp para o SDR vender como assistente virtual da sua loja.", "Gerar QR"],
       ["Cadastro rápido", "Fotos, preço, versão, quilometragem e condições entram no estoque do shopping.", "Cadastrar carro"],
@@ -98,6 +100,7 @@ let leads = [];
 let conversations = [];
 let currentConversationId = null;
 let funnelData = { metrics: {}, total_leads: 0 };
+let teamData = [];
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -264,6 +267,7 @@ function renderEverything() {
   renderChat();
   renderVehicles();
   renderStores();
+  renderTeam();
   renderCosts();
 }
 
@@ -555,6 +559,44 @@ function renderStores() {
         <span class="row-actions">
           <button class="mini-button" data-store-action="toggle" data-store-id="${s.id}" type="button">${s.status === "Ativo" ? "Pausar" : "Ativar"}</button>
           <button class="mini-button danger" data-store-action="delete" data-store-id="${s.id}" type="button">Excluir</button>
+        </span>
+      </div>
+    `
+      )
+      .join("")}
+  `;
+}
+
+function renderTeam() {
+  const table = document.getElementById("teamTable");
+  if (!table) return;
+
+  if (teamData.length === 0) {
+    table.innerHTML = '<article class="panel empty-panel"><h3>Nenhuma equipe encontrada</h3><p>Cadastre vendedores para ver o desempenho individual.</p></article>';
+    return;
+  }
+
+  table.innerHTML = `
+    <div class="store-row store-head" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr !important">
+      <span>Vendedor</span>
+      <span>Leads (Total)</span>
+      <span>Em Atendimento</span>
+      <span>Fechados</span>
+      <span>Ações</span>
+    </div>
+    ${teamData
+      .map(
+        (v) => `
+      <div class="store-row" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr !important">
+        <div>
+          <strong>${v.name}</strong><br>
+          <small style="color:var(--text-soft)">${v.email}</small>
+        </div>
+        <span>${v.total_leads}</span>
+        <span>${v.ativos}</span>
+        <span style="color:var(--green); font-weight:bold">${v.fechados}</span>
+        <span class="row-actions">
+          <button class="mini-button" type="button">Ver detalhes</button>
         </span>
       </div>
     `
@@ -925,11 +967,19 @@ function connectEventStream() {
   eventSource.addEventListener("message.created", async (e) => {
     try {
       const evt = JSON.parse(e.data);
-      await fetchAll();
+      await Promise.all([
+        api("/api/conversations").then((r) => {
+          conversations = r.conversations || [];
+          renderConversations();
+        }),
+        api("/api/dashboard/team").then((r) => {
+          teamData = r.team || [];
+          renderTeam();
+        }).catch(e => console.error("Sem acesso à equipe", e)),
+      ]);
       if (!currentConversationId && evt.conversation_id) {
         currentConversationId = evt.conversation_id;
       }
-      renderConversations();
       renderChat();
       // toast discreto somente para mensagens de lead (entrada nova)
       if (evt.sender === "lead") showToast("Nova mensagem recebida");

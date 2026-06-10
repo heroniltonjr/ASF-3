@@ -4,104 +4,737 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vender meu carro — Auto Shopping Fórmula</title>
+  <meta name="description" content="Avaliamos seu carro em até 24h e pagamos no PIX no mesmo dia. Conte com a infraestrutura de 22 lojas do Auto Shopping Fórmula." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/portal/assets/portal.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    /* =====================================================================
+       Vender — design overrides
+       ===================================================================== */
+
+    /* Design tokens locais */
+    :root {
+      --red: #E10600;
+      --red-dark: #C00500;
+      --dark: #0A0A0B;
+      --radius-f: 12px;
+      --shadow-card: 0 8px 24px rgba(0,0,0,.08);
+      --max-w-v: 1140px;
+    }
+
+    /* Reset de fontes */
+    body { font-family: 'Inter', -apple-system, sans-serif; }
+
+    /* Container ajustado */
+    .v-container {
+      max-width: var(--max-w-v);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Topbar ─────────────────────────────────────── */
+    .topbar-info span,
+    .topbar-social a:not(.topbar-system) {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Navbar ─────────────────────────────────────── */
+    .v-navbar {
+      background: #fff;
+      border-bottom: 1px solid #EAEAEC;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .v-navbar-inner {
+      max-width: var(--max-w-v);
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 68px;
+    }
+    .v-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--dark);
+      flex-shrink: 0;
+    }
+    .v-brand-icon {
+      width: 44px; height: 44px;
+      background: var(--red);
+      color: #fff;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 20px;
+    }
+    .v-brand-text strong { display: block; font-size: 16px; font-weight: 800; color: var(--dark); }
+    .v-brand-text small  { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+    .v-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      list-style: none;
+      padding: 0; margin: 0;
+    }
+    .v-nav-links a {
+      color: #333;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      position: relative;
+      padding: 4px 0;
+    }
+    .v-nav-links a:hover { color: var(--red); }
+    .v-nav-links a.active { color: var(--red); }
+    .v-nav-links a.active::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: -22px;
+      height: 2px;
+      background: var(--red);
+      border-radius: 2px;
+    }
+    .v-nav-cta {
+      background: var(--red);
+      color: #fff !important;
+      padding: 10px 20px;
+      border-radius: var(--radius-f);
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: background .15s, transform .15s;
+      flex-shrink: 0;
+    }
+    .v-nav-cta:hover { background: var(--red-dark); transform: translateY(-1px); color: #fff !important; }
+
+    .v-mobile-toggle {
+      display: none;
+      background: none; border: none;
+      color: var(--dark); cursor: pointer;
+      padding: 8px;
+    }
+
+    /* ── Hero 2-colunas ─────────────────────────────── */
+    .v-hero {
+      background: var(--dark);
+      position: relative;
+      overflow: hidden;
+      padding: 80px 0;
+    }
+    /* Glow radial vermelho no canto inferior esquerdo */
+    .v-hero::before {
+      content: '';
+      position: absolute;
+      left: -120px; bottom: -120px;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(225,6,0,.25) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .v-hero-grid {
+      max-width: var(--max-w-v);
+      margin: 0 auto;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 56px;
+      align-items: start;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Lado esquerdo */
+    .v-hero-left { color: #fff; }
+    .v-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(225,6,0,.12);
+      border: 1px solid rgba(225,6,0,.4);
+      color: #ffb3ba;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      margin-bottom: 24px;
+    }
+    .v-hero-left h1 {
+      font-family: 'Archivo', sans-serif;
+      font-size: clamp(32px, 4vw, 48px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin: 0 0 16px;
+      color: #fff;
+    }
+    .v-hero-sub {
+      font-size: 17px;
+      color: rgba(255,255,255,.75);
+      margin: 0 0 24px;
+      line-height: 1.6;
+    }
+
+    /* Mini stats */
+    .v-mini-stats {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 40px;
+    }
+    .v-mini-stat {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,.85);
+      padding: 0 16px;
+      white-space: nowrap;
+    }
+    .v-mini-stat:first-child { padding-left: 0; }
+    .v-mini-stat:last-child  { padding-right: 0; }
+    .v-mini-sep {
+      width: 1px; height: 16px;
+      background: rgba(255,255,255,.2);
+      flex-shrink: 0;
+    }
+
+    /* Passos verticais */
+    .v-steps { display: flex; flex-direction: column; gap: 0; }
+    .v-step {
+      display: flex;
+      gap: 16px;
+      position: relative;
+    }
+    .v-step-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .v-step-num {
+      width: 36px; height: 36px;
+      background: var(--red);
+      color: #fff;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .v-step-line {
+      width: 2px;
+      flex: 1;
+      min-height: 24px;
+      background: rgba(225,6,0,.3);
+      margin: 4px 0;
+    }
+    .v-step:last-child .v-step-line { display: none; }
+    .v-step-body { padding-bottom: 24px; }
+    .v-step-body h3 {
+      font-family: 'Archivo', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin: 4px 0 4px;
+    }
+    .v-step-body p {
+      font-size: 14px;
+      color: rgba(255,255,255,.65);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* Lado direito — card do formulário */
+    .v-form-card {
+      background: #fff;
+      border-radius: var(--radius-f);
+      padding: 32px;
+      box-shadow: var(--shadow-card);
+    }
+    .v-form-card-title {
+      font-family: 'Archivo', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--dark);
+      margin: 0 0 4px;
+    }
+    .v-form-card-sub {
+      font-size: 13px;
+      color: #777;
+      margin: 0 0 24px;
+    }
+
+    /* Inputs e textarea */
+    .v-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .v-field label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .v-field input,
+    .v-field textarea {
+      font: inherit;
+      font-size: 14px;
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #E2E2E6;
+      border-radius: var(--radius-f);
+      color: var(--dark);
+      background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+    }
+    .v-field input:focus,
+    .v-field textarea:focus {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(225,6,0,.15);
+    }
+    .v-field textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    /* Botão submit */
+    .v-submit {
+      display: block;
+      width: 100%;
+      padding: 14px 24px;
+      background: var(--red);
+      color: #fff;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+      border: none;
+      border-radius: var(--radius-f);
+      cursor: pointer;
+      transition: background .15s, transform .15s;
+      margin-top: 8px;
+    }
+    .v-submit:hover  { background: var(--red-dark); transform: translateY(-1px); }
+    .v-submit:active { transform: none; }
+    .v-submit:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(225,6,0,.4);
+    }
+
+    /* Microcopy sob o botão */
+    .v-form-micro {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #888;
+      margin-top: 10px;
+    }
+
+    /* Mensagem de resultado */
+    #lead-result { margin-top: 12px; }
+    .v-success {
+      background: #e9faf0;
+      border: 1px solid #2ecc71;
+      color: #145f31;
+      border-radius: var(--radius-f);
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .v-error {
+      background: #fff0f0;
+      border: 1px solid var(--red);
+      color: #8a0000;
+      border-radius: var(--radius-f);
+      padding: 12px 16px;
+      font-size: 14px;
+    }
+
+    /* ── Footer 3 colunas ───────────────────────────── */
+    .v-footer {
+      background: var(--dark);
+      color: rgba(255,255,255,.7);
+      padding: 56px 0 0;
+      margin-top: 0;
+    }
+    .v-footer-grid {
+      max-width: var(--max-w-v);
+      margin: 0 auto;
+      padding: 0 24px 48px;
+      display: grid;
+      grid-template-columns: 1.8fr 1fr 1.4fr;
+      gap: 40px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      padding-top: 48px;
+    }
+    .v-footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .v-footer-logo-icon {
+      width: 40px; height: 40px;
+      background: var(--red);
+      color: #fff;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      font-size: 18px;
+    }
+    .v-footer-logo-text strong { color: #fff; font-size: 15px; display: block; }
+    .v-footer-logo-text small  { color: rgba(255,255,255,.5); font-size: 11px; }
+    .v-footer-tagline { font-size: 13px; line-height: 1.6; color: rgba(255,255,255,.55); max-width: 260px; }
+
+    .v-footer h4 {
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin: 0 0 18px;
+    }
+    .v-footer-links { list-style: none; padding: 0; margin: 0; }
+    .v-footer-links li { margin-bottom: 10px; }
+    .v-footer-links a {
+      color: rgba(255,255,255,.65);
+      font-size: 14px;
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .v-footer-links a:hover { color: var(--red); }
+
+    .v-footer-contact { display: flex; flex-direction: column; gap: 12px; }
+    .v-footer-contact-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,.65);
+      line-height: 1.5;
+    }
+    .v-footer-contact-item svg { flex-shrink: 0; margin-top: 1px; }
+    .v-footer-wa {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #25D366;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 16px;
+      border-radius: var(--radius-f);
+      text-decoration: none;
+      transition: background .15s;
+      margin-top: 4px;
+      width: fit-content;
+    }
+    .v-footer-wa:hover { background: #1ebd5a; color: #fff; }
+
+    .v-footer-bottom {
+      max-width: var(--max-w-v);
+      margin: 0 auto;
+      padding: 20px 24px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      font-size: 12px;
+      color: rgba(255,255,255,.4);
+      text-align: center;
+    }
+
+    /* ── Responsivo ─────────────────────────────────── */
+    @media (max-width: 900px) {
+      .v-hero-grid { grid-template-columns: 1fr; gap: 40px; }
+      .v-form-card { box-shadow: none; border: 1px solid #eee; }
+    }
+    @media (max-width: 768px) {
+      .v-nav-links { display: none; }
+      .v-mobile-toggle { display: block; }
+      .v-nav-links.open {
+        display: flex;
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        background: #fff;
+        flex-direction: column;
+        padding: 16px 24px;
+        border-bottom: 1px solid #eee;
+        box-shadow: 0 4px 16px rgba(0,0,0,.08);
+        gap: 12px;
+      }
+      .v-nav-links.open .v-nav-cta { width: fit-content; }
+      .v-footer-grid { grid-template-columns: 1fr 1fr; }
+      .v-mini-stats { flex-direction: column; gap: 8px; align-items: flex-start; }
+      .v-mini-sep { display: none; }
+      .v-mini-stat { padding: 0; }
+      .v-hero { padding: 56px 0; }
+    }
+    @media (max-width: 480px) {
+      .v-footer-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body data-page="vender">
 
+  <!-- Topbar -->
   <div class="topbar">
-    <div class="container">
-      <div class="topbar-info"><span>📍 Av. da FEB, Cerrados 2222 — Várzea Grande/MT</span><span>📞 (65) 3029-7777</span></div>
-      <div class="topbar-social"><a class="topbar-system" href="/">🔐 Sistema</a><a href="https://wa.me/556592156577" target="_blank">WhatsApp</a></div>
+    <div class="v-container" style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding-top:8px;padding-bottom:8px;">
+      <div class="topbar-info">
+        <span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Av. da FEB, Cerrados 2222 — Várzea Grande/MT
+        </span>
+        <span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.08 6.08l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          (65) 3029-7777
+        </span>
+      </div>
+      <div class="topbar-social">
+        <a class="topbar-system" href="/" style="display:inline-flex;align-items:center;gap:5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Sistema
+        </a>
+        <a href="https://wa.me/556592156577" target="_blank">WhatsApp</a>
+      </div>
     </div>
   </div>
 
-  <nav class="navbar">
-    <div class="container">
-      <a class="brand" href="/portal/">
-        <span class="brand-logo">F</span>
-        <div class="brand-text"><strong>Auto Shopping Fórmula</strong><small>Você tem um sonho, nós somos a fórmula!</small></div>
+  <!-- Navbar -->
+  <nav class="v-navbar">
+    <div class="v-navbar-inner">
+      <a class="v-brand" href="/portal/">
+        <div class="v-brand-icon">F</div>
+        <div class="v-brand-text">
+          <strong>Auto Shopping Fórmula</strong>
+          <small>Você tem um sonho, nós somos a fórmula!</small>
+        </div>
       </a>
-      <ul class="nav-links">
+      <ul class="v-nav-links" id="navLinks">
         <li><a href="/portal/">Início</a></li>
         <li><a href="/portal/estoque.html">Veículos</a></li>
         <li><a href="/portal/lojas.html">Lojas</a></li>
-        <li><a href="/portal/vender.html">Quero vender</a></li>
+        <li><a href="/portal/vender.html" class="active">Quero vender</a></li>
         <li><a href="/portal/sobre.html">Quem somos</a></li>
-        <li><a class="nav-cta" href="https://wa.me/556592156577" target="_blank">Falar conosco</a></li>
+        <li><a class="v-nav-cta" href="https://wa.me/556592156577" target="_blank">Falar conosco</a></li>
       </ul>
-      <button class="mobile-toggle">☰</button>
+      <button class="v-mobile-toggle" id="mobileToggle" aria-label="Abrir menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
     </div>
   </nav>
 
-  <section style="background: linear-gradient(180deg, var(--asf-blue-900), var(--asf-blue-700)); color: #fff; padding: 80px 0;">
-    <div class="container">
-      <span class="hero-eyebrow">Vender seu carro</span>
-      <h1 style="font-size: 42px; max-width: 720px; margin: 12px 0; line-height: 1.15;">Avaliamos, fechamos e pagamos no PIX. Sem dor de cabeça.</h1>
-      <p style="font-size: 18px; color: rgba(255,255,255,0.85); max-width: 620px; margin: 0;">
-        Conte com a infraestrutura de 22 lojas pra vender seu carro mais rápido e pelo melhor preço.
-      </p>
-    </div>
-  </section>
+  <!-- Hero 2 colunas -->
+  <section class="v-hero">
+    <div class="v-hero-grid">
 
-  <section>
-    <div class="container">
-      <div class="steps-grid">
-        <div class="step-card">
-          <div class="step-number">1</div>
-          <h3>Solicite avaliação</h3>
-          <p>Preencha o formulário ao lado com nome, telefone e dados do carro. Vamos analisar em até 24h.</p>
+      <!-- Coluna esquerda -->
+      <div class="v-hero-left">
+        <div class="v-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Vender seu carro
         </div>
-        <div class="step-card">
-          <div class="step-number">2</div>
-          <h3>Receba a proposta</h3>
-          <p>Nosso consultor te envia a oferta de compra à vista ou de troca por algum carro do estoque.</p>
+
+        <h1>Avaliamos, fechamos e pagamos no PIX. Sem dor de cabeça.</h1>
+        <p class="v-hero-sub">Conte com a infraestrutura de 22 lojas pra vender seu carro mais rápido e pelo melhor preço.</p>
+
+        <!-- Mini stats -->
+        <div class="v-mini-stats">
+          <span class="v-mini-stat">22 lojas parceiras</span>
+          <div class="v-mini-sep"></div>
+          <span class="v-mini-stat">Pagamento no PIX no mesmo dia</span>
+          <div class="v-mini-sep"></div>
+          <span class="v-mini-stat">Avaliação em até 24h</span>
         </div>
-        <div class="step-card">
-          <div class="step-number">3</div>
-          <h3>Documentação e PIX</h3>
-          <p>Aceitou? A gente cuida da burocracia e o pagamento cai no seu PIX no mesmo dia.</p>
+
+        <!-- Passos verticais -->
+        <div class="v-steps">
+          <div class="v-step">
+            <div class="v-step-left">
+              <div class="v-step-num">1</div>
+              <div class="v-step-line"></div>
+            </div>
+            <div class="v-step-body">
+              <h3>Solicite avaliação</h3>
+              <p>Preencha o formulário ao lado com nome, telefone e dados do carro. Vamos analisar em até 24h.</p>
+            </div>
+          </div>
+          <div class="v-step">
+            <div class="v-step-left">
+              <div class="v-step-num">2</div>
+              <div class="v-step-line"></div>
+            </div>
+            <div class="v-step-body">
+              <h3>Receba a proposta</h3>
+              <p>Nosso consultor te envia a oferta de compra à vista ou de troca por algum carro do estoque.</p>
+            </div>
+          </div>
+          <div class="v-step">
+            <div class="v-step-left">
+              <div class="v-step-num">3</div>
+              <div class="v-step-line"></div>
+            </div>
+            <div class="v-step-body">
+              <h3>Documentação e PIX</h3>
+              <p>Aceitou? A gente cuida da burocracia e o pagamento cai no seu PIX no mesmo dia.</p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <section style="background: #fff;">
-    <div class="container" style="max-width: 720px;">
-      <div class="section-head" style="text-align: center; margin: 0 auto 32px;">
-        <span class="section-eyebrow">Solicitar avaliação</span>
-        <h2>Mande os dados do seu carro</h2>
-        <p>Em até 24h um consultor vai te chamar no WhatsApp com a proposta.</p>
+      <!-- Coluna direita — formulário -->
+      <div>
+        <div class="v-form-card">
+          <p class="v-form-card-title">Mande os dados do seu carro</p>
+          <p class="v-form-card-sub">Em até 24h um consultor vai te chamar no WhatsApp com a proposta.</p>
+
+          <form id="lead-form">
+            <div class="v-field">
+              <label for="f-name">Nome completo</label>
+              <input id="f-name" name="name" required placeholder="Como podemos te chamar?" />
+            </div>
+            <div class="v-field">
+              <label for="f-phone">WhatsApp (DDD + número)</label>
+              <input id="f-phone" name="phone" required placeholder="(65) 99999-0000" />
+            </div>
+            <div class="v-field">
+              <label for="f-budget">Faixa de valor desejada <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+              <input id="f-budget" name="budget" placeholder="Ex: R$ 60 mil" />
+            </div>
+            <div class="v-field">
+              <label for="f-message">Detalhes do seu carro</label>
+              <textarea id="f-message" name="message" required placeholder="Marca, modelo, ano, km, opcionais, condição"></textarea>
+            </div>
+
+            <button class="v-submit" type="submit">Quero ser avaliado</button>
+
+            <div class="v-form-micro">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#25D366" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Resposta em até 24h no seu WhatsApp
+            </div>
+
+            <div id="lead-result"></div>
+          </form>
+        </div>
       </div>
-      <form class="lead-form" id="lead-form">
-        <div class="field">
-          <label>Nome completo</label>
-          <input name="name" required placeholder="Como podemos te chamar?" />
-        </div>
-        <div class="field">
-          <label>WhatsApp (DDD + número)</label>
-          <input name="phone" required placeholder="(65) 99999-0000" />
-        </div>
-        <div class="field">
-          <label>Faixa de valor desejada (opcional)</label>
-          <input name="budget" placeholder="Ex: R$ 60 mil" />
-        </div>
-        <div class="field">
-          <label>Detalhes do seu carro</label>
-          <textarea name="message" rows="4" required placeholder="Marca, modelo, ano, km, opcionais, condição"></textarea>
-        </div>
-        <button class="btn btn-primary" type="submit">Quero ser avaliado</button>
-        <div id="lead-result"></div>
-      </form>
+
     </div>
   </section>
 
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-bottom"><span>© 2026 Auto Shopping Fórmula</span></div>
+  <!-- Footer 3 colunas -->
+  <footer class="v-footer">
+    <div class="v-footer-grid">
+
+      <!-- Col 1: logo + tagline -->
+      <div>
+        <div class="v-footer-logo">
+          <div class="v-footer-logo-icon">F</div>
+          <div class="v-footer-logo-text">
+            <strong>Auto Shopping Fórmula</strong>
+            <small>Várzea Grande, MT</small>
+          </div>
+        </div>
+        <p class="v-footer-tagline">O maior shopping de carros do Centro-Oeste. Mais de 22 lojas, 1.500+ veículos e o melhor atendimento da região.</p>
+      </div>
+
+      <!-- Col 2: links -->
+      <div>
+        <h4>Navegação</h4>
+        <ul class="v-footer-links">
+          <li><a href="/portal/">Início</a></li>
+          <li><a href="/portal/estoque.html">Veículos</a></li>
+          <li><a href="/portal/lojas.html">Lojas</a></li>
+          <li><a href="/portal/vender.html">Quero vender</a></li>
+          <li><a href="/portal/sobre.html">Quem somos</a></li>
+        </ul>
+      </div>
+
+      <!-- Col 3: contato -->
+      <div>
+        <h4>Fale conosco</h4>
+        <div class="v-footer-contact">
+          <div class="v-footer-contact-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Av. da FEB, Cerrados 2222<br>Várzea Grande — MT
+          </div>
+          <div class="v-footer-contact-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.08 6.08l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            (65) 3029-7777
+          </div>
+          <a class="v-footer-wa" href="https://wa.me/556592156577" target="_blank">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Falar no WhatsApp
+          </a>
+        </div>
+      </div>
+
+    </div>
+    <div class="v-footer-bottom">
+      © 2026 Auto Shopping Fórmula — Todos os direitos reservados.
     </div>
   </footer>
 
   <script src="/portal/assets/portal.js"></script>
+  <script>
+    // Mobile nav toggle
+    document.getElementById('mobileToggle').addEventListener('click', function() {
+      document.getElementById('navLinks').classList.toggle('open');
+    });
+
+    // Form submit — reutiliza o handler do portal.js se disponível, senão faz próprio
+    document.getElementById('lead-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = this.querySelector('.v-submit');
+      const result = document.getElementById('lead-result');
+      const data = Object.fromEntries(new FormData(this).entries());
+
+      btn.disabled = true;
+      btn.textContent = 'Enviando…';
+      result.innerHTML = '';
+
+      try {
+        const r = await fetch('/api/public/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.name,
+            phone: data.phone,
+            message: 'Quero vender: ' + (data.message || ''),
+            budget: data.budget || null,
+            car_interest: 'Quero vender meu carro'
+          })
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || 'Erro ao enviar');
+        }
+        result.innerHTML = '<div class="v-success">✓ Recebemos! Em até 24h um consultor vai te chamar no WhatsApp.</div>';
+        this.reset();
+      } catch(err) {
+        result.innerHTML = '<div class="v-error">Ops: ' + err.message + '</div>';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Quero ser avaliado';
+      }
+    });
+  </script>
 </body>
 </html>

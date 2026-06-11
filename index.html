@@ -208,10 +208,29 @@
             <div class="board-toolbar">
               <div>
                 <span class="eyebrow">Desempenho</span>
-                <h3>Vendedores da Equipe</h3>
+                <h3>Dashboard da Equipe</h3>
               </div>
               <button class="primary-button" id="newSellerButton" type="button">Adicionar Vendedor</button>
             </div>
+            
+            <div class="billing-grid" style="margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+              <article class="panel" style="padding: 20px;">
+                <span class="eyebrow">Total da Equipe</span>
+                <h3 id="teamTotalLeads" style="font-size: 28px; margin: 4px 0 0; color: var(--accent);">0</h3>
+                <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Leads gerados</p>
+              </article>
+              <article class="panel" style="padding: 20px;">
+                <span class="eyebrow">Em Andamento</span>
+                <h3 id="teamActiveLeads" style="font-size: 28px; margin: 4px 0 0; color: #b45309;">0</h3>
+                <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Em negociação ou visita</p>
+              </article>
+              <article class="panel" style="padding: 20px;">
+                <span class="eyebrow">Sucesso</span>
+                <h3 id="teamClosedLeads" style="font-size: 28px; margin: 4px 0 0; color: #16a34a;">0</h3>
+                <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Leads fechados</p>
+              </article>
+            </div>
+
             <div class="store-table" id="teamTable"></div>
           </div>
 

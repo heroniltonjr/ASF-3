@@ -5,22 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Auto Shopping Fórmula — Você tem um sonho, nós somos a fórmula!</title>
   <meta name="description" content="O maior shopping de automóveis da Região Centro-Oeste. Mais de 1.500 veículos em 22 lojas parceiras, financiamento facilitado e atendimento por WhatsApp." />
-  <link rel="stylesheet" href="/portal/assets/portal.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/portal/assets/portal.css" />
 </head>
 <body data-page="home">
 
   <div class="topbar">
-    <div class="container">
-      <div class="topbar-info">
-        <span>📍 Av. da FEB, Cerrados 2222 — Várzea Grande/MT</span>
-        <span>📞 (65) 3029-7777</span>
-        <span>🕐 Seg a Sex 08h–18h · Sáb 08h–13h</span>
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;gap:16px;">
+      <div class="topbar-info" style="display:flex;gap:20px;">
+        <span style="display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Av. da FEB, Cerrados 2222 — Várzea Grande/MT
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.08 6.08l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          (65) 3029-7777
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Seg a Sex 08h–18h · Sáb 08h–13h
+        </span>
       </div>
       <div class="topbar-social">
-        <a class="topbar-system" href="/">🔐 Sistema</a>
+        <a class="topbar-system" href="/" style="display:inline-flex;align-items:center;gap:5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Sistema
+        </a>
         <a href="https://wa.me/556592156577" target="_blank" rel="noopener">WhatsApp</a>
         <a href="#">Instagram</a>
         <a href="#">Facebook</a>
@@ -28,51 +40,55 @@
     </div>
   </div>
 
-  <nav class="navbar">
-    <div class="container">
+  <nav class="navbar" style="border-bottom: 1px solid #EAEAEC;">
+    <div class="container" style="display:flex;align-items:center;justify-content:space-between;height:68px;">
       <a class="brand" href="/portal/">
-        <span class="brand-logo">F</span>
+        <span class="brand-logo" style="width:44px;height:44px;border-radius:10px;">F</span>
         <div class="brand-text">
-          <strong>Auto Shopping Fórmula</strong>
+          <strong style="color:var(--asf-blue-900);font-size:16px;">Auto Shopping Fórmula</strong>
           <small>Você tem um sonho, nós somos a fórmula!</small>
         </div>
       </a>
       <ul class="nav-links">
-        <li><a href="/portal/">Início</a></li>
+        <li><a href="/portal/" class="active">Início</a></li>
         <li><a href="/portal/estoque.html">Veículos</a></li>
         <li><a href="/portal/lojas.html">Lojas</a></li>
         <li><a href="/portal/vender.html">Quero vender</a></li>
         <li><a href="/portal/sobre.html">Quem somos</a></li>
         <li><a class="nav-cta" href="https://wa.me/556592156577" target="_blank" rel="noopener">Falar conosco</a></li>
       </ul>
-      <button class="mobile-toggle" aria-label="Abrir menu">☰</button>
+      <button class="mobile-toggle" aria-label="Abrir menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
     </div>
   </nav>
 
   <header class="hero">
     <div class="container">
-      <span class="hero-eyebrow">Desde 2007 · Centro-Oeste</span>
-      <h1>Você tem um sonho,<br/>nós somos a <em>fórmula</em>.</h1>
-      <p class="hero-lead">
+      <span class="hero-eyebrow" style="background: rgba(225,6,0,.12); border: 1px solid rgba(225,6,0,.4); color: #ffb3ba; font-family:'Inter',sans-serif;">Desde 2007 · Centro-Oeste</span>
+      <h1 style="font-size:clamp(40px, 5vw, 64px);line-height:1.1;">Você tem um sonho,<br/>nós somos a <em style="color:var(--asf-orange);">fórmula</em>.</h1>
+      <p class="hero-lead" style="font-size:18px;color:rgba(255,255,255,.75);max-width:620px;">
         Mais de 1.500 carros disponíveis, em um único endereço, com 22 lojas parceiras,
         financiamento facilitado e atendimento humano por WhatsApp.
       </p>
-      <div class="hero-actions">
+      <div class="hero-actions" style="margin-bottom: 48px;">
         <a class="btn btn-primary" href="/portal/estoque.html">Ver veículos disponíveis</a>
         <a class="btn btn-ghost" href="/portal/vender.html">Quero vender o meu</a>
       </div>
-      <div class="hero-stats" id="totals">
-        <div class="hero-stat">
-          <strong data-total="vehicles">—</strong>
-          <small>Veículos publicados</small>
+      <div class="hero-stats" id="totals" style="display:flex;gap:16px;flex-wrap:wrap;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 24px;width:fit-content;">
+        <div class="hero-stat" style="background:transparent;border:none;padding:0;backdrop-filter:none;">
+          <strong data-total="vehicles" style="font-size:24px;">—</strong>
+          <small style="color:rgba(255,255,255,.85);font-size:12px;font-weight:600;">Veículos publicados</small>
         </div>
-        <div class="hero-stat">
-          <strong data-total="stores">—</strong>
-          <small>Lojas parceiras</small>
+        <div style="width:1px;height:32px;background:rgba(255,255,255,.2);margin:0 8px;align-self:center;"></div>
+        <div class="hero-stat" style="background:transparent;border:none;padding:0;backdrop-filter:none;">
+          <strong data-total="stores" style="font-size:24px;">—</strong>
+          <small style="color:rgba(255,255,255,.85);font-size:12px;font-weight:600;">Lojas parceiras</small>
         </div>
-        <div class="hero-stat">
-          <strong>18 anos</strong>
-          <small>De experiência no MT</small>
+        <div style="width:1px;height:32px;background:rgba(255,255,255,.2);margin:0 8px;align-self:center;"></div>
+        <div class="hero-stat" style="background:transparent;border:none;padding:0;backdrop-filter:none;">
+          <strong style="font-size:24px;">18 anos</strong>
+          <small style="color:rgba(255,255,255,.85);font-size:12px;font-weight:600;">Experiência no MT</small>
         </div>
       </div>
     </div>
@@ -104,7 +120,7 @@
               <option value="200000">Até R$ 200 mil</option>
             </select>
           </div>
-          <button type="submit" class="btn btn-primary">Buscar</button>
+          <button type="submit" class="btn btn-primary" style="justify-content:center;">Buscar</button>
         </div>
       </form>
     </div>
@@ -133,12 +149,12 @@
         <h2>Encontre por estilo</h2>
       </div>
       <div class="category-grid">
-        <a class="category-card" href="/portal/estoque.html?q=hatch"><span class="category-icon">🚗</span>Hatch</a>
-        <a class="category-card" href="/portal/estoque.html?q=sedan"><span class="category-icon">🚙</span>Sedan</a>
-        <a class="category-card" href="/portal/estoque.html?q=suv"><span class="category-icon">🚐</span>SUV</a>
-        <a class="category-card" href="/portal/estoque.html?q=picape"><span class="category-icon">🛻</span>Picape</a>
-        <a class="category-card" href="/portal/estoque.html?fuel=Flex"><span class="category-icon">⛽</span>Flex</a>
-        <a class="category-card" href="/portal/estoque.html?transmission=Automático"><span class="category-icon">⚙️</span>Automático</a>
+        <a class="category-card" href="/portal/estoque.html?q=hatch"><span class="category-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:auto;display:block;"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></span>Hatch</a>
+        <a class="category-card" href="/portal/estoque.html?q=sedan"><span class="category-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:auto;display:block;"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H5.3a2 2 0 0 0-1.6.8L1 11l-1 4.15a1 1 0 0 0 .84.99H4"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg></span>Sedan</a>
+        <a class="category-card" href="/portal/estoque.html?q=suv"><span class="category-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:auto;display:block;"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10M7 11h10M7 15h10"/></svg></span>SUV</a>
+        <a class="category-card" href="/portal/estoque.html?q=picape"><span class="category-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:auto;display:block;"><path d="M10 17h4V5H2v12h3m14 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H10"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg></span>Picape</a>
+        <a class="category-card" href="/portal/estoque.html?fuel=Flex"><span class="category-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:auto;display:block;"><path d="M3 22v-8"/><path d="M3 22v-8"/><path d="m3 14 5-5"/><path d="m8 9 5 5"/><path d="m13 14 5-5"/><path d="M18 9v13"/></svg></span>Flex</a>
+        <a class="category-card" href="/portal/estoque.html?transmission=Automático"><span class="category-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:auto;display:block;"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Automático</a>
       </div>
     </div>
   </section>
@@ -161,7 +177,7 @@
 
   <section style="background: #fff;">
     <div class="container">
-      <div class="section-head">
+      <div class="section-head" style="text-align:center;max-width:700px;margin:0 auto 48px;">
         <span class="section-eyebrow">Vender seu carro</span>
         <h2>Em 3 passos, sem burocracia</h2>
         <p>A gente avalia, faz a oferta e fecha aqui mesmo no shopping. Você só vem buscar o pagamento.</p>
@@ -169,18 +185,18 @@
       <div class="steps-grid">
         <div class="step-card">
           <div class="step-number">1</div>
-          <h3>Solicite avaliação</h3>
-          <p>Envie fotos e informações do seu carro pelo nosso WhatsApp ou formulário online.</p>
+          <h3 style="font-size:18px;">Solicite avaliação</h3>
+          <p style="font-size:14px;line-height:1.6;">Envie fotos e informações do seu carro pelo nosso WhatsApp ou formulário online.</p>
         </div>
         <div class="step-card">
           <div class="step-number">2</div>
-          <h3>Receba a proposta</h3>
-          <p>Em até 24h um consultor te envia a oferta de compra ou de troca dentro do estoque.</p>
+          <h3 style="font-size:18px;">Receba a proposta</h3>
+          <p style="font-size:14px;line-height:1.6;">Em até 24h um consultor te envia a oferta de compra ou de troca dentro do estoque.</p>
         </div>
         <div class="step-card">
           <div class="step-number">3</div>
-          <h3>Documentação na hora</h3>
-          <p>Aceito a proposta? Nossa equipe cuida da burocracia e o dinheiro cai no seu PIX.</p>
+          <h3 style="font-size:18px;">Documentação na hora</h3>
+          <p style="font-size:14px;line-height:1.6;">Aceitou a proposta? Nossa equipe cuida da burocracia e o dinheiro cai no seu PIX.</p>
         </div>
       </div>
       <div style="margin-top: 36px; text-align: center;">
@@ -191,59 +207,59 @@
 
   <section>
     <div class="container">
-      <div class="cta-band">
+      <div class="cta-band" style="background:var(--asf-blue-900);border-radius:16px;padding:48px 44px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;">
         <div>
-          <h2>Atendimento humano + IA, 24/7</h2>
-          <p>Nosso SDR digital responde no WhatsApp na hora e chama um consultor humano quando o cliente está pronto pra fechar.</p>
+          <h2 style="margin:0 0 10px;font-size:28px;font-weight:800;color:#fff;">Atendimento humano + IA, 24/7</h2>
+          <p style="margin:0;color:rgba(255,255,255,0.85);">Nosso SDR digital responde no WhatsApp na hora e chama um consultor humano quando o cliente está pronto pra fechar.</p>
         </div>
-        <a class="btn btn-primary" href="https://wa.me/556592156577" target="_blank" rel="noopener">Falar no WhatsApp</a>
+        <a class="btn btn-primary" href="https://wa.me/556592156577" target="_blank" rel="noopener" style="background:#25D366;color:#fff;">Falar no WhatsApp</a>
       </div>
     </div>
   </section>
 
-  <footer class="footer">
+  <footer class="footer" style="background:var(--asf-blue-900);color:rgba(255,255,255,0.7);padding:56px 0 0;margin-top:0;">
     <div class="container">
-      <div class="footer-grid">
+      <div class="footer-grid" style="display:grid;grid-template-columns:1.8fr 1fr 1.4fr;gap:40px;border-top:1px solid rgba(255,255,255,.08);padding-top:48px;margin-bottom:0;">
         <div class="footer-brand">
-          <a class="brand" href="/portal/" style="color:#fff;">
-            <span class="brand-logo">F</span>
-            <div class="brand-text"><strong style="color:#fff;">Auto Shopping Fórmula</strong><small>Várzea Grande · MT</small></div>
-          </a>
-          <p>Maior shopping de automóveis da Região Centro-Oeste. Desde 2007 conectando sonhos a carros com atendimento de excelência.</p>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <div style="width:40px;height:40px;background:var(--asf-red);color:#fff;border-radius:8px;display:grid;place-items:center;font-weight:900;font-size:18px;">F</div>
+            <div>
+              <strong style="color:#fff;font-size:15px;display:block;">Auto Shopping Fórmula</strong>
+              <small style="color:rgba(255,255,255,.5);font-size:11px;">Várzea Grande, MT</small>
+            </div>
+          </div>
+          <p style="font-size:13px;line-height:1.6;color:rgba(255,255,255,.55);max-width:260px;">O maior shopping de carros do Centro-Oeste. Mais de 22 lojas, 1.500+ veículos e o melhor atendimento da região.</p>
         </div>
         <div>
-          <h4>Navegar</h4>
-          <ul>
-            <li><a href="/portal/">Início</a></li>
-            <li><a href="/portal/estoque.html">Veículos</a></li>
-            <li><a href="/portal/lojas.html">Lojas parceiras</a></li>
-            <li><a href="/portal/vender.html">Vender meu carro</a></li>
-            <li><a href="/portal/sobre.html">Quem somos</a></li>
+          <h4 style="color:#fff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 18px;">Navegação</h4>
+          <ul style="list-style:none;padding:0;margin:0;">
+            <li style="margin-bottom:10px;"><a href="/portal/" style="color:rgba(255,255,255,.65);font-size:14px;text-decoration:none;">Início</a></li>
+            <li style="margin-bottom:10px;"><a href="/portal/estoque.html" style="color:rgba(255,255,255,.65);font-size:14px;text-decoration:none;">Veículos</a></li>
+            <li style="margin-bottom:10px;"><a href="/portal/lojas.html" style="color:rgba(255,255,255,.65);font-size:14px;text-decoration:none;">Lojas</a></li>
+            <li style="margin-bottom:10px;"><a href="/portal/vender.html" style="color:rgba(255,255,255,.65);font-size:14px;text-decoration:none;">Quero vender</a></li>
+            <li style="margin-bottom:10px;"><a href="/portal/sobre.html" style="color:rgba(255,255,255,.65);font-size:14px;text-decoration:none;">Quem somos</a></li>
           </ul>
         </div>
         <div>
-          <h4>Contato</h4>
-          <ul>
-            <li>📞 (65) 3029-7777</li>
-            <li>💬 <a href="https://wa.me/556592156577" target="_blank">WhatsApp</a></li>
-            <li>✉️ contato@autoshoppingformula.com.br</li>
-            <li>🕐 Seg–Sex 08h–18h</li>
-            <li>🕐 Sáb 08h–13h</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Endereço</h4>
-          <ul>
-            <li>Avenida da FEB</li>
-            <li>Av. dos Cerrados, 2222</li>
-            <li>Jardim Cerrados</li>
-            <li>Várzea Grande / MT</li>
-          </ul>
+          <h4 style="color:#fff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 18px;">Contato</h4>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:rgba(255,255,255,.65);line-height:1.5;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              Av. da FEB, Cerrados 2222<br>Várzea Grande — MT
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:rgba(255,255,255,.65);line-height:1.5;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.08 6.08l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              (65) 3029-7777
+            </div>
+            <a href="https://wa.me/556592156577" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;font-size:13px;font-weight:700;padding:10px 16px;border-radius:12px;text-decoration:none;margin-top:4px;width:fit-content;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Falar no WhatsApp
+            </a>
+          </div>
         </div>
       </div>
-      <div class="footer-bottom">
-        <span>© 2026 Auto Shopping Fórmula — Todos os direitos reservados.</span>
-        <span>Plataforma: Formula OS</span>
+      <div class="footer-bottom" style="padding:20px 24px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(255,255,255,.4);text-align:center;display:block;">
+        © 2026 Auto Shopping Fórmula — Todos os direitos reservados.
       </div>
     </div>
   </footer>

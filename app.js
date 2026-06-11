@@ -571,33 +571,59 @@ function renderTeam() {
   const table = document.getElementById("teamTable");
   if (!table) return;
 
+  // Atualiza os mini-cards do topo
+  const totalLeadsEl = document.getElementById("teamTotalLeads");
+  const activeLeadsEl = document.getElementById("teamActiveLeads");
+  const closedLeadsEl = document.getElementById("teamClosedLeads");
+  
+  if (totalLeadsEl && activeLeadsEl && closedLeadsEl) {
+    let sumTotal = 0, sumActive = 0, sumClosed = 0;
+    teamData.forEach(v => {
+      sumTotal += v.total_leads || 0;
+      sumActive += v.ativos || 0;
+      sumClosed += v.fechados || 0;
+    });
+    totalLeadsEl.textContent = sumTotal;
+    activeLeadsEl.textContent = sumActive;
+    closedLeadsEl.textContent = sumClosed;
+  }
+
   if (teamData.length === 0) {
     table.innerHTML = '<article class="panel empty-panel"><h3>Nenhuma equipe encontrada</h3><p>Clique em "Adicionar Vendedor" para cadastrar o primeiro membro.</p></article>';
     return;
   }
 
   table.innerHTML = `
-    <div class="store-row store-head" style="grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr !important">
+    <div class="store-row store-head" style="grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr !important">
       <span>Vendedor</span>
       <span>E-mail</span>
-      <span>Leads Totais</span>
+      <span>Ativos</span>
       <span>Fechados</span>
+      <span>Conversão</span>
       <span>Ações</span>
     </div>
     ${teamData
       .map(
-        (v) => `
-      <div class="store-row" style="grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr !important">
+        (v) => {
+          const total = v.total_leads || 0;
+          const convRate = total > 0 ? Math.round((v.fechados / total) * 100) : 0;
+          return `
+      <div class="store-row" style="grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr !important">
         <strong>${v.name}</strong>
         <span style="color:var(--text-soft); font-size:13px">${v.email}</span>
-        <span>${v.total_leads}</span>
-        <span style="color:#16a34a; font-weight:700">${v.fechados}</span>
+        <span style="color:#b45309; font-weight:600">${v.ativos || 0}</span>
+        <span style="color:#16a34a; font-weight:700">${v.fechados || 0}</span>
+        <div style="display:flex; flex-direction:column; gap:4px; justify-content:center; padding-right: 16px;">
+          <div style="font-size:12px; font-weight:600; color:var(--text);">${convRate}%</div>
+          <div style="height:6px; width:100%; background:#e5e7eb; border-radius:3px; overflow:hidden;">
+            <div style="height:100%; width:${convRate}%; background:var(--accent); border-radius:3px;"></div>
+          </div>
+        </div>
         <span class="row-actions">
           <button class="mini-button danger" data-seller-action="delete" data-seller-id="${v.id}" type="button">Remover</button>
         </span>
       </div>
-    `
-      )
+    `})
       .join("")}
   `;
 

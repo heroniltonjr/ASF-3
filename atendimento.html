@@ -912,7 +912,7 @@
         `<span class="tag-pill" style="background:${t.color}">${t.name}</span>`
       ).join('');
       const ownerBadge = c.owner_name
-        ? `<span style="font-size:11px;color:var(--text-muted)">👤 ${c.owner_name.split(' ')[0]}</span>`
+        ? `<span class="status-badge" style="background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;">👤 ${c.owner_name.split(' ')[0]}</span>`
         : '';
 
       return `

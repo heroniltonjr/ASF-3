@@ -19,13 +19,6 @@ _ALL = require_roles("master", "shopping", "lojista", "gestor", "vendedor")
 
 
 def _scope(user: dict) -> tuple[str, list]:
-    if user["role"] == "vendedor":
-        # Vendedor vê conversas onde é o owner OU onde o lead está atribuído a ele.
-        return (
-            "WHERE c.store_id = ? AND (c.owner_user_id = ? OR "
-            "EXISTS (SELECT 1 FROM leads l WHERE l.id = c.lead_id AND l.assigned_user_id = ?))",
-            [user["store_id"], user["id"], user["id"]],
-        )
     if user["role"] in STORE_SCOPED_ROLES:
         return "WHERE c.store_id = ?", [user["store_id"]]
     return "", []

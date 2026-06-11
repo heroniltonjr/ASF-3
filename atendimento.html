@@ -786,9 +786,8 @@
     document.getElementById('user-name').textContent = currentUser.name.split(' ')[0];
     document.getElementById('user-avatar').textContent = initials(currentUser.name);
 
-    // Gestor vê todas; vendedor só "Minhas"
-    const canAll = ['gestor','shopping','master'].includes(currentUser.role);
-    document.getElementById('tab-all').style.display = canAll ? '' : 'none';
+    // Todos da loja podem ver todas as conversas para poder assumir
+    document.getElementById('tab-all').style.display = '';
 
     await loadTags();
     await loadConversations();

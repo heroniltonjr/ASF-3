@@ -163,15 +163,18 @@ button { font-family: inherit; cursor: pointer; }
 
 .nav-cta {
   background: var(--asf-orange);
-  color: #fff;
+  color: #fff !important;
   padding: 10px 20px;
   border-radius: 999px;
   font-weight: 700;
   font-size: 14px;
   border: none;
   transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-block;
 }
-.nav-cta:hover { background: var(--asf-orange-dark); color: #fff; transform: translateY(-1px); }
+.nav-cta:hover { background: var(--asf-orange-dark); color: #fff !important; transform: translateY(-1px); }
 
 .mobile-toggle {
   display: none;

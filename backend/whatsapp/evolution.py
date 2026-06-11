@@ -112,8 +112,7 @@ class EvolutionProvider:
             if not isinstance(item, dict):
                 continue
             key = item.get("key") or {}
-            if key.get("fromMe"):
-                continue  # ignora mensagens enviadas por nós mesmos
+            # A checagem do fromMe ocorrerá depois que o texto for extraído
             msg_obj = item.get("message") or {}
             text = (
                 msg_obj.get("conversation")
@@ -122,6 +121,10 @@ class EvolutionProvider:
             )
             if not text:
                 continue
+                
+            if key.get("fromMe"):
+                # Marca no raw que foi um envio do próprio atendente
+                item["_is_human_intervention"] = True
             remote_jid: str = key.get("remoteJid") or ""
             from_number = remote_jid.split("@", 1)[0] if remote_jid else ""
             out.append(

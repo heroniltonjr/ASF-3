@@ -131,7 +131,16 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     # 1) abre/cria conversa, persiste mensagem inbound e loga evento + billing.
     with db.tx() as conn:
         conv = _find_or_create_conversation(conn, store_id, inbound.from_number)
-        inbound_msg_id = _persist_message(conn, conv["id"], "lead", inbound.body)
+        is_human = inbound.raw.get("_is_human_intervention", False) if isinstance(inbound.raw, dict) else False
+        sender = "human" if is_human else "lead"
+        inbound_msg_id = _persist_message(conn, conv["id"], sender, inbound.body)
+        
+        # Se o lojista interveio via celular, marca a conversa como Humana automaticamente
+        if is_human:
+            conn.execute("UPDATE conversations SET status = 'Humano' WHERE id = ?", (conv["id"],))
+            if conv.get("lead_id"):
+                conn.execute("UPDATE leads SET stage = 'Em atendimento' WHERE id = ?", (conv["lead_id"],))
+
         _log_event(
             conn,
             provider_id=provider_db_id, store_id=store_id,
@@ -165,8 +174,9 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     })
 
     # 2) chama o SDR fora da transação (latência de rede)
-    if conv.get("status") in ("Humano", "Encerrado"):
-        logger.info("Conversa %s no status %s. SDR ignorado.", conv["id"], conv.get("status"))
+    # Se o remetente for "human" (interceptação via WhatsApp Web), não chama o SDR
+    if is_human or conv.get("status") in ("Humano", "Encerrado"):
+        logger.info("Conversa %s no status %s ou intervenção humana. SDR ignorado.", conv["id"], conv.get("status"))
         return
 
     # Buscar veículos da loja para passar ao SDR
@@ -194,9 +204,15 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     reply, usage = result
 
     qualified = False
+    lower_reply = reply.lower()
+    
     if "[TRANSFERIR]" in reply:
         qualified = True
         reply = reply.replace("[TRANSFERIR]", "").strip()
+    elif "vou chamar um" in lower_reply and ("consultor" in lower_reply or "atendente" in lower_reply or "especialista" in lower_reply):
+        qualified = True
+    elif "transferir para" in lower_reply:
+        qualified = True
 
     if qualified:
         with db.tx() as conn:

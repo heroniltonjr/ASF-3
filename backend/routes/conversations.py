@@ -330,19 +330,26 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
 
 @router.post("/conversations/{cid}/claim")
 def claim_conversation(cid: int, user: dict = Depends(_ALL)):
-    """Vendedor/gestor assume a conversa (owner_user_id = eu, status → Humano)."""
+    """Vendedor/gestor assume a conversa (owner_user_id = eu, status → Humano e atribui o lead)."""
     with db.tx() as conn:
         conv = conn.execute(
-            "SELECT store_id, owner_user_id FROM conversations WHERE id = ?", (cid,)
+            "SELECT store_id, owner_user_id, lead_id FROM conversations WHERE id = ?", (cid,)
         ).fetchone()
         if not conv:
             raise HTTPException(404, "Conversa não encontrada")
         if user["role"] in STORE_SCOPED_ROLES and conv["store_id"] != user.get("store_id"):
             raise HTTPException(403, "Conversa de outra loja")
+        
         conn.execute(
             "UPDATE conversations SET owner_user_id = ?, status = 'Humano', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (user["id"], cid),
         )
+        if conv["lead_id"]:
+            conn.execute(
+                "UPDATE leads SET assigned_user_id = ?, stage = 'Em atendimento' WHERE id = ?",
+                (user["id"], conv["lead_id"])
+            )
+            
         owner_row = conn.execute(
             "SELECT id, name, role FROM users WHERE id = ?", (user["id"],)
         ).fetchone()

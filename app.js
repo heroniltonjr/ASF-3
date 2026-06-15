@@ -124,7 +124,11 @@ async function api(path, options = {}) {
 
 // ---------- Normalização (aliases legados para reuso de renderers) ----------
 function normalizeLead(lead) {
-  return { ...lead, car: lead.car_interest, store: lead.store_name };
+  let displayStage = lead.stage;
+  if (displayStage === "Em atendimento") displayStage = "Humano";
+  if (displayStage === "Em negociação") displayStage = "Visita";
+  if (displayStage === "Perdido" || displayStage === "Vácuo") displayStage = "Fechado";
+  return { ...lead, car: lead.car_interest, store: lead.store_name, stage: displayStage, original_stage: lead.stage };
 }
 function normalizeVehicle(v) {
   return {

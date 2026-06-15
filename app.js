@@ -185,17 +185,19 @@ const sessionButton = $("#sessionButton");
 
 // ---------- Carga / refresh ----------
 async function fetchAll() {
-  const [s, v, l, c, f] = await Promise.all([
+  const [s, v, l, c, f, t] = await Promise.all([
     api("/api/stores"),
     api("/api/vehicles"),
     api("/api/leads"),
     api("/api/conversations"),
     api("/api/dashboard/funnel"),
+    api("/api/dashboard/team").catch(() => ({ team: [] })),
   ]);
   stores = (s.stores || []).map(normalizeStore);
   vehicles = (v.vehicles || []).map(normalizeVehicle);
   leads = (l.leads || []).map(normalizeLead);
   funnelData = f || { metrics: {}, total_leads: 0 };
+  teamData = t.team || [];
   const baseConvs = c.conversations || [];
 
   // hidrata mensagens em paralelo (n pequeno na demo)

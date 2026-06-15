@@ -911,9 +911,12 @@
       const tags = (c._tags||[]).slice(0,2).map(t =>
         `<span class="tag-pill" style="background:${t.color}">${t.name}</span>`
       ).join('');
-      const ownerBadge = c.owner_name
-        ? `<span class="status-badge" style="background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;">👤 ${c.owner_name.split(' ')[0]}</span>`
-        : '';
+      let ownerBadge = '';
+      if (c.status === 'Humano' && !c.owner_name) {
+        ownerBadge = `<span class="status-badge" style="background:#fff7ed; color:#c2410c; border: 1px solid #fed7aa; animation: pulse 2s infinite;">🔔 Fila de Atendimento</span>`;
+      } else if (c.owner_name) {
+        ownerBadge = `<span class="status-badge" style="background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;">👤 ${c.owner_name.split(' ')[0]}</span>`;
+      }
 
       return `
         <div class="conv-item ${unread > 0 ? 'unread' : ''} ${activeConvId === c.id ? 'active-conv' : ''}"
@@ -1513,6 +1516,44 @@
   function connectSSE() {
     if (sseSource) sseSource.close();
     sseSource = new EventSource('/api/events', {withCredentials: true});
+
+    sseSource.addEventListener('conversation.updated', async e => {
+      const evt = JSON.parse(e.data);
+      const conv = conversations.find(c => c.id === evt.conversation_id);
+      if (conv) {
+        conv.status = evt.status;
+        conv.owner_user_id = evt.owner_user_id;
+        conv.owner_name = evt.owner_name;
+        renderConvList();
+        if (activeConvId === evt.conversation_id) {
+          // recarrega o header da conversa ativa
+          document.getElementById('ch-name').textContent = conv.lead_name || 'Lead';
+          const ownerTxt = conv.owner_name ? ` · 👤 ${conv.owner_name.split(' ')[0]}` : '';
+          document.getElementById('ch-sub').textContent =
+            (conv.store_name ? conv.store_name + ' · ' : '') + (conv.status || '') + ownerTxt;
+          
+          // refaz botões
+          const claimBtn = document.getElementById('claim-btn');
+          const isMine = conv.owner_user_id === currentUser.id;
+          if (isMine) {
+            claimBtn.style.display = '';
+            claimBtn.innerHTML = '🤖 Devolver para IA';
+            claimBtn.classList.add('claimed');
+            claimBtn.dataset.mode = 'release';
+          } else if (!conv.owner_user_id) {
+            claimBtn.style.display = '';
+            claimBtn.innerHTML = '🙋 Assumir';
+            claimBtn.classList.remove('claimed');
+            claimBtn.dataset.mode = 'claim';
+          } else {
+            claimBtn.style.display = '';
+            claimBtn.innerHTML = '🙋 Assumir';
+            claimBtn.classList.remove('claimed');
+            claimBtn.dataset.mode = 'claim';
+          }
+        }
+      }
+    });
 
     sseSource.addEventListener('message.created', async e => {
       const evt = JSON.parse(e.data);

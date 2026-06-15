@@ -1050,6 +1050,27 @@ let eventSource = null;
 function connectEventStream() {
   if (eventSource) { try { eventSource.close(); } catch (_) {} }
   eventSource = new EventSource("/api/events");
+
+  eventSource.addEventListener("conversation.updated", async (e) => {
+    try {
+      const evt = JSON.parse(e.data);
+      await api("/api/conversations").then((r) => {
+        conversations = r.conversations || [];
+        renderConversations();
+        if (currentConversationId === evt.conversation_id) renderChat();
+      });
+    } catch (err) {}
+  });
+
+  eventSource.addEventListener("lead.updated", async (e) => {
+    try {
+      await api("/api/leads").then((r) => {
+        leads = (r.leads || []).map(normalizeLead);
+        renderKanban();
+      });
+    } catch (err) {}
+  });
+
   eventSource.addEventListener("message.created", async (e) => {
     try {
       const evt = JSON.parse(e.data);

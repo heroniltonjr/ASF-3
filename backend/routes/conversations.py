@@ -329,7 +329,7 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
 
 
 @router.post("/conversations/{cid}/claim")
-def claim_conversation(cid: int, user: dict = Depends(_ALL)):
+async def claim_conversation(cid: int, user: dict = Depends(_ALL)):
     """Vendedor/gestor assume a conversa (owner_user_id = eu, status → Humano e atribui o lead)."""
     with db.tx() as conn:
         conv = conn.execute(
@@ -353,11 +353,27 @@ def claim_conversation(cid: int, user: dict = Depends(_ALL)):
         owner_row = conn.execute(
             "SELECT id, name, role FROM users WHERE id = ?", (user["id"],)
         ).fetchone()
+        
+    await bus.publish({
+        "type": "conversation.updated",
+        "store_id": conv["store_id"],
+        "conversation_id": cid,
+        "status": "Humano",
+        "owner_user_id": user["id"],
+        "owner_name": owner_row["name"]
+    })
+    if conv["lead_id"]:
+        await bus.publish({
+            "type": "lead.updated",
+            "store_id": conv["store_id"],
+            "lead_id": conv["lead_id"]
+        })
+        
     return {"ok": True, "owner": dict(owner_row)}
 
 
 @router.post("/conversations/{cid}/release")
-def release_conversation(cid: int, user: dict = Depends(_ALL)):
+async def release_conversation(cid: int, user: dict = Depends(_ALL)):
     """Devolve a conversa para o SDR (remove owner, status → SDR ativo)."""
     with db.tx() as conn:
         conv = conn.execute(
@@ -371,4 +387,14 @@ def release_conversation(cid: int, user: dict = Depends(_ALL)):
             "UPDATE conversations SET owner_user_id = NULL, status = 'SDR ativo', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (cid,),
         )
+        
+    await bus.publish({
+        "type": "conversation.updated",
+        "store_id": conv["store_id"],
+        "conversation_id": cid,
+        "status": "SDR ativo",
+        "owner_user_id": None,
+        "owner_name": None
+    })
+    
     return {"ok": True}

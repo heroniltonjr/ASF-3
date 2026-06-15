@@ -171,6 +171,7 @@ const pipelineBars = $("#pipelineBars");
 const roleCommandGrid = $("#roleCommandGrid");
 const kanban = $("#kanban");
 const storeFilter = $("#storeFilter");
+const sellerFilter = $("#sellerFilter");
 const stageFilter = $("#stageFilter");
 const conversationList = $("#conversationList");
 const messagesEl = $("#messages");
@@ -391,15 +392,38 @@ function renderFilters() {
   storeFilter.innerHTML =
     `<option value="todos">${allLabel}</option>` +
     visible.map((s) => `<option value="${s.name}">${s.name}</option>`).join("");
+
+  if (sellerFilter) {
+    if (role === "vendedor") {
+      sellerFilter.hidden = true;
+    } else {
+      sellerFilter.hidden = false;
+      const sellers = teamData || [];
+      sellerFilter.innerHTML =
+        `<option value="todos">Todos os vendedores</option>` +
+        `<option value="unassigned">Sem vendedor atribuído</option>` +
+        sellers.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+    }
+  }
 }
 
 function renderKanban() {
   const selectedStore = storeFilter.value;
   const selectedStage = stageFilter.value;
+  const selectedSeller = sellerFilter ? sellerFilter.value : "todos";
+  
   const filtered = leads.filter((lead) => {
     const storeMatch = selectedStore === "todos" || lead.store === selectedStore;
     const stageMatch = selectedStage === "todos" || lead.stage === selectedStage;
-    return storeMatch && stageMatch;
+    let sellerMatch = true;
+    if (selectedSeller !== "todos") {
+      if (selectedSeller === "unassigned") {
+        sellerMatch = !lead.assigned_user_id;
+      } else {
+        sellerMatch = String(lead.assigned_user_id) === selectedSeller;
+      }
+    }
+    return storeMatch && stageMatch && sellerMatch;
   });
 
   kanban.innerHTML = STAGES.map((stage) => {
@@ -427,6 +451,7 @@ function renderLeadCard(lead) {
         <span class="pill">Score ${lead.score}</span>
         <span class="pill">${lead.budget || "—"}</span>
         <span class="pill">${lead.source || "—"}</span>
+        ${lead.assigned_user_id ? `<span class="pill" style="background:#fef2f2; color:#b91c1c;">👤 ${(teamData.find(t => t.id === lead.assigned_user_id)?.name || "Vendedor").split(" ")[0]}</span>` : ""}
       </div>
       <div class="card-actions">
         ${canAdvance ? `<button class="mini-button" data-lead-action="advance" data-lead-id="${lead.id}" type="button">Mover para ${nextStage}</button>` : ""}
@@ -1120,6 +1145,7 @@ $("#loginForm").addEventListener("submit", async (event) => {
 sessionButton.addEventListener("click", () => logout());
 
 storeFilter.addEventListener("change", renderKanban);
+if (sellerFilter) sellerFilter.addEventListener("change", renderKanban);
 stageFilter.addEventListener("change", renderKanban);
 
 $("#replyForm").addEventListener("submit", async (event) => {

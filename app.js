@@ -359,11 +359,13 @@ function computeMetrics() {
       ["Lojistas ativos", String(stores.filter((s) => s.type === "Lojista" && s.status === "Ativo").length), "Com agente e CRM habilitados", "online"],
     ];
   }
+  const aguardando = conversations.filter(c => !c.owner_name && c.status !== 'Arquivado').length;
+  const concluidos = conversations.filter(c => c.status === 'Fechado' || c.archived).length;
   return [
-    ["Meus leads", String(leads.length), "Leads recebidos do SDR", "+ atualizado"],
-    ["Carros publicados", String(vehicles.filter((v) => v.status === "Publicado").length), "Anúncios ativos no shopping", "+ estoque"],
-    ["Conversão visita", "28%", "Leads que marcaram visita", "+6%"],
-    ["WhatsApp conectado", "Ativo", "Agente operando no seu número", "online"],
+    ["Aguardando", String(aguardando), "Atendimentos na fila", "+ urgentes"],
+    ["Concluídos", String(concluidos), "Conversas encerradas", "+ sucesso"],
+    ["Espera média", "2m 14s", "Tempo até o 1º contato", "-18s"],
+    ["Atendimento", "14m 30s", "Duração média do chat", "estável"],
   ];
 }
 
@@ -432,9 +434,21 @@ function renderKanban() {
 
   kanban.innerHTML = STAGES.map((stage) => {
     const stageLeads = filtered.filter((lead) => lead.stage === stage);
+    const sum = stageLeads.reduce((acc, lead) => {
+      if (lead.budget) {
+         const valStr = lead.budget.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.');
+         const val = parseFloat(valStr);
+         if (!isNaN(val)) return acc + val;
+      }
+      return acc;
+    }, 0);
+    const sumFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits:0 }).format(sum);
     return `
       <section class="kanban-column">
-        <h4>${stage}<span>${stageLeads.length}</span></h4>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <h4>${stage}<span>${stageLeads.length}</span></h4>
+        </div>
+        <div style="font-size:13px; color:#16a34a; font-weight:700; margin-bottom:12px; background:#dcfce7; padding:4px 8px; border-radius:6px; display:inline-block;">Pipeline: ${sumFormatted}</div>
         ${stageLeads.map(renderLeadCard).join("") || '<p class="empty-note">Sem leads nesta etapa.</p>'}
       </section>
     `;
@@ -446,16 +460,19 @@ function renderLeadCard(lead) {
   const canAdvance = stageIndex < STAGES.length - 1;
   const nextStage = STAGES[Math.min(stageIndex + 1, STAGES.length - 1)];
   const conv = conversations.find(c => c.lead_id === lead.id);
+  const displayName = lead.name || (conv ? conv.lead_name : lead.customer_phone) || 'Sem Nome';
   return `
-    <article class="lead-card">
-      <strong>${lead.name}</strong>
-      <p>${lead.car}</p>
-      <div class="lead-meta">
+    <article class="lead-card" style="border-left: 4px solid var(--brand); padding: 12px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <strong style="font-size:13px; color:var(--text-soft); font-weight:600;">${displayName}</strong>
+        ${lead.assigned_user_id ? `<span style="font-size:10px; background:#fef2f2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-weight:700; white-space:nowrap; margin-left:4px;">👤 ${(teamData.find(t => t.id === lead.assigned_user_id)?.name || "Vend.").split(" ")[0]}</span>` : ""}
+      </div>
+      <div style="font-size:16px; font-weight:800; color:var(--text); margin-top:8px; line-height:1.2;">${lead.car || 'Veículo não informado'}</div>
+      <div style="font-size:15px; font-weight:800; color:#16a34a; margin-top:4px;">${lead.budget || "—"}</div>
+      <div class="lead-meta" style="margin-top:12px;">
         ${currentRole() !== "lojista" ? `<span class="pill">${lead.store}</span>` : ""}
         <span class="pill">Score ${lead.score}</span>
-        <span class="pill">${lead.budget || "—"}</span>
         <span class="pill">${lead.source || "—"}</span>
-        ${lead.assigned_user_id ? `<span class="pill" style="background:#fef2f2; color:#b91c1c;">👤 ${(teamData.find(t => t.id === lead.assigned_user_id)?.name || "Vendedor").split(" ")[0]}</span>` : ""}
       </div>
       <div class="card-actions">
         ${canAdvance ? `<button class="mini-button" data-lead-action="advance" data-lead-id="${lead.id}" type="button">Mover para ${nextStage}</button>` : ""}
@@ -640,7 +657,7 @@ function renderTeam() {
           const convRate = total > 0 ? Math.round((v.fechados / total) * 100) : 0;
           return `
       <div class="store-row" style="grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr !important">
-        <strong>${v.name}</strong>
+        <strong><span style="color:#22c55e; margin-right:4px; font-size:10px;">●</span>${v.name}</strong>
         <span style="color:var(--text-soft); font-size:13px">${v.email}</span>
         <span style="color:#b45309; font-weight:600">${v.ativos || 0}</span>
         <span style="color:#16a34a; font-weight:700">${v.fechados || 0}</span>

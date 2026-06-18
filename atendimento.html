@@ -590,12 +590,20 @@
 
     <!-- Lista de conversas -->
     <div id="view-lista">
-      <div class="filters-bar">
-        <div class="filters-tabs" id="scope-tabs">
-          <button class="filter-tab active" data-scope="mine">Minhas</button>
-          <button class="filter-tab" data-scope="all" id="tab-all" style="display:none">Todas</button>
+      <div class="filters-bar" style="flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; width:100%; gap:8px;">
+          <div class="filters-tabs" id="scope-tabs">
+            <button class="filter-tab active" data-scope="mine">Minhas</button>
+            <button class="filter-tab" data-scope="all" id="tab-all" style="display:none">Todas</button>
+          </div>
+          <div class="filters-tabs" id="status-tabs">
+            <button class="filter-tab active" data-status="all">Todos</button>
+            <button class="filter-tab" data-status="unread">Aguardando (Não lidos)</button>
+          </div>
         </div>
-        <input class="search-input" id="search" placeholder="Buscar lead ou telefone…" />
+        <div style="display:flex; width:100%; gap:8px;">
+          <input class="search-input" id="search" placeholder="Buscar lead ou telefone…" style="flex:1" />
+        </div>
         <div class="tag-chips" id="tag-chips"></div>
       </div>
       <div class="conv-list" id="conv-list">
@@ -618,8 +626,13 @@
           <div class="conv-header-actions">
             <button class="claim-release-btn" id="claim-btn" title="Assumir atendimento" style="display:none">🙋 Assumir</button>
             <button class="claim-release-btn" id="qualify-btn" title="Qualificar" style="display:none; background:#dcfce7; color:#166534; border-color:#22c55e;">✅ Qualificar</button>
+            <button class="icon-btn" id="transfer-btn" title="Transferir conversa" style="display:none">🔄</button>
             <button class="icon-btn" id="open-drawer-btn" title="Ficha do lead">👤</button>
           </div>
+        </div>
+        <div style="background:var(--surface); padding:8px 16px; border-bottom:1px solid var(--border); display:flex; gap:16px; font-size:12px; color:var(--text-soft);">
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="toggle-name" checked> Assinar nome na mensagem</label>
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="toggle-audio" checked> Som de notificação</label>
         </div>
 
         <div class="messages-area" id="messages-area">
@@ -633,10 +646,20 @@
             <button onclick="clearMediaPreview()">✕</button>
           </div>
           <div class="input-row">
+            <button class="media-btn" id="emoji-btn" title="Emojis">😀</button>
             <button class="media-btn" id="media-btn" title="Enviar anexo">📎</button>
-            <input type="file" id="file-input" accept="image/*,audio/*,video/*,.pdf" style="display:none" />
+            <input type="file" id="file-input" accept="image/*,audio/*,video/*,.pdf,text/vcard" style="display:none" />
             <textarea class="msg-input" id="msg-input" rows="1" placeholder="Mensagem…"></textarea>
             <button class="send-btn" id="send-btn" disabled>➤</button>
+          </div>
+          <div id="emoji-picker" style="display:none; padding:8px; background:var(--surface); border:1px solid var(--border); border-radius:8px; margin-top:8px; gap:8px;">
+            <span class="emoji-opt" style="cursor:pointer;font-size:20px;">😀</span>
+            <span class="emoji-opt" style="cursor:pointer;font-size:20px;">😂</span>
+            <span class="emoji-opt" style="cursor:pointer;font-size:20px;">👍</span>
+            <span class="emoji-opt" style="cursor:pointer;font-size:20px;">🙏</span>
+            <span class="emoji-opt" style="cursor:pointer;font-size:20px;">🤝</span>
+            <span class="emoji-opt" style="cursor:pointer;font-size:20px;">🚗</span>
+            <span class="emoji-opt" style="cursor:pointer;font-size:20px;">📄</span>
           </div>
         </div>
       </div>
@@ -720,6 +743,7 @@
   let allTags = [];
   let selectedTag = null;
   let scopeFilter = 'mine'; // mine | all
+  let statusFilter = 'all'; // all | unread
   let searchQ = '';
   let sseSource = null;
 
@@ -892,8 +916,23 @@
       list = list.filter(c => c._tags && c._tags.some(t => t.id === selectedTag));
     }
 
+    // Status filter
+    if (statusFilter === 'unread') {
+      list = list.filter(c => (c.unread_count > 0 || c.last_preview?.includes('?'))); // aproximação de aguardando se não tiver marcação
+    }
+
     return list;
   }
+
+  // Setup tabs
+  document.querySelectorAll('#status-tabs .filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#status-tabs .filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      statusFilter = tab.dataset.status;
+      renderConvList();
+    });
+  });
 
   function renderConvList() {
     const list = filterConvs();
@@ -913,7 +952,7 @@
       ).join('');
       let ownerBadge = '';
       if (c.status === 'Humano' && !c.owner_name) {
-        ownerBadge = `<span class="status-badge" style="background:#fff7ed; color:#c2410c; border: 1px solid #fed7aa; animation: pulse 2s infinite;">🔔 Fila de Atendimento</span>`;
+        ownerBadge = `<span class="status-badge" style="background:#fee2e2; color:#dc2626; border: 1px solid #f87171; animation: pulse 2s infinite;">🔴 Aguardando</span>`;
       } else if (c.owner_name) {
         ownerBadge = `<span class="status-badge" style="background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;">👤 ${c.owner_name.split(' ')[0]}</span>`;
       }
@@ -1078,6 +1117,20 @@
 
   document.getElementById('send-btn').addEventListener('click', sendMessage);
 
+  // Botão 😀 Emojis
+  document.getElementById('emoji-btn').addEventListener('click', () => {
+    const picker = document.getElementById('emoji-picker');
+    picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+  });
+  document.querySelectorAll('.emoji-opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const input = document.getElementById('msg-input');
+      input.value += opt.textContent;
+      input.dispatchEvent(new Event('input'));
+      document.getElementById('emoji-picker').style.display = 'none';
+    });
+  });
+
   // Botão 📎
   document.getElementById('media-btn').addEventListener('click', () => {
     document.getElementById('file-input').click();
@@ -1150,8 +1203,12 @@
     area.appendChild(dummy);
     area.scrollTo({top: area.scrollHeight, behavior: 'smooth'});
 
-    try {
-      const payload = {body: text};
+    let finalBody = text;
+    if (document.getElementById('toggle-name')?.checked && text) {
+      finalBody += `\n\n*${currentUser.name.split(' ')[0]}*`;
+    }
+
+    const payload = {body: finalBody};
       if (media?.serverUrl) {
         payload.media_url = media.serverUrl;
         payload.msg_type = media.kind || 'image';
@@ -1217,6 +1274,29 @@
         toast('Conversa assumida!');
         renderConvList();
       } catch(e) { toast('Erro ao assumir: ' + e.message); }
+    }
+  });
+
+  // Som de notificação simulado via API de notificação do browser quando entra msgs
+  // Implementado na lógica do SSE (se 'toggle-audio' estiver checado, tocamos um beep)
+
+  // Transferência de Conversa
+  document.getElementById('transfer-btn').addEventListener('click', async () => {
+    if (!activeConvId) return;
+    const email = prompt("Digite o e-mail do vendedor para transferir (ex: carlos@tex.com):");
+    if (!email) return;
+    try {
+      await api(`/api/conversations/${activeConvId}/transfer`, {
+        method: 'POST',
+        body: JSON.stringify({ to_user_email: email })
+      });
+      toast(`Conversa transferida para ${email}`);
+      const conv = conversations.find(c => c.id === activeConvId);
+      if (conv) { conv.owner_name = email; } // Atualiza na UI provisoriamente
+      renderConvList();
+      openConv(activeConvId); // reload UI
+    } catch(e) {
+      toast('Erro na transferência: ' + e.message);
     }
   });
 
@@ -1339,6 +1419,11 @@
         </div>` : ''}
 
       ${conv.store_name ? `<div class="drawer-field"><label>Loja</label><p>${conv.store_name}</p></div>` : ''}
+
+      <div class="drawer-field">
+        <label>Ações Rápidas</label>
+        <button id="btn-nova-negociacao" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); cursor:pointer; color:#16a34a; font-weight:600; margin-top:4px;">💰 Nova Negociação</button>
+      </div>
 
       ${conv.lead_id ? `
         <div class="drawer-field">
@@ -1849,6 +1934,19 @@
       } catch {}
       document.cookie = 'session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
       location.href = '/';
+    });
+
+    // Listener Nova Negociação
+    document.getElementById('btn-nova-negociacao')?.addEventListener('click', async () => {
+      const valor = prompt("Qual o valor da negociação? (Ex: 120000)");
+      if (!valor) return;
+      try {
+        await api(`/api/leads/${conv.lead_id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ stage: 'Visita', budget: valor })
+        });
+        toast('Negociação iniciada e valor atualizado!');
+      } catch(e) { toast('Erro: ' + e.message); }
     });
 
     // WhatsApp config

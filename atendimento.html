@@ -665,29 +665,7 @@
       </div>
     </div>
 
-    <!-- View: Leads -->
-    <div id="view-leads" class="mobile-view">
-      <div class="mobile-view-header">
-        <h2>🎯 Leads</h2>
-        <p>Gerencie seus leads e oportunidades</p>
-        <input class="mobile-search" id="leads-search" placeholder="Buscar lead por nome ou telefone…" />
-      </div>
-      <div class="mobile-view-body" id="leads-list">
-        <div class="empty-state"><span class="loading-dots">Carregando leads…</span></div>
-      </div>
-    </div>
 
-    <!-- View: Veículos -->
-    <div id="view-vehicles" class="mobile-view">
-      <div class="mobile-view-header">
-        <h2>🚗 Veículos</h2>
-        <p>Estoque de veículos disponíveis</p>
-        <input class="mobile-search" id="vehicles-search" placeholder="Buscar veículo…" />
-      </div>
-      <div class="mobile-view-body" id="vehicles-list">
-        <div class="empty-state"><span class="loading-dots">Carregando veículos…</span></div>
-      </div>
-    </div>
 
     <!-- View: Sistema -->
     <div id="view-system" class="mobile-view">
@@ -707,12 +685,7 @@
     <button class="nav-tab active" data-nav="conversas" type="button">
       <span class="nav-icon">💬</span>Conversas
     </button>
-    <button class="nav-tab" data-nav="leads" type="button">
-      <span class="nav-icon">🎯</span>Leads
-    </button>
-    <button class="nav-tab" data-nav="vehicles" type="button">
-      <span class="nav-icon">🚗</span>Veículos
-    </button>
+
     <button class="nav-tab" data-nav="system" type="button">
       <span class="nav-icon">⚙️</span>Sistema
     </button>
@@ -1208,7 +1181,8 @@
       finalBody += `\n\n*${currentUser.name.split(' ')[0]}*`;
     }
 
-    const payload = {body: finalBody};
+    try {
+      const payload = {body: finalBody};
       if (media?.serverUrl) {
         payload.media_url = media.serverUrl;
         payload.msg_type = media.kind || 'image';
@@ -1692,8 +1666,6 @@
     document.getElementById('view-lista').style.display = 'none';
     document.getElementById('view-conversa').style.display = 'none';
     document.getElementById('view-conversa').classList.add('no-selection');
-    document.getElementById('view-leads').classList.remove('active');
-    document.getElementById('view-vehicles').classList.remove('active');
     document.getElementById('view-system').classList.remove('active');
 
     // Activate target
@@ -1704,14 +1676,6 @@
       case 'conversas':
         document.getElementById('view-lista').style.display = '';
         activeConvId = null;
-        break;
-      case 'leads':
-        document.getElementById('view-leads').classList.add('active');
-        loadLeadsView();
-        break;
-      case 'vehicles':
-        document.getElementById('view-vehicles').classList.add('active');
-        loadVehiclesView();
         break;
       case 'system':
         document.getElementById('view-system').classList.add('active');
@@ -1728,127 +1692,7 @@
     });
   });
 
-  // --- Leads View ----------------------------------------------------------
-  async function loadLeadsView() {
-    const el = document.getElementById('leads-list');
-    el.innerHTML = '<div class="empty-state"><span class="loading-dots">Carregando leads…</span></div>';
-    try {
-      const data = await api('/api/leads');
-      leadsData = data.leads || [];
-      renderLeadsList();
-    } catch(e) {
-      el.innerHTML = '<div class="empty-state">Erro ao carregar leads.</div>';
-    }
-  }
 
-  function renderLeadsList(filter = '') {
-    const el = document.getElementById('leads-list');
-    let list = [...leadsData];
-    if (filter) {
-      const q = filter.toLowerCase();
-      list = list.filter(l =>
-        (l.name||'').toLowerCase().includes(q) ||
-        (l.car_interest||'').toLowerCase().includes(q) ||
-        (l.source||'').toLowerCase().includes(q)
-      );
-    }
-    if (!list.length) {
-      el.innerHTML = '<div class="empty-state">Nenhum lead encontrado.</div>';
-      return;
-    }
-    el.innerHTML = list.map(l => {
-      const stageClass = getStageClass(l.stage);
-      const score = l.score != null ? `<span style="font-size:12px;color:var(--text-muted)">Score: ${l.score}</span>` : '';
-      return `
-        <div class="mobile-card">
-          <div class="mobile-card-title">${l.name || 'Sem nome'}</div>
-          <div class="mobile-card-sub">${l.car_interest || 'Sem interesse informado'}</div>
-          <div class="mobile-card-meta">
-            <span class="mobile-card-badge ${stageClass}">${l.stage || 'Novo'}</span>
-            ${l.source ? `<span style="font-size:11px;color:var(--text-muted)">📍 ${l.source}</span>` : ''}
-            ${score}
-          </div>
-          ${l.store_name ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">🏪 ${l.store_name}</div>` : ''}
-        </div>
-      `;
-    }).join('');
-  }
-
-  function getStageClass(stage) {
-    const map = {
-      'Novo': 'stage-novo', 'Qualificado': 'stage-qualificado',
-      'Humano': 'stage-humano', 'Visita': 'stage-visita',
-      'Fechado': 'stage-fechado', 'Perdido': 'stage-perdido',
-      'Em atendimento': 'stage-humano', 'Em negociação': 'stage-visita',
-      'Vácuo': 'stage-perdido', 'SDR ativo': 'stage-qualificado',
-    };
-    return map[stage] || 'stage-default';
-  }
-
-  // Leads search
-  let leadsSearchTimer;
-  document.getElementById('leads-search').addEventListener('input', e => {
-    clearTimeout(leadsSearchTimer);
-    leadsSearchTimer = setTimeout(() => renderLeadsList(e.target.value), 250);
-  });
-
-  // --- Vehicles View -------------------------------------------------------
-  async function loadVehiclesView() {
-    const el = document.getElementById('vehicles-list');
-    el.innerHTML = '<div class="empty-state"><span class="loading-dots">Carregando veículos…</span></div>';
-    try {
-      const data = await api('/api/vehicles');
-      vehiclesData = data.vehicles || [];
-      renderVehiclesList();
-    } catch(e) {
-      el.innerHTML = '<div class="empty-state">Erro ao carregar veículos.</div>';
-    }
-  }
-
-  function renderVehiclesList(filter = '') {
-    const el = document.getElementById('vehicles-list');
-    let list = [...vehiclesData];
-    if (filter) {
-      const q = filter.toLowerCase();
-      list = list.filter(v =>
-        (v.name||'').toLowerCase().includes(q) ||
-        (v.plate||'').toLowerCase().includes(q)
-      );
-    }
-    if (!list.length) {
-      el.innerHTML = '<div class="empty-state">Nenhum veículo encontrado.</div>';
-      return;
-    }
-    el.innerHTML = list.map(v => {
-      const price = v.price ? (v.price.startsWith('R$') ? v.price : `R$ ${v.price}`) : 'Preço sob consulta';
-      return `
-        <div class="mobile-card">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div>
-              <div class="mobile-card-title">${v.name || 'Veículo'}</div>
-              <div class="vehicle-specs">
-                ${v.mileage ? `<span>🛣️ ${v.mileage}</span>` : ''}
-                ${v.fuel ? `<span>⛽ ${v.fuel}</span>` : ''}
-                ${v.transmission ? `<span>⚙️ ${v.transmission}</span>` : ''}
-              </div>
-            </div>
-            <div class="vehicle-price">${price}</div>
-          </div>
-          <div class="mobile-card-meta">
-            ${v.store_name ? `<span style="font-size:11px;color:var(--text-muted)">🏪 ${v.store_name}</span>` : ''}
-            <span class="mobile-card-badge ${v.status === 'Publicado' || v.status === 'disponivel' ? 'stage-qualificado' : 'stage-perdido'}">${v.status || 'disponível'}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  // Vehicles search
-  let vehiclesSearchTimer;
-  document.getElementById('vehicles-search').addEventListener('input', e => {
-    clearTimeout(vehiclesSearchTimer);
-    vehiclesSearchTimer = setTimeout(() => renderVehiclesList(e.target.value), 250);
-  });
 
   // --- System View ---------------------------------------------------------
   function loadSystemView() {

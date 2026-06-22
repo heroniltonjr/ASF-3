@@ -1,4 +1,4 @@
-const CACHE_NAME = 'formula-os-v1';
+const CACHE_NAME = 'formula-os-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

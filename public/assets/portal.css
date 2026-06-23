@@ -120,10 +120,12 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: var(--radius);
   display: grid;
   place-items: center;
-  font-weight: 900;
-  font-size: 20px;
-  letter-spacing: -1px;
-  box-shadow: var(--shadow-sm);
+  font-weight: 800;
+  font-size: 24px;
+}
+.brand-logo-img {
+  height: 46px;
+  object-fit: contain;
 }
 .brand-text strong {
   display: block;

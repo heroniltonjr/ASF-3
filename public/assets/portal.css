@@ -855,3 +855,119 @@ section { padding: 64px 0; }
   .hero { padding: 60px 0 80px; }
   .footer-grid { grid-template-columns: 1fr; }
 }
+
+/* ----- Simulador de Financiamento --------------------------------------- */
+.simulator-box {
+  background: var(--asf-bg);
+  border: 1px solid var(--asf-border);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.simulator-box h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  color: var(--asf-blue-900);
+}
+.simulator-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.simulator-row label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--asf-text-soft);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.sim-entry-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--asf-blue-900);
+}
+.simulator-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  background: var(--asf-border-strong);
+  border-radius: 4px;
+  outline: none;
+  margin: 10px 0;
+}
+.simulator-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--asf-orange);
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-sm);
+}
+.simulator-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--asf-orange);
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-sm);
+}
+.simulator-terms {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sim-term-btn {
+  flex: 1;
+  background: #fff;
+  border: 1px solid var(--asf-border-strong);
+  color: var(--asf-text);
+  padding: 8px 0;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sim-term-btn:hover {
+  border-color: var(--asf-orange);
+}
+.sim-term-btn.active {
+  background: var(--asf-orange);
+  color: #fff;
+  border-color: var(--asf-orange);
+}
+.simulator-result-box {
+  background: #fff;
+  border: 1px solid var(--asf-border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-top: 12px;
+  text-align: center;
+}
+.sim-res-label {
+  font-size: 12px;
+  color: var(--asf-text-soft);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.sim-res-value {
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--asf-blue-900);
+}
+.sim-res-value strong {
+  font-weight: 900;
+  color: var(--asf-orange);
+}
+.sim-res-notice {
+  font-size: 11px;
+  color: var(--asf-text-muted);
+  margin-top: 8px;
+}

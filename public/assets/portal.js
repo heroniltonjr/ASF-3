@@ -214,6 +214,7 @@ async function initVehicleDetail() {
             <span>Vendido por <strong>${v.store_name}</strong></span>
             <a href="/portal/estoque.html?store=${v.store_id}">Ver estoque</a>
           </div>
+          ${simulatorHTML(v.price)}
           <a class="btn btn-whatsapp" href="${v.whatsapp_link}" target="_blank" rel="noopener">
             💬 Falar agora no WhatsApp
           </a>
@@ -230,6 +231,7 @@ async function initVehicleDetail() {
       area.scrollIntoView({ behavior: 'smooth' });
     });
     bindLeadForm();
+    bindSimulator(v.price);
   } catch (err) {
     console.error(err);
     root.innerHTML = '<div class="empty-state">Veículo indisponível.</div>';
@@ -295,6 +297,98 @@ function bindLeadForm() {
       result.innerHTML = `<div class="form-error">❌ ${err.message}</div>`;
     }
   });
+}
+
+// --- Simulador de Financiamento -----------------------------------------
+function simulatorHTML(priceVal) {
+  return `
+    <div class="simulator-box" id="financing-simulator">
+      <h3>Simular Financiamento</h3>
+      <div class="simulator-row">
+        <label>Entrada (<span id="sim-entry-percent">30</span>%)</label>
+        <span class="sim-entry-val" id="sim-entry-val-text">R$ ...</span>
+      </div>
+      <input type="range" id="sim-entry-range" class="simulator-slider" min="0" max="90" step="10" value="30" />
+      
+      <label style="margin-top: 14px; display: block; font-size: 12px; font-weight: 700; color: #555; text-transform: uppercase;">Prazo</label>
+      <div class="simulator-terms">
+        <button type="button" class="sim-term-btn" data-term="12">12x</button>
+        <button type="button" class="sim-term-btn" data-term="24">24x</button>
+        <button type="button" class="sim-term-btn" data-term="36">36x</button>
+        <button type="button" class="sim-term-btn active" data-term="48">48x</button>
+        <button type="button" class="sim-term-btn" data-term="60">60x</button>
+      </div>
+
+      <div class="simulator-result-box">
+        <div class="sim-res-label">Sua parcela estimada:</div>
+        <div class="sim-res-value" id="sim-result-pmt">--</div>
+        <div class="sim-res-notice">Taxa de 1.59% a.m. Sujeito a análise de crédito.</div>
+      </div>
+    </div>
+  `;
+}
+
+function bindSimulator(priceStr) {
+  const sim = document.getElementById('financing-simulator');
+  if (!sim) return;
+
+  const parseCurrencyToFloat = (val) => {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    const clean = val.toString().replace(/[R$\s\.]/g, '').replace(',', '.');
+    return parseFloat(clean) || 0;
+  };
+  
+  const formatBRL = (num) => {
+    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const vehiclePrice = parseCurrencyToFloat(priceStr);
+  const interestRate = 0.0159; // 1.59% a.m.
+
+  const range = document.getElementById('sim-entry-range');
+  const percentText = document.getElementById('sim-entry-percent');
+  const entryValText = document.getElementById('sim-entry-val-text');
+  const termBtns = document.querySelectorAll('.sim-term-btn');
+  const resultPmt = document.getElementById('sim-result-pmt');
+
+  let currentTerm = 48;
+
+  const calculate = () => {
+    if (!vehiclePrice) return;
+    const percent = parseInt(range.value, 10);
+    const downPayment = vehiclePrice * (percent / 100);
+    const pv = vehiclePrice - downPayment;
+    
+    percentText.textContent = percent;
+    entryValText.textContent = formatBRL(downPayment);
+
+    if (pv <= 0) {
+      resultPmt.innerHTML = '<strong>À vista</strong>';
+      return;
+    }
+
+    // Tabela Price: PMT = PV * [ i * (1+i)^n ] / [ (1+i)^n - 1 ]
+    const i = interestRate;
+    const n = currentTerm;
+    const factor = (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
+    const pmt = pv * factor;
+
+    resultPmt.innerHTML = `${n}x de <strong>${formatBRL(pmt)}</strong>`;
+  };
+
+  range.addEventListener('input', calculate);
+  
+  termBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      termBtns.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      currentTerm = parseInt(e.target.dataset.term, 10);
+      calculate();
+    });
+  });
+
+  calculate(); // init
 }
 
 // --- Página /lojas/ ------------------------------------------------------

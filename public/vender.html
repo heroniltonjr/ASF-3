@@ -69,14 +69,8 @@
       flex-shrink: 0;
     }
     .v-brand-icon {
-      width: 44px; height: 44px;
-      background: var(--red);
-      color: #fff;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      font-size: 20px;
+      height: 44px;
+      object-fit: contain;
     }
     .v-brand-text strong { display: block; font-size: 16px; font-weight: 800; color: var(--dark); }
     .v-brand-text small  { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
@@ -107,12 +101,16 @@
       border-radius: 2px;
     }
     .v-nav-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       background: var(--red);
       color: #fff !important;
-      padding: 10px 20px;
+      padding: 10px 24px;
       border-radius: var(--radius-f);
       font-weight: 700;
       font-size: 14px;
+      letter-spacing: 0.3px;
       white-space: nowrap;
       text-decoration: none;
       transition: background .15s, transform .15s;
@@ -522,7 +520,7 @@
   <nav class="v-navbar">
     <div class="v-navbar-inner">
       <a class="v-brand" href="/portal/">
-        <div class="v-brand-icon">F</div>
+        <img src="/portal/assets/logo.png" class="v-brand-icon" alt="Logo" />
         <div class="v-brand-text">
           <strong>Auto Shopping Fórmula</strong>
           <small>Você tem um sonho, nós somos a fórmula!</small>

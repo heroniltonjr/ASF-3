@@ -169,17 +169,18 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .nav-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--asf-orange);
   color: #fff !important;
-  padding: 10px 20px;
+  padding: 10px 24px;
   border-radius: var(--radius);
   font-weight: 700;
   font-size: 14px;
-  border: none;
-  transition: all 0.2s;
+  letter-spacing: 0.3px;
   white-space: nowrap;
-  flex-shrink: 0;
-  display: inline-block;
+  transition: all .15s;
 }
 .nav-cta:hover { background: var(--asf-orange-dark); color: #fff !important; transform: translateY(-1px); }
 

@@ -304,13 +304,19 @@ function simulatorHTML(priceVal) {
   return `
     <div class="simulator-box" id="financing-simulator">
       <h3>Simular Financiamento</h3>
-      <div class="simulator-row">
-        <label>Entrada (<span id="sim-entry-percent">30</span>%)</label>
-        <span class="sim-entry-val" id="sim-entry-val-text">R$ ...</span>
-      </div>
-      <input type="range" id="sim-entry-range" class="simulator-slider" min="0" max="90" step="10" value="30" />
       
-      <label style="margin-top: 14px; display: block; font-size: 12px; font-weight: 700; color: #555; text-transform: uppercase;">Prazo</label>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div class="field" style="margin: 0;">
+          <label style="font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase;">Entrada (R$)</label>
+          <input type="number" id="sim-entry-input" placeholder="Ex: 20000" style="width: 100%; padding: 10px; border: 1px solid var(--asf-border-strong); border-radius: var(--radius-sm); font-size: 14px;" />
+        </div>
+        <div class="field" style="margin: 0;">
+          <label style="font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase;">Taxa (% a.m.)</label>
+          <input type="number" step="0.01" id="sim-rate-input" value="1.59" style="width: 100%; padding: 10px; border: 1px solid var(--asf-border-strong); border-radius: var(--radius-sm); font-size: 14px;" />
+        </div>
+      </div>
+      
+      <label style="display: block; font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; margin-bottom: 8px;">Prazo</label>
       <div class="simulator-terms">
         <button type="button" class="sim-term-btn" data-term="12">12x</button>
         <button type="button" class="sim-term-btn" data-term="24">24x</button>
@@ -322,7 +328,7 @@ function simulatorHTML(priceVal) {
       <div class="simulator-result-box">
         <div class="sim-res-label">Sua parcela estimada:</div>
         <div class="sim-res-value" id="sim-result-pmt">--</div>
-        <div class="sim-res-notice">Taxa de 1.59% a.m. Sujeito a análise de crédito.</div>
+        <div class="sim-res-notice" id="sim-notice">Sujeito a análise de crédito.</div>
       </div>
     </div>
   `;
@@ -344,40 +350,51 @@ function bindSimulator(priceStr) {
   };
 
   const vehiclePrice = parseCurrencyToFloat(priceStr);
-  const interestRate = 0.0159; // 1.59% a.m.
 
-  const range = document.getElementById('sim-entry-range');
-  const percentText = document.getElementById('sim-entry-percent');
-  const entryValText = document.getElementById('sim-entry-val-text');
+  const entryInput = document.getElementById('sim-entry-input');
+  const rateInput = document.getElementById('sim-rate-input');
   const termBtns = document.querySelectorAll('.sim-term-btn');
   const resultPmt = document.getElementById('sim-result-pmt');
+
+  // Inicializa a entrada com 30% do valor do veículo
+  entryInput.value = vehiclePrice ? Math.floor(vehiclePrice * 0.3) : 0;
 
   let currentTerm = 48;
 
   const calculate = () => {
     if (!vehiclePrice) return;
-    const percent = parseInt(range.value, 10);
-    const downPayment = vehiclePrice * (percent / 100);
-    const pv = vehiclePrice - downPayment;
     
-    percentText.textContent = percent;
-    entryValText.textContent = formatBRL(downPayment);
+    // Limita a entrada entre 0 e o valor total do carro
+    let downPayment = parseFloat(entryInput.value) || 0;
+    if (downPayment < 0) downPayment = 0;
+    if (downPayment > vehiclePrice) downPayment = vehiclePrice;
+    
+    const pv = vehiclePrice - downPayment;
 
     if (pv <= 0) {
       resultPmt.innerHTML = '<strong>À vista</strong>';
       return;
     }
 
-    // Tabela Price: PMT = PV * [ i * (1+i)^n ] / [ (1+i)^n - 1 ]
-    const i = interestRate;
+    const rateVal = parseFloat(rateInput.value) || 0;
+    const i = rateVal / 100;
     const n = currentTerm;
+
+    if (i <= 0) {
+      const pmt = pv / n;
+      resultPmt.innerHTML = `${n}x de <strong>${formatBRL(pmt)}</strong>`;
+      return;
+    }
+
+    // Tabela Price: PMT = PV * [ i * (1+i)^n ] / [ (1+i)^n - 1 ]
     const factor = (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
     const pmt = pv * factor;
 
     resultPmt.innerHTML = `${n}x de <strong>${formatBRL(pmt)}</strong>`;
   };
 
-  range.addEventListener('input', calculate);
+  entryInput.addEventListener('input', calculate);
+  rateInput.addEventListener('input', calculate);
   
   termBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {

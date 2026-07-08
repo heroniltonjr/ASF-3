@@ -1,0 +1,1 @@
+-- 009_fix_foreign_keys.sql — No-op no PostgreSQL (chaves estrangeiras já criadas corretas).

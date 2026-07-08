@@ -1,0 +1,163 @@
+create table public.vehicles (
+  identifier text not null,
+  unit_id text null,
+  name text null,
+  brand text null,
+  model text null,
+  version text null,
+  model_year integer null,
+  fabrication_year integer null,
+  km integer null,
+  price numeric(12, 2) null,
+  exchange text null,
+  fuel_text text null,
+  color text null,
+  doors integer null,
+  kind text null,
+  note text null,
+  item_list text[] null,
+  pictures jsonb null,
+  main_image text null,
+  store text null,
+  plate text null,
+  category text null,
+  sold boolean null default false,
+  in_transit boolean null default false,
+  new_vehicle boolean null default false,
+  featured boolean null default false,
+  shielded boolean null default false,
+  synced_at timestamp with time zone null,
+  batch_id timestamp with time zone null,
+  active boolean null default true,
+  raw jsonb null,
+  embedding public.vector null,
+  constraint vehicles_pkey primary key (identifier)
+) TABLESPACE pg_default;
+
+create index IF not exists vehicles_active_idx on public.vehicles using btree (active) TABLESPACE pg_default;
+
+create index IF not exists vehicles_brand_model_idx on public.vehicles using btree (brand, model) TABLESPACE pg_default;
+
+create index IF not exists vehicles_price_idx on public.vehicles using btree (price) TABLESPACE pg_default;
+
+create index IF not exists vehicles_year_idx on public.vehicles using btree (model_year, fabrication_year) TABLESPACE pg_default;
+
+create index IF not exists vehicles_store_idx on public.vehicles using btree (store) TABLESPACE pg_default;
+
+create index IF not exists vehicles_item_list_gin on public.vehicles using gin (item_list) TABLESPACE pg_default;
+
+create index IF not exists vehicles_embedding_idx on public.vehicles using ivfflat (embedding vector_cosine_ops)
+with
+  (lists = '100') TABLESPACE pg_default;
+
+==========================================
+
+Estrutura do campo pictures
+
+[
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/b5084e58af09c1af2b14c4d446421869.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/47f5098f11282d6e0b9d7ffe3744eddf.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/9c848a424263761d2288e2b2841a7587.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/e36a9d782fb36ac379035b3547d8ba00.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/c604b1054a1883d62c682c298a47183a.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/5a5ebbb1ab29d0021bb4acbe4670ae0c.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/39120b7615d8d015c0614fc88b4ef86d.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/7d837f93becddbb92b709ee25c4073db.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/dba986b77b69b9c5f623d667ba1dd0bf.jpeg"
+  },
+  {
+    "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/f43fc70cb00f9f6f6a31bf758446b422.jpeg"
+  }
+]
+
+==========================================
+
+Estrutura do campo raw
+
+{
+  "km": "25785",
+  "kind": "Carro",
+  "name": "HB20 Sense 1.0 Flex 12V Mec. ",
+  "note": "Pegamos seu carro ou moto na troca, parcelamos a sua entrada em até 24x, com taxas especiais e financiamos sem entrada* Preço que cabe no seu bolsoTemos Consórcio.Conforto e segurança para a sua famíliaPara mais informações entre em contato com um consultor de vendas pa Auto Shopping fórmulaBox 35",
+  "sold": 0,
+  "brand": "Hyundai",
+  "color": "Cinza",
+  "doors": 4,
+  "model": "HB20",
+  "plate": "SHO2D39",
+  "price": "65990.00",
+  "store": "",
+  "active": 1,
+  "unit_id": "1",
+  "version": "HB20 Sense 1.0 Flex 12V Mec.",
+  "category": "Hatchback",
+  "exchange": "Manual",
+  "featured": 0,
+  "shielded": 0,
+  "fuel_text": "Flex",
+  "item_list": [
+    "Airbag",
+    "Alarme",
+    "Ar condicionado",
+    "Ar quente",
+    "Aceita troca",
+    "IPVA quitado",
+    "Laudo atualizado"
+  ],
+  "synced_at": "2024-10-04 16:20:31",
+  "identifier": "Trinix-Auto-id1",
+  "in_transit": 0,
+  "model_year": "2024",
+  "new_vehicle": 0,
+  "fabrication_year": "2023",
+  "pictures_attributes": [
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/b5084e58af09c1af2b14c4d446421869.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/47f5098f11282d6e0b9d7ffe3744eddf.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/9c848a424263761d2288e2b2841a7587.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/e36a9d782fb36ac379035b3547d8ba00.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/c604b1054a1883d62c682c298a47183a.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/5a5ebbb1ab29d0021bb4acbe4670ae0c.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/39120b7615d8d015c0614fc88b4ef86d.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/7d837f93becddbb92b709ee25c4073db.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/dba986b77b69b9c5f623d667ba1dd0bf.jpeg"
+    },
+    {
+      "remote_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/f43fc70cb00f9f6f6a31bf758446b422.jpeg"
+    }
+  ],
+  "remote_profile_image_url": "https://cdn.autoshoppingformula.com.br/storage/webdisco/2024/12/04/1200x900/dba986b77b69b9c5f623d667ba1dd0bf.jpeg"
+}

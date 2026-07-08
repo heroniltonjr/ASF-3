@@ -14,6 +14,7 @@ def _isolated_db(monkeypatch, tmp_path):
     """Cada teste roda contra um SQLite recém-criado."""
     db_path = tmp_path / "test.sqlite3"
     monkeypatch.setenv("SQLITE_PATH", str(db_path))
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     from backend import db as db_mod
     db_mod.DB_PATH = db_path
     yield

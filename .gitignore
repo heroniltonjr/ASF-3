@@ -5,6 +5,7 @@ __pycache__/
 .DS_Store
 portal.sqlite3
 portal.sqlite3.bak
+.test_phase1.sqlite3
 uploads/
 deploy.sh
 fix_deploy.sh

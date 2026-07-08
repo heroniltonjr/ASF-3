@@ -59,6 +59,11 @@ ALLOWED_ORIGINS=https://sistema.autoshoppingformula.com.br
 DOMAIN=sistema.autoshoppingformula.com.br
 ACME_EMAIL=seu@email.com
 
+# Supabase (projeto "Locks") — OBRIGATÓRIO: a vitrine pública lê o catálogo daqui.
+# Sem estas variáveis, /portal responde 502. A chave anon é pública (RLS cobre a leitura).
+SUPABASE_URL=https://pwzwfhysoflpdxkxvhvw.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
 # IA — SDR
 OPENROUTER_API_KEY=sk-or-v1-...
 OPENROUTER_MODEL=openai/gpt-5-mini

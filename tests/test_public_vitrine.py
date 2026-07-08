@@ -6,6 +6,8 @@ offline e não dependem de rede nem de credenciais.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from backend import store_meta
@@ -56,6 +58,10 @@ def test_vehicle_id_extraction():
     assert public._vehicle_id("Trinix-Auto-idABC") is None
     assert public._vehicle_id("outro-formato") is None
     assert public._vehicle_id(None) is None
+    # regressão: identifier não-string (ex. bigint vindo do Supabase) não pode
+    # estourar AttributeError em .startswith()
+    assert public._vehicle_id(1911) is None
+    assert public._vehicle_id(["Trinix-Auto-id1911"]) is None
 
 
 def test_display_name_avoids_model_duplication():
@@ -68,6 +74,9 @@ def test_display_name_avoids_model_duplication():
         {"brand": "Renault", "model": "Kardian", "name": "1.0 Turbo 2025"}
     ) == "Renault Kardian 1.0 Turbo 2025"
     assert public._display_name({"name": ""}) == "Veículo"
+    # regressão: brand/model/name não-string (dado real divergente do mock)
+    # não pode estourar AttributeError em .strip()
+    assert public._display_name({"brand": 123, "model": ["x"], "name": "Onix"}) == "Onix"
 
 
 def test_price_and_km_formatting():
@@ -78,6 +87,9 @@ def test_price_and_km_formatting():
     assert public._format_km(91495) == "91.495 km"
     assert public._format_km(0) is None
     assert public._format_km(None) is None
+    # regressão: price='inf' não pode estourar OverflowError em round(float(...))
+    assert public._format_price(float("inf")) is None
+    assert public._format_price("Infinity") is None
 
 
 def test_pictures_accepts_dicts_and_strings():
@@ -162,6 +174,17 @@ async def test_vehicle_detail_404_when_empty(client, monkeypatch):
     assert r.status_code == 404
 
 
+async def test_vehicle_detail_non_string_store_does_not_500(client, monkeypatch):
+    """Regressão: `store` vindo como valor não-string (ex. int/list) do Supabase
+    não pode estourar AttributeError dentro de store_meta.lookup()."""
+    monkeypatch.setattr(sbmod, "select", make_fake([veh(store=12345)]))
+    r = await client.get("/api/public/vehicles/1911")
+    assert r.status_code == 200
+    v = r.json()["vehicle"]
+    assert v["store_logo"] is None
+    assert public.ASF_WHATSAPP in v["whatsapp_link"]
+
+
 async def test_stores_derived_and_enriched(client, monkeypatch):
     rows = [veh(store="ROCHA MOTORS"), veh(store="ROCHA MOTORS"),
             veh(store="KADOSH AUTOMOVEIS"), veh(store="LOJA XPTO")]
@@ -227,3 +250,17 @@ async def test_public_lead_requires_name_and_phone(client, monkeypatch):
 ])
 def test_parse_total(header, expected):
     assert sbmod._parse_total(header) == expected
+
+
+def test_select_wraps_client_construction_errors(monkeypatch):
+    """Regressão: um SUPABASE_ANON_KEY corrompido (bytes não-ASCII, ex. um .env
+    mal colado) fazia `httpx.Client(...)` levantar UnicodeEncodeError FORA do
+    try/except, virando 500 cru em vez de SupabaseError/502. `client = _get_client()`
+    precisa estar dentro do try."""
+    monkeypatch.setattr(sbmod, "_client", None)
+    monkeypatch.setattr(sbmod, "settings", SimpleNamespace(
+        supabase_url="https://example.supabase.co",
+        supabase_anon_key="token-corrompido-á",
+    ))
+    with pytest.raises(sbmod.SupabaseError):
+        sbmod.select("vehicles", params=[("select", "*")])

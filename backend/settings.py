@@ -37,8 +37,10 @@ class Settings:
 
     # Supabase (projeto "Locks") — fonte de dados da vitrine pública.
     # A chave anon é pública por design (RLS "read active vehicles" cobre a leitura).
-    supabase_url: str = os.getenv("SUPABASE_URL", "")
-    supabase_anon_key: str = os.getenv("SUPABASE_ANON_KEY", "")
+    # .strip() protege contra quebra de linha/espaço acidental ao colar no .env
+    # (httpx rejeita URL/headers com caracteres de controle).
+    supabase_url: str = os.getenv("SUPABASE_URL", "").strip()
+    supabase_anon_key: str = os.getenv("SUPABASE_ANON_KEY", "").strip()
 
     meta_verify_token: str = os.getenv("META_VERIFY_TOKEN", "")
     meta_app_secret: str = os.getenv("META_APP_SECRET", "")

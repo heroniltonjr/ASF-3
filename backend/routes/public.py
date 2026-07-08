@@ -41,9 +41,9 @@ def _clean(value) -> Optional[str]:
     return text or None
 
 
-def _vehicle_id(identifier: Optional[str]) -> Optional[int]:
+def _vehicle_id(identifier: object) -> Optional[int]:
     """`Trinix-Auto-id1911` → 1911."""
-    if identifier and identifier.startswith(TRINIX_PREFIX):
+    if isinstance(identifier, str) and identifier.startswith(TRINIX_PREFIX):
         tail = identifier[len(TRINIX_PREFIX):]
         return int(tail) if tail.isdigit() else None
     return None
@@ -51,9 +51,9 @@ def _vehicle_id(identifier: Optional[str]) -> Optional[int]:
 
 def _display_name(row: dict) -> str:
     """Compõe um título legível a partir de brand/model/name (dados irregulares)."""
-    brand = (row.get("brand") or "").strip()
-    model = (row.get("model") or "").strip()
-    name = (row.get("name") or "").strip()
+    brand = _clean(row.get("brand")) or ""
+    model = _clean(row.get("model")) or ""
+    name = _clean(row.get("name")) or ""
     parts: list[str] = []
     if brand:
         parts.append(brand)
@@ -69,7 +69,7 @@ def _display_name(row: dict) -> str:
 def _price_int(value) -> Optional[int]:
     try:
         n = int(round(float(value)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return n if n > 0 else None
 
@@ -236,7 +236,7 @@ def get_public_vehicle(vehicle_id: int):
     veh["description"] = _clean(row.get("note"))
 
     # Dados da loja (logo/cidade/WhatsApp próprio) — Fase 4.
-    meta = store_meta.lookup(row.get("store")) or {}
+    meta = store_meta.lookup(_clean(row.get("store"))) or {}
     veh["store_logo"] = meta.get("logo")
     veh["store_city"] = meta.get("city")
 

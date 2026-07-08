@@ -73,9 +73,9 @@ def select(
     `total` só vem preenchido quando `count=True` (usa `Prefer: count=exact`);
     caso contrário é `None`.
     """
-    client = _get_client()
     headers = {"Prefer": "count=exact"} if count else {}
     try:
+        client = _get_client()
         resp = client.get(f"/{table}", params=params, headers=headers)
         resp.raise_for_status()
         rows = resp.json()

@@ -4,7 +4,7 @@
     {
       "name": "formula-os",
       "runtimeExecutable": "/bin/bash",
-      "runtimeArgs": ["-c", "cd '/Users/heroniltonjunior/Documents/ASF - 3' && exec python3 server.py"],
+      "runtimeArgs": ["-c", "cd '/Users/heroniltonjunior/Documents/ASF - 4' && export SQLITE_PATH=\"$PWD/.test_phase1.sqlite3\" HOST=127.0.0.1 PORT=4173 && exec .venv/bin/python server.py"],
       "port": 4173
     }
   ]

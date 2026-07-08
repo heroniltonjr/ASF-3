@@ -1,7 +1,10 @@
 """API pública (sem auth) consumida pelo portal cliente em /portal.
 
-Expõe vitrine de veículos, lojas parceiras e captura de leads do site.
-Toda interação aqui converte em registro no CRM (origin='portal_publico').
+A **vitrine** (veículos, lojas, destaques) lê do Supabase "Locks" via chave anon
+(fonte única alimentada pelo syncer). A **captura de leads** continua gravando no
+CRM SQLite local — só o nome do veículo é resolvido no Supabase para manter o
+contexto correto. Toda interação aqui converte em registro no CRM
+(source='portal_publico').
 """
 from __future__ import annotations
 
@@ -13,7 +16,8 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
-from .. import db
+from .. import db, store_meta
+from .. import supabase_client as sb
 from ..events import bus
 
 router = APIRouter()
@@ -22,36 +26,145 @@ logger = logging.getLogger(__name__)
 # WhatsApp institucional do shopping (fallback quando a loja não tem número próprio).
 ASF_WHATSAPP = "556592156577"
 
+# PK do Supabase é `Trinix-Auto-id<n>`; o frontend linka por `?id=<n>` numérico.
+TRINIX_PREFIX = "Trinix-Auto-id"
 
-def _parse_price(price: str) -> Optional[int]:
-    """Converte 'R$ 99.990' → 99990 para ordenação/filtros."""
-    if not price:
+# Colunas suficientes para os cards da vitrine (payload enxuto).
+LIST_COLS = "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image,synced_at"
+
+
+# --- Helpers de mapeamento Supabase → contrato do portal.js ----------------
+def _clean(value) -> Optional[str]:
+    if not isinstance(value, str):
         return None
-    digits = re.sub(r"[^\d]", "", price)
-    return int(digits) if digits else None
+    text = value.strip()
+    return text or None
+
+
+def _vehicle_id(identifier: Optional[str]) -> Optional[int]:
+    """`Trinix-Auto-id1911` → 1911."""
+    if identifier and identifier.startswith(TRINIX_PREFIX):
+        tail = identifier[len(TRINIX_PREFIX):]
+        return int(tail) if tail.isdigit() else None
+    return None
+
+
+def _display_name(row: dict) -> str:
+    """Compõe um título legível a partir de brand/model/name (dados irregulares)."""
+    brand = (row.get("brand") or "").strip()
+    model = (row.get("model") or "").strip()
+    name = (row.get("name") or "").strip()
+    parts: list[str] = []
+    if brand:
+        parts.append(brand)
+    # Evita "Jeep COMPASS COMPASS ..." quando o name já começa pelo modelo.
+    if model and not name.lower().startswith(model.lower()):
+        parts.append(model)
+    if name:
+        parts.append(name)
+    title = re.sub(r"\s+", " ", " ".join(parts)).strip()
+    return title or "Veículo"
+
+
+def _price_int(value) -> Optional[int]:
+    try:
+        n = int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def _format_price(value) -> Optional[str]:
+    """99990 → 'R$ 99.990' (separador de milhar pt-BR)."""
+    n = _price_int(value)
+    if n is None:
+        return None
+    return "R$ " + f"{n:,}".replace(",", ".")
+
+
+def _format_km(value) -> Optional[str]:
+    """91495 → '91.495 km'."""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    if n <= 0:
+        return None
+    return f"{n:,}".replace(",", ".") + " km"
+
+
+def _pictures(row: dict) -> list[str]:
+    """`pictures` jsonb → lista de URLs (aceita string ou {remote_image_url})."""
+    urls: list[str] = []
+    pics = row.get("pictures")
+    if isinstance(pics, list):
+        for pic in pics:
+            if isinstance(pic, str) and pic:
+                urls.append(pic)
+            elif isinstance(pic, dict):
+                url = pic.get("remote_image_url") or pic.get("url") or pic.get("image_url")
+                if url:
+                    urls.append(url)
+    return urls
 
 
 def _vehicle_to_public(row: dict) -> dict:
-    """Normaliza um veículo para consumo público (sem campos sensíveis)."""
+    """Normaliza um veículo do Supabase para o formato que o portal.js espera."""
+    store = _clean(row.get("store"))
     return {
-        "id": row["id"],
-        "name": row["name"],
-        "price": row["price"],
-        "price_int": _parse_price(row["price"]),
-        "mileage": row.get("mileage"),
-        "transmission": row.get("transmission"),
-        "fuel": row.get("fuel"),
-        "image": row.get("image_path") or "assets/car-placeholder.svg",
-        "store_id": row["store_id"],
-        "store_name": row.get("store_name"),
-        "status": row.get("status") or "Publicado",
+        "id": _vehicle_id(row.get("identifier")),
+        "name": _display_name(row),
+        "price": _format_price(row.get("price")),
+        "price_int": _price_int(row.get("price")),
+        "mileage": _format_km(row.get("km")),
+        "transmission": _clean(row.get("exchange")),
+        "fuel": _clean(row.get("fuel_text")),
+        "image": row.get("main_image") or "assets/car-placeholder.svg",
+        # Identidade da loja = nome (texto). A tabela `stores` do Supabase é
+        # bloqueada por RLS para a chave anon, então derivamos tudo de `store`.
+        "store_id": store,
+        "store_name": store,
+        "status": "Publicado",
     }
 
 
+def _unavailable(exc: sb.SupabaseError) -> HTTPException:
+    logger.warning("Vitrine indisponível (Supabase): %s", exc)
+    return HTTPException(502, "Catálogo temporariamente indisponível. Tente novamente.")
+
+
+def _active_stores() -> list[dict]:
+    """Deriva a lista de lojas a partir do texto `store` dos veículos ativos."""
+    rows, _ = sb.select(
+        sb.VEHICLES,
+        params=[("select", "store"), ("active", "eq.true"), ("sold", "eq.false"),
+                ("limit", "10000")],
+    )
+    counts: dict[str, int] = {}
+    for row in rows:
+        name = _clean(row.get("store"))
+        if name:
+            counts[name] = counts.get(name, 0) + 1
+    stores = []
+    for name, n in counts.items():
+        meta = store_meta.lookup(name) or {}
+        stores.append({
+            "id": name, "name": name, "type": "Lojista", "plan": "Parceiro",
+            "active_vehicles": n,
+            "logo": meta.get("logo"),
+            "city": meta.get("city"),
+            "address": meta.get("address"),
+            "whatsapp": meta.get("whatsapp"),
+        })
+    stores.sort(key=lambda s: (-s["active_vehicles"], s["name"].lower()))
+    return stores
+
+
+# --- Endpoints da vitrine ---------------------------------------------------
 @router.get("/api/public/vehicles")
 def list_public_vehicles(
-    q: Optional[str] = Query(None, description="Busca livre (nome/modelo)"),
-    store_id: Optional[int] = None,
+    q: Optional[str] = Query(None, description="Busca livre (nome/marca/modelo)"),
+    store_id: Optional[str] = Query(None, description="Nome da loja (identidade)"),
     transmission: Optional[str] = None,
     fuel: Optional[str] = None,
     max_price: Optional[int] = Query(None, description="Preço máximo em reais (inteiro)"),
@@ -60,74 +173,74 @@ def list_public_vehicles(
     limit: int = Query(60, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    """Vitrine pública: lista veículos publicados de qualquer loja."""
-    where = ["v.status = 'Publicado'"]
-    params: list = []
+    """Vitrine pública: lista veículos ativos de qualquer loja (Supabase)."""
+    params: sb.Params = [
+        ("select", LIST_COLS),
+        ("active", "eq.true"),
+        ("sold", "eq.false"),
+    ]
     if q:
-        where.append("LOWER(v.name) LIKE ?")
-        params.append(f"%{q.lower()}%")
+        term = re.sub(r"\s+", " ", re.sub(r"[,()*]", " ", q)).strip()
+        if term:
+            like = f"*{term}*"
+            params.append(
+                ("or", f"(name.ilike.{like},brand.ilike.{like},model.ilike.{like})")
+            )
     if store_id:
-        where.append("v.store_id = ?")
-        params.append(store_id)
+        params.append(("store", f"eq.{store_id}"))
     if transmission:
-        where.append("v.transmission = ?")
-        params.append(transmission)
+        params.append(("exchange", f"eq.{transmission}"))
     if fuel:
-        where.append("v.fuel = ?")
-        params.append(fuel)
+        params.append(("fuel_text", f"eq.{fuel}"))
+    if min_price is not None:
+        params.append(("price", f"gte.{min_price}"))
+    if max_price is not None:
+        params.append(("price", f"lte.{max_price}"))
 
-    sql = f"""
-        SELECT v.*, s.name AS store_name
-        FROM vehicles v
-        JOIN stores s ON s.id = v.store_id
-        WHERE {' AND '.join(where)}
-        ORDER BY v.id DESC
-    """
-    with db.tx() as conn:
-        rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+    order = {
+        "preco_asc": "price.asc.nullslast",
+        "preco_desc": "price.desc.nullslast",
+    }.get(sort, "synced_at.desc.nullslast")
+    params.append(("order", order))
+    params.append(("limit", str(limit)))
+    params.append(("offset", str(offset)))
+
+    try:
+        rows, total = sb.select(sb.VEHICLES, params=params, count=True)
+    except sb.SupabaseError as exc:
+        raise _unavailable(exc) from exc
 
     items = [_vehicle_to_public(r) for r in rows]
-
-    # Filtros de preço fazem na aplicação (price é texto no schema atual)
-    if min_price is not None:
-        items = [i for i in items if (i["price_int"] or 0) >= min_price]
-    if max_price is not None:
-        items = [i for i in items if (i["price_int"] or 10**12) <= max_price]
-
-    if sort == "preco_asc":
-        items.sort(key=lambda i: i["price_int"] or 10**12)
-    elif sort == "preco_desc":
-        items.sort(key=lambda i: i["price_int"] or 0, reverse=True)
-
-    total = len(items)
-    items = items[offset:offset + limit]
-    return {"total": total, "items": items}
+    return {"total": total if total is not None else len(items), "items": items}
 
 
 @router.get("/api/public/vehicles/{vehicle_id}")
 def get_public_vehicle(vehicle_id: int):
-    with db.tx() as conn:
-        row = conn.execute(
-            """
-            SELECT v.*, s.name AS store_name, s.id AS store_id
-            FROM vehicles v
-            JOIN stores s ON s.id = v.store_id
-            WHERE v.id = ? AND v.status = 'Publicado'
-            """,
-            (vehicle_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(404, "Veículo não encontrado ou indisponível")
+    identifier = f"{TRINIX_PREFIX}{vehicle_id}"
+    try:
+        rows, _ = sb.select(
+            sb.VEHICLES,
+            params=[("select", "*"), ("identifier", f"eq.{identifier}"),
+                    ("active", "eq.true"), ("limit", "1")],
+        )
+    except sb.SupabaseError as exc:
+        raise _unavailable(exc) from exc
+    if not rows:
+        raise HTTPException(404, "Veículo não encontrado ou indisponível")
 
-        # Provider WhatsApp da loja (se houver) para CTA direto.
-        prov = conn.execute(
-            "SELECT display_number FROM whatsapp_providers WHERE store_id = ?",
-            (row["store_id"],),
-        ).fetchone()
+    row = rows[0]
+    veh = _vehicle_to_public(row)
+    veh["images"] = _pictures(row)  # galeria (renderização é da Fase 3)
+    veh["year"] = row.get("model_year")
+    veh["color"] = _clean(row.get("color"))
+    veh["description"] = _clean(row.get("note"))
 
-    veh = _vehicle_to_public(dict(row))
-    wa_number = (prov["display_number"] if prov else None) or ASF_WHATSAPP
-    wa_number = re.sub(r"[^\d]", "", wa_number)
+    # Dados da loja (logo/cidade/WhatsApp próprio) — Fase 4.
+    meta = store_meta.lookup(row.get("store")) or {}
+    veh["store_logo"] = meta.get("logo")
+    veh["store_city"] = meta.get("city")
+
+    wa_number = re.sub(r"[^\d]", "", meta.get("whatsapp") or ASF_WHATSAPP)
     msg = quote(f"Olá! Vi o {veh['name']} no portal do Auto Shopping Fórmula. Está disponível?")
     veh["whatsapp_link"] = f"https://wa.me/{wa_number}?text={msg}"
     veh["whatsapp_number"] = wa_number
@@ -136,50 +249,43 @@ def get_public_vehicle(vehicle_id: int):
 
 @router.get("/api/public/stores")
 def list_public_stores():
-    with db.tx() as conn:
-        rows = conn.execute(
-            """
-            SELECT s.id, s.name, s.type, s.plan, s.status,
-                   (SELECT COUNT(*) FROM vehicles v WHERE v.store_id = s.id AND v.status = 'Publicado') AS active_vehicles
-            FROM stores s
-            WHERE s.status = 'Ativo' AND s.type IN ('Lojista', 'Shopping')
-            ORDER BY s.name
-            """,
-        ).fetchall()
-    return {"items": [dict(r) for r in rows]}
+    try:
+        stores = _active_stores()
+    except sb.SupabaseError as exc:
+        raise _unavailable(exc) from exc
+    return {"items": stores}
 
 
 @router.get("/api/public/highlights")
 def get_highlights():
     """Resumo da home: contagem total + 6 últimos veículos."""
-    with db.tx() as conn:
-        total = conn.execute(
-            "SELECT COUNT(*) AS n FROM vehicles WHERE status = 'Publicado'"
-        ).fetchone()["n"]
-        stores_total = conn.execute(
-            "SELECT COUNT(*) AS n FROM stores WHERE status = 'Ativo' AND type = 'Lojista'"
-        ).fetchone()["n"]
-        latest = conn.execute(
-            """
-            SELECT v.*, s.name AS store_name
-            FROM vehicles v
-            JOIN stores s ON s.id = v.store_id
-            WHERE v.status = 'Publicado'
-            ORDER BY v.id DESC
-            LIMIT 6
-            """
-        ).fetchall()
+    try:
+        latest, total = sb.select(
+            sb.VEHICLES,
+            params=[("select", LIST_COLS), ("active", "eq.true"), ("sold", "eq.false"),
+                    ("order", "synced_at.desc.nullslast"), ("limit", "6")],
+            count=True,
+        )
+        stores = _active_stores()
+    except sb.SupabaseError as exc:
+        raise _unavailable(exc) from exc
     return {
-        "totals": {"vehicles": total, "stores": stores_total},
-        "latest": [_vehicle_to_public(dict(r)) for r in latest],
+        "totals": {
+            "vehicles": total if total is not None else len(latest),
+            "stores": len(stores),
+        },
+        "latest": [_vehicle_to_public(r) for r in latest],
     }
 
 
 @router.post("/api/public/leads", status_code=201)
 async def create_public_lead(payload: dict, request: Request):
-    """Captura lead do portal público → cria lead + conversa no CRM da loja.
+    """Captura lead do portal público → cria lead + conversa no CRM (SQLite).
 
     Body: {name, phone, vehicle_id?, store_id?, message?, budget?}
+
+    O veículo é resolvido no Supabase (catálogo público) só para preencher o
+    interesse; a persistência do lead/conversa segue no CRM local.
     """
     name = (payload.get("name") or "").strip()
     phone = re.sub(r"[^\d]", "", payload.get("phone") or "")
@@ -191,32 +297,40 @@ async def create_public_lead(payload: dict, request: Request):
     if not name or len(phone) < 10:
         raise HTTPException(400, "Nome e telefone (DDD + número) são obrigatórios")
 
+    # Resolve o nome do veículo no Supabase (não bloqueia o lead se falhar).
     car_interest = "Sem veículo específico"
+    if vehicle_id is not None:
+        try:
+            rows, _ = sb.select(
+                sb.VEHICLES,
+                params=[("select", "identifier,name,brand,model"),
+                        ("identifier", f"eq.{TRINIX_PREFIX}{vehicle_id}"),
+                        ("active", "eq.true"), ("limit", "1")],
+            )
+            if rows:
+                car_interest = _display_name(rows[0])
+        except sb.SupabaseError as exc:
+            logger.warning("Lead sem resolver veículo %s: %s", vehicle_id, exc)
+
     with db.tx() as conn:
-        if vehicle_id:
-            v = conn.execute(
-                "SELECT v.name, v.store_id, s.tenant_id FROM vehicles v JOIN stores s ON s.id = v.store_id WHERE v.id = ?",
-                (vehicle_id,),
+        # Anexa o lead a uma loja do CRM: usa store_id numérico válido, senão
+        # roteia para a loja-shopping (triagem). vehicles.store do Supabase é
+        # texto e não mapeia direto para stores.id do SQLite (Fase 4).
+        target_store_id: Optional[int] = None
+        if isinstance(store_id, int):
+            row = conn.execute("SELECT id FROM stores WHERE id = ?", (store_id,)).fetchone()
+            if row:
+                target_store_id = row["id"]
+        if target_store_id is None:
+            row = conn.execute(
+                "SELECT id FROM stores WHERE type = 'Shopping' LIMIT 1"
+            ).fetchone() or conn.execute(
+                "SELECT id FROM stores ORDER BY id LIMIT 1"
             ).fetchone()
-            if not v:
-                raise HTTPException(404, "Veículo não encontrado")
-            car_interest = v["name"]
-            store_id = v["store_id"]
-        else:
-            if not store_id:
-                # Roteia para a loja-shopping como triagem.
-                row = conn.execute(
-                    "SELECT id FROM stores WHERE type = 'Shopping' LIMIT 1"
-                ).fetchone()
-                if not row:
-                    raise HTTPException(500, "Nenhuma loja shopping configurada")
-                store_id = row["id"]
-            else:
-                row = conn.execute(
-                    "SELECT id FROM stores WHERE id = ?", (store_id,)
-                ).fetchone()
-                if not row:
-                    raise HTTPException(404, "Loja não encontrada")
+            if not row:
+                raise HTTPException(500, "Nenhuma loja configurada para receber o lead")
+            target_store_id = row["id"]
+        store_id = target_store_id
 
         # 1) Cria o lead.
         cur = conn.execute(

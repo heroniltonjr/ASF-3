@@ -1,0 +1,114 @@
+{
+  "betel": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/betel.jpeg",
+    "name": "BETEL AUTOMOVEIS",
+    "whatsapp": "5565984686849"
+  },
+  "ev": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/ev.jpeg",
+    "name": "EV AUTOMÓVEIS",
+    "whatsapp": "5565996889485"
+  },
+  "evidence": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/evidence.jpeg",
+    "name": "EVIDENCE MULTIMARCAS",
+    "whatsapp": "5565996175373"
+  },
+  "gilson": {
+    "address": null,
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/gilson.png",
+    "name": "Gilson Automoveis",
+    "whatsapp": "5565992444957"
+  },
+  "global": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/global.png",
+    "name": "GLOBAL AUTOMOVEIS",
+    "whatsapp": "5565999016007"
+  },
+  "gx": {
+    "address": "Avenida da FEB, 2222, Ponte Nova",
+    "city": null,
+    "logo": "/portal/assets/stores/gx-auto.png",
+    "name": "GX Auto",
+    "whatsapp": "5565996041002"
+  },
+  "kadosh": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/kadosh.jpeg",
+    "name": "KADOSH AUTOMOVEIS",
+    "whatsapp": "5565999000735"
+  },
+  "kallicar": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/kallicar.jpeg",
+    "name": "KALLICAR MULTIMARCAS",
+    "whatsapp": "5565992011623"
+  },
+  "luan": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Cuiabá/MT",
+    "logo": "/portal/assets/stores/luan.jpeg",
+    "name": "Luan Multimarcas",
+    "whatsapp": "5565992013346"
+  },
+  "mundial": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/mundial.jpeg",
+    "name": "MUNDIAL AUTOMOVEIS",
+    "whatsapp": "5565999016007"
+  },
+  "radar": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/radar.jpeg",
+    "name": "RADAR AUTOMÓVEIS",
+    "whatsapp": "5565984311111"
+  },
+  "rocha": {
+    "address": "AV DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/rocha-motors.jpeg",
+    "name": "ROCHA MOTORS",
+    "whatsapp": "5565999724848"
+  },
+  "rs": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/rs-motors.png",
+    "name": "RS MOTORS",
+    "whatsapp": "5565999866099"
+  },
+  "seminovos movida": {
+    "address": "Avenida da Feb, Av. Cerrados, 2222, JD CERRADOS",
+    "city": null,
+    "logo": "/portal/assets/stores/seminovos-movida.png",
+    "name": "Seminovos Movida",
+    "whatsapp": "5565992274323"
+  },
+  "tex": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/tex.jpeg",
+    "name": "TEX VEÍCULOS",
+    "whatsapp": "5565992828350"
+  },
+  "trinity": {
+    "address": "AV DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/trinity.jpeg",
+    "name": "TRINITY VEÍCULOS",
+    "whatsapp": "5565992357917"
+  }
+}

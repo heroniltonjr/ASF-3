@@ -113,21 +113,30 @@ async function loadHighlights() {
   }
 }
 
+// --- Card de loja (compartilhado home + página /lojas) ------------------
+function storeCardHTML(s) {
+  const logo = s.logo
+    ? `<div class="store-logo has-img"><img src="${s.logo}" alt="${s.name}" loading="lazy" /></div>`
+    : `<div class="store-logo">${s.name.charAt(0)}</div>`;
+  const sub = s.city || (s.type === 'Shopping' ? 'Shopping consolidador' : 'Loja parceira');
+  const label = s.active_vehicles === 1 ? 'veículo no estoque' : 'veículos no estoque';
+  return `
+    <a class="store-card" href="/portal/estoque.html?store=${encodeURIComponent(s.id)}">
+      ${logo}
+      <h3>${s.name}</h3>
+      <p>${sub}</p>
+      <div class="store-count">${s.active_vehicles} ${label}</div>
+    </a>
+  `;
+}
+
 // --- Home: grid de lojas ------------------------------------------------
 async function loadStoresGrid(selector, limit = 12) {
   const container = document.querySelector(selector);
   if (!container) return;
   try {
     const data = await fetchJSON('/api/public/stores');
-    const stores = data.items.slice(0, limit);
-    container.innerHTML = stores.map(s => `
-      <a class="store-card" href="/portal/estoque.html?store=${s.id}">
-        <div class="store-logo">${s.name.charAt(0)}</div>
-        <h3>${s.name}</h3>
-        <p>${s.type === 'Shopping' ? 'Shopping consolidador' : 'Loja parceira'}</p>
-        <div class="store-count">${s.active_vehicles} ${s.active_vehicles === 1 ? 'veículo' : 'veículos'}</div>
-      </a>
-    `).join('');
+    container.innerHTML = data.items.slice(0, limit).map(storeCardHTML).join('');
   } catch (err) {
     console.error(err);
     container.innerHTML = '<div class="empty-state">Não foi possível listar as lojas agora.</div>';
@@ -194,25 +203,31 @@ async function initVehicleDetail() {
     const data = await fetchJSON(`/api/public/vehicles/${id}`);
     const v = data.vehicle;
     document.title = `${v.name} — Auto Shopping Fórmula`;
-    const img = imageFor(v);
+    const images = (Array.isArray(v.images) && v.images.length) ? v.images : [imageFor(v)];
     root.innerHTML = `
       <div class="veh-detail">
         <div>
-          <div class="veh-gallery"><img src="${img}" alt="${v.name}" /></div>
+          ${galleryHTML(images, v.name)}
         </div>
         <div class="veh-sidebar">
           <span class="vehicle-store">${v.store_name}</span>
           <h1>${v.name}</h1>
           <div class="price">${formatPrice(v.price)}</div>
           <div class="veh-specs">
+            ${v.year       ? `<div class="spec"><small>Ano</small><strong>${v.year}</strong></div>` : ''}
             ${v.mileage    ? `<div class="spec"><small>Quilometragem</small><strong>${v.mileage}</strong></div>` : ''}
             ${v.transmission ? `<div class="spec"><small>Câmbio</small><strong>${v.transmission}</strong></div>` : ''}
             ${v.fuel       ? `<div class="spec"><small>Combustível</small><strong>${v.fuel}</strong></div>` : ''}
+            ${v.color      ? `<div class="spec"><small>Cor</small><strong>${v.color}</strong></div>` : ''}
             <div class="spec"><small>Status</small><strong>${v.status}</strong></div>
           </div>
           <div class="veh-store-tag">
-            <span>Vendido por <strong>${v.store_name}</strong></span>
-            <a href="/portal/estoque.html?store=${v.store_id}">Ver estoque</a>
+            ${v.store_logo ? `<img class="veh-store-logo" src="${v.store_logo}" alt="${v.store_name}" />` : ''}
+            <div class="veh-store-info">
+              <span>Vendido por <strong>${v.store_name}</strong></span>
+              ${v.store_city ? `<small>${v.store_city}</small>` : ''}
+            </div>
+            <a href="/portal/estoque.html?store=${encodeURIComponent(v.store_id)}">Ver estoque</a>
           </div>
           ${simulatorHTML(v.price)}
           <a class="btn btn-whatsapp" href="${v.whatsapp_link}" target="_blank" rel="noopener">
@@ -232,10 +247,70 @@ async function initVehicleDetail() {
     });
     bindLeadForm();
     bindSimulator(v.price);
+    bindGallery(images);
   } catch (err) {
     console.error(err);
     root.innerHTML = '<div class="empty-state">Veículo indisponível.</div>';
   }
+}
+
+// --- Galeria de fotos do veículo (carrossel) ----------------------------
+function galleryHTML(images, name) {
+  const safeName = (name || 'Veículo').replace(/"/g, '&quot;');
+  const fallback = STOCK_PHOTOS[0];
+  const onErr = `this.onerror=null;this.src='${fallback}'`;
+  const multi = images.length > 1;
+  const nav = multi ? `
+    <button type="button" class="veh-gallery-nav prev" aria-label="Foto anterior">‹</button>
+    <button type="button" class="veh-gallery-nav next" aria-label="Próxima foto">›</button>
+    <span class="veh-gallery-counter"><span id="veh-gallery-pos">1</span> / ${images.length}</span>
+  ` : '';
+  const thumbs = multi ? `
+    <div class="veh-thumbs" id="veh-thumbs">
+      ${images.map((src, i) => `
+        <button type="button" class="veh-thumb${i === 0 ? ' active' : ''}" data-idx="${i}" aria-label="Foto ${i + 1}">
+          <img src="${src}" alt="${safeName} — foto ${i + 1}" loading="lazy" onerror="${onErr}" />
+        </button>
+      `).join('')}
+    </div>
+  ` : '';
+  return `
+    <div class="veh-gallery-wrap" id="veh-gallery" tabindex="0">
+      <div class="veh-gallery">
+        <img id="veh-gallery-main" src="${images[0]}" alt="${safeName}" onerror="${onErr}" />
+        ${nav}
+      </div>
+      ${thumbs}
+    </div>
+  `;
+}
+
+function bindGallery(images) {
+  const wrap = document.getElementById('veh-gallery');
+  if (!wrap || images.length < 2) return;
+  const main = document.getElementById('veh-gallery-main');
+  const pos = document.getElementById('veh-gallery-pos');
+  const thumbs = [...wrap.querySelectorAll('.veh-thumb')];
+  let idx = 0;
+
+  const show = (n) => {
+    idx = (n + images.length) % images.length;
+    main.src = images[idx];
+    thumbs.forEach((t, i) => t.classList.toggle('active', i === idx));
+    if (pos) pos.textContent = idx + 1;
+    const active = thumbs[idx];
+    if (active) active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  };
+
+  thumbs.forEach(t => t.addEventListener('click', () => show(Number(t.dataset.idx))));
+  const prev = wrap.querySelector('.veh-gallery-nav.prev');
+  const next = wrap.querySelector('.veh-gallery-nav.next');
+  if (prev) prev.addEventListener('click', () => show(idx - 1));
+  if (next) next.addEventListener('click', () => show(idx + 1));
+  wrap.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+  });
 }
 
 // --- Formulário de captura de lead --------------------------------------
@@ -414,14 +489,7 @@ async function initLojasPage() {
   if (!container) return;
   try {
     const data = await fetchJSON('/api/public/stores');
-    container.innerHTML = data.items.map(s => `
-      <a class="store-card" href="/portal/estoque.html?store=${s.id}">
-        <div class="store-logo">${s.name.charAt(0)}</div>
-        <h3>${s.name}</h3>
-        <p>${s.type === 'Shopping' ? 'Shopping consolidador' : 'Loja parceira'} • Plano ${s.plan}</p>
-        <div class="store-count">${s.active_vehicles} ${s.active_vehicles === 1 ? 'veículo no estoque' : 'veículos no estoque'}</div>
-      </a>
-    `).join('');
+    container.innerHTML = data.items.map(storeCardHTML).join('');
   } catch (err) {
     console.error(err);
     container.innerHTML = '<div class="empty-state">Lojas indisponíveis no momento.</div>';

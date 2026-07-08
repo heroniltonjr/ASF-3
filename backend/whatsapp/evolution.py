@@ -121,7 +121,7 @@ class EvolutionProvider:
             )
             if not text:
                 continue
-                
+
             if key.get("fromMe"):
                 # Marca no raw que foi um envio do próprio atendente
                 item["_is_human_intervention"] = True

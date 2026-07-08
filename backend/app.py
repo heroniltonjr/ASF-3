@@ -14,20 +14,20 @@ from . import auth, db, seed
 from .routes import (
     auth_routes,
     billing,
+    campaigns,
     conversations,
+    dashboard,
     invites,
     leads,
     lgpd,
     media,
     notes,
     public,
+    push,
     stores,
     tags,
     vehicles,
     whatsapp,
-    dashboard,
-    push,
-    campaigns,
 )
 from .routes import events as events_route
 from .settings import settings
@@ -101,7 +101,7 @@ def create_app() -> FastAPI:
         def redirect_portal():
             from fastapi.responses import RedirectResponse
             return RedirectResponse(url="/portal/")
-            
+
         app.mount("/portal", StaticFiles(directory=str(public_root), html=True), name="portal")
 
     # SPA admin + estáticos: index.html na raiz; demais arquivos via StaticFiles.

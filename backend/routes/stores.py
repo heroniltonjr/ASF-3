@@ -109,8 +109,8 @@ def list_sellers(store_id: int, user: dict = Depends(_LOJISTA_MGMT)):
 @router.post("/stores/{store_id}/sellers", status_code=201)
 def create_seller(store_id: int, payload: dict, user: dict = Depends(_LOJISTA_MGMT)):
     """Cria um vendedor diretamente numa loja, sem necessidade de convite."""
-    from ..deps import STORE_SCOPED_ROLES
     from .. import auth as _auth
+    from ..deps import STORE_SCOPED_ROLES
     if user["role"] in STORE_SCOPED_ROLES and user.get("store_id") != store_id:
         raise HTTPException(403, "Sem acesso a esta loja")
 

@@ -67,9 +67,9 @@ def get_team_performance(user: dict = Depends(_ALL)):
     where_sql = " AND ".join(where_clauses)
 
     sql = f"""
-        SELECT 
-            u.id, 
-            u.name, 
+        SELECT
+            u.id,
+            u.name,
             u.email,
             COUNT(l.id) AS total_leads,
             SUM(CASE WHEN l.stage = 'Fechado' THEN 1 ELSE 0 END) AS fechados,
@@ -80,7 +80,7 @@ def get_team_performance(user: dict = Depends(_ALL)):
         GROUP BY u.id
         ORDER BY fechados DESC, total_leads DESC
     """
-    
+
     with db.tx() as conn:
         rows = conn.execute(sql, params).fetchall()
 

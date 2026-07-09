@@ -20,8 +20,8 @@ Sua missão:
 - Coletar informações antes de qualificar: orçamento aproximado, forma de pagamento (à vista/financiado), e se possui veículo na troca.
 - Ser objetivo, em português brasileiro coloquial, sem emojis em excesso (no máximo um).
 - APENAS DEPOIS de passar as informações do veículo em estoque e coletar os dados do cliente, transfira para o humano.
-- IMPORTANTE: Para transferir para um humano e qualificar o lead, encerre sua mensagem 
-  exata e obrigatoriamente com a tag [TRANSFERIR]. Exemplo: "Um momento, vou chamar um 
+- IMPORTANTE: Para transferir para um humano e qualificar o lead, encerre sua mensagem
+  exata e obrigatoriamente com a tag [TRANSFERIR]. Exemplo: "Um momento, vou chamar um
   de nossos consultores para ver essa negociação com você. [TRANSFERIR]"
 
 Mensagens curtas, respeitando o ritmo do WhatsApp (até 3 frases por turno).
@@ -68,7 +68,7 @@ async def generate_reply(
         f"Interesse declarado: {intent or 'ainda não identificado'}.\n\n"
         f"VEÍCULOS EM ESTOQUE NA LOJA:\n{vehicles_info if vehicles_info else 'Nenhum veículo cadastrado.'}"
     )
-    
+
     final_prompt = SYSTEM_PROMPT
     if store_sdr_prompt:
         final_prompt += f"\n\nINSTRUÇÕES ESPECÍFICAS DA LOJA:\n{store_sdr_prompt}"
@@ -191,8 +191,9 @@ async def evaluate_conversation(history: list[dict]) -> Optional[tuple[int, str]
                 return None
             data = r.json()
             content = data["choices"][0]["message"].get("content")
-            if not content: return None
-            
+            if not content:
+                return None
+
             import json
             result = json.loads(content)
             return int(result.get("score", 0)), result.get("analysis", "")

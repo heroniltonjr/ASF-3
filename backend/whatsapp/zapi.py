@@ -175,7 +175,7 @@ class ZApiProvider:
         from_number = str(payload.get("phone") or "")
         if "@" in from_number:
             from_number = from_number.split("@")[0]
-            
+
         from_number = _format_br_number(from_number)
 
         if not from_number:

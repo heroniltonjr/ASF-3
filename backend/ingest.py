@@ -134,7 +134,7 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
         is_human = inbound.raw.get("_is_human_intervention", False) if isinstance(inbound.raw, dict) else False
         sender = "human" if is_human else "lead"
         inbound_msg_id = _persist_message(conn, conv["id"], sender, inbound.body)
-        
+
         # Se o lojista interveio via celular, marca a conversa como Humana automaticamente
         if is_human:
             conn.execute("UPDATE conversations SET status = 'Humano' WHERE id = ?", (conv["id"],))
@@ -205,7 +205,7 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
 
     qualified = False
     lower_reply = reply.lower()
-    
+
     if "[TRANSFERIR]" in reply:
         qualified = True
         reply = reply.replace("[TRANSFERIR]", "").strip()

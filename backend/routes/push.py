@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import json
-from pydantic import BaseModel
+
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from .. import db
-from ..deps import STORE_SCOPED_ROLES, require_roles
+from ..deps import require_roles
 
 router = APIRouter()
 _ALL = require_roles("master", "shopping", "lojista", "gestor", "vendedor")
@@ -30,7 +31,7 @@ def subscribe_push(sub: PushSubscription, user: dict = Depends(_ALL)):
             """
             INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
             VALUES (?, ?, ?, ?)
-            ON CONFLICT(endpoint) DO UPDATE SET 
+            ON CONFLICT(endpoint) DO UPDATE SET
                 user_id=excluded.user_id,
                 p256dh=excluded.p256dh,
                 auth=excluded.auth
@@ -46,15 +47,16 @@ def notify_user(user_id: int, payload: dict):
     Requer a lib pywebpush e VAPID_PRIVATE_KEY. Se não tiver, ignora (stub).
     """
     try:
-        from pywebpush import webpush, WebPushException
+        from pywebpush import WebPushException, webpush
+
         from ..settings import settings
-        
+
         if not settings.get("VAPID_PRIVATE_KEY") or not settings.get("VAPID_CLAIMS_EMAIL"):
             return # VAPID não configurado
-            
+
         with db.tx() as conn:
             subs = conn.execute("SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?", (user_id,)).fetchall()
-            
+
         for sub in subs:
             try:
                 webpush(

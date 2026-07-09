@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from .. import db, sdr
 from ..deps import STORE_SCOPED_ROLES, require_roles
@@ -162,9 +162,10 @@ async def _run_qa(cid: int):
     with db.tx() as conn:
         history_rows = conn.execute("SELECT sender, body FROM messages WHERE conversation_id = ? ORDER BY id", (cid,)).fetchall()
         history = [dict(r) for r in history_rows]
-    
-    if not history: return
-    
+
+    if not history:
+        return
+
     result = await sdr.evaluate_conversation(history)
     if result:
         score, analysis = result
@@ -195,10 +196,10 @@ def update_conversation(cid: int, payload: dict, background_tasks: BackgroundTas
             "SELECT c.*, s.name AS store_name FROM conversations c JOIN stores s ON s.id = c.store_id WHERE c.id = ?",
             (cid,),
         ).fetchone()
-        
+
     if "status" in updates and updates["status"] == "Encerrado":
         background_tasks.add_task(_run_qa, cid)
-        
+
     return {"conversation": _row_to_conversation(out)}
 
 
@@ -276,7 +277,7 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
                 if abs_url.startswith("/"):
                     from ..settings import settings as _s
                     abs_url = _s.public_base_url.rstrip("/") + media_url
-                
+
                 if msg_type == "image" and hasattr(provider, "send_image"):
                     logger.info("Conv %s: enviando imagem para %s via %s", cid, conv["customer_phone"], type(provider).__name__)
                     out = await provider.send_image(conv["customer_phone"], abs_url, caption=text)
@@ -339,7 +340,7 @@ async def claim_conversation(cid: int, user: dict = Depends(_ALL)):
             raise HTTPException(404, "Conversa não encontrada")
         if user["role"] in STORE_SCOPED_ROLES and conv["store_id"] != user.get("store_id"):
             raise HTTPException(403, "Conversa de outra loja")
-        
+
         conn.execute(
             "UPDATE conversations SET owner_user_id = ?, status = 'Humano', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (user["id"], cid),
@@ -349,11 +350,11 @@ async def claim_conversation(cid: int, user: dict = Depends(_ALL)):
                 "UPDATE leads SET assigned_user_id = ?, stage = 'Em atendimento' WHERE id = ?",
                 (user["id"], conv["lead_id"])
             )
-            
+
         owner_row = conn.execute(
             "SELECT id, name, role FROM users WHERE id = ?", (user["id"],)
         ).fetchone()
-        
+
     await bus.publish({
         "type": "conversation.updated",
         "store_id": conv["store_id"],
@@ -368,7 +369,7 @@ async def claim_conversation(cid: int, user: dict = Depends(_ALL)):
             "store_id": conv["store_id"],
             "lead_id": conv["lead_id"]
         })
-        
+
     return {"ok": True, "owner": dict(owner_row)}
 
 
@@ -387,7 +388,7 @@ async def release_conversation(cid: int, user: dict = Depends(_ALL)):
             "UPDATE conversations SET owner_user_id = NULL, status = 'SDR ativo', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (cid,),
         )
-        
+
     await bus.publish({
         "type": "conversation.updated",
         "store_id": conv["store_id"],
@@ -396,5 +397,5 @@ async def release_conversation(cid: int, user: dict = Depends(_ALL)):
         "owner_user_id": None,
         "owner_name": None
     })
-    
+
     return {"ok": True}

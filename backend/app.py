@@ -92,7 +92,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health", tags=["health"])
     def health():
-        return {"ok": True, "database": db.DB_PATH.name}
+        return {"ok": True, "database": db.get_db_info()}
 
     # --- Portal público (cliente final) montado em /portal -------------------
     public_root = STATIC_ROOT / "public"

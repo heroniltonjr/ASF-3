@@ -191,3 +191,10 @@ def row_to_dict(row: Any | None) -> dict | None:
 def rows_to_list(rows: Any) -> list[dict]:
     return [dict(r) for r in rows]
 
+
+def get_db_info() -> str:
+    if os.getenv("DATABASE_URL") and not os.getenv("SQLITE_PATH"):
+        return "supabase"
+    return f"sqlite3:{DB_PATH.name}"
+
+

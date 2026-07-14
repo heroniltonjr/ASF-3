@@ -126,11 +126,12 @@ class SQLToPostgresConnectionWrapper:
 
 
 def connect() -> Any:
-    # Prioriza SQLite se SQLITE_PATH estiver configurado (comum em testes automatizados)
-    sqlite_path = os.getenv("SQLITE_PATH")
+    # Usa SQLite se estiver em ambiente de teste do pytest, caso contrário usa Supabase se DATABASE_URL estiver setado
+    is_testing = "PYTEST_CURRENT_TEST" in os.environ
     db_url = os.getenv("DATABASE_URL")
     
-    if sqlite_path or not db_url:
+    if is_testing or not db_url:
+        sqlite_path = os.getenv("SQLITE_PATH")
         conn = sqlite3.connect(sqlite_path or DB_PATH)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
@@ -166,7 +167,8 @@ def _ensure_migrations_table(conn: sqlite3.Connection) -> None:
 
 def run_migrations() -> list[str]:
     """Apply any *.sql file in migrations/ not yet recorded. Returns applied names."""
-    if os.getenv("DATABASE_URL") and not os.getenv("SQLITE_PATH"):
+    is_testing = "PYTEST_CURRENT_TEST" in os.environ
+    if os.getenv("DATABASE_URL") and not is_testing:
         # No Supabase PostgreSQL, as tabelas já foram criadas e a migração de vehicles foi executada
         return []
         

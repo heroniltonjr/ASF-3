@@ -39,8 +39,8 @@ class Settings:
     # A chave anon é pública por design (RLS "read active vehicles" cobre a leitura).
     # .strip() protege contra quebra de linha/espaço acidental ao colar no .env
     # (httpx rejeita URL/headers com caracteres de controle).
-    supabase_url: str = os.getenv("SUPABASE_URL", "").strip()
-    supabase_anon_key: str = os.getenv("SUPABASE_ANON_KEY", "").strip()
+    supabase_url: str = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").strip()
+    supabase_anon_key: str = (os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") or "").strip()
 
     meta_verify_token: str = os.getenv("META_VERIFY_TOKEN", "")
     meta_app_secret: str = os.getenv("META_APP_SECRET", "")

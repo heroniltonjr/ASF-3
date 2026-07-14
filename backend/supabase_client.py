@@ -18,7 +18,7 @@ from .settings import settings
 logger = logging.getLogger(__name__)
 
 # Tabela única consumida pela vitrine (lojas são derivadas do texto `store`).
-VEHICLES = "vehicles"
+VEHICLES = "formulaos_vehicles"
 
 # Params PostgREST são uma lista de tuplas para permitir a mesma chave repetida
 # (ex.: price=gte.X & price=lte.Y).

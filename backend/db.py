@@ -59,9 +59,9 @@ class SQLToPostgresCursorWrapper:
         has_returning = 'RETURNING' in query.upper()
         
         if is_insert and not has_returning:
-            # Garante que inserções retornam o ID gerado para alimentar o lastrowid
+            # Garante que inserções retornam a linha inserida para alimentar o lastrowid se a tabela tiver id
             stripped = adapted_query.strip().rstrip(';')
-            adapted_query = f"{stripped} RETURNING id"
+            adapted_query = f"{stripped} RETURNING *"
             
         self._cur.execute(adapted_query, vars)
         
@@ -69,7 +69,12 @@ class SQLToPostgresCursorWrapper:
             try:
                 row = self._cur.fetchone()
                 if row:
-                    self._lastrowid = row[0]
+                    if hasattr(row, "keys") and "id" in row.keys():
+                        self._lastrowid = row["id"]
+                    elif hasattr(row, "get") and row.get("id") is not None:
+                        self._lastrowid = row["get"]("id")
+                    else:
+                        self._lastrowid = None
             except Exception:
                 pass
         return self

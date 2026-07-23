@@ -20,7 +20,7 @@ TABLES = [
     'tenants', 'stores', 'users', 'vehicles', 'leads', 'conversations',
     'messages', 'billing_events', 'auth_sessions', 'invites', 'lgpd_audit',
     'tags', 'lead_tags', 'lead_notes', 'whatsapp_providers', 'whatsapp_events',
-    'push_subscriptions'
+    'push_subscriptions', 'messages_sent', 'customer_purchases'
 ]
 
 

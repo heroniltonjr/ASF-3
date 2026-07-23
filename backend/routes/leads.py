@@ -43,7 +43,7 @@ def list_leads(user: dict = Depends(_ALL)):
 
 
 _REQUIRED = {"name", "car_interest", "store_id", "stage"}
-_FIELDS = ("store_id", "name", "car_interest", "stage", "score", "budget", "source", "phone")
+_FIELDS = ("store_id", "name", "car_interest", "stage", "score", "budget", "source", "phone", "city", "trade_in_car", "payment_preference", "searched_history_json")
 
 
 @router.post("/leads", status_code=201)
@@ -55,6 +55,8 @@ def create_lead(payload: dict, user: dict = Depends(_ALL)):
         raise HTTPException(400, f"Campos obrigatórios: {', '.join(missing)}")
     if payload["stage"] not in VALID_STAGES:
         raise HTTPException(400, f"Estágio inválido (use um de {sorted(VALID_STAGES)})")
+    if payload.get("score") is None:
+        payload["score"] = 50
     values = [payload.get(f) for f in _FIELDS]
     cols = ", ".join(_FIELDS)
     placeholders = ", ".join("?" * len(_FIELDS))
@@ -67,7 +69,7 @@ def create_lead(payload: dict, user: dict = Depends(_ALL)):
     return {"lead": dict(row)}
 
 
-_PATCHABLE = {"name", "car_interest", "stage", "score", "budget", "source", "phone"}
+_PATCHABLE = {"name", "car_interest", "stage", "score", "budget", "source", "phone", "city", "trade_in_car", "payment_preference", "searched_history_json"}
 
 
 @router.patch("/leads/{lid}")

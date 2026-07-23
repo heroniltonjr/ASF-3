@@ -92,6 +92,26 @@ def remove_provider(store_id: int, user: dict = Depends(_ADMIN)):
     return None
 
 
+@router.get("/api/stores/{store_id}/sdr-mode")
+def get_sdr_mode(store_id: int, user: dict = Depends(_MGMT)):
+    _scope_check(user, store_id)
+    with db.tx() as conn:
+        row = conn.execute("SELECT operation_mode FROM stores WHERE id = ?", (store_id,)).fetchone()
+    mode = (row["operation_mode"] if row and "operation_mode" in row.keys() and row["operation_mode"] else "normal") or "normal"
+    return {"store_id": store_id, "operation_mode": mode}
+
+
+@router.put("/api/stores/{store_id}/sdr-mode")
+def update_sdr_mode(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
+    _scope_check(user, store_id)
+    mode = payload.get("operation_mode") or payload.get("mode")
+    if mode not in ("normal", "feirao"):
+        raise HTTPException(400, "operation_mode deve ser 'normal' ou 'feirao'")
+    with db.tx() as conn:
+        conn.execute("UPDATE stores SET operation_mode = ? WHERE id = ?", (mode, store_id))
+    return {"ok": True, "store_id": store_id, "operation_mode": mode}
+
+
 # --- Webhooks (públicos — autenticação via verify_token/segredo do provider) ---
 
 def _provider_db_id(store_id: int) -> Optional[int]:

@@ -1,0 +1,92 @@
+{
+  "name": "SelectStore_V2",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM public.stores\nWHERE store_active IS TRUE\nORDER BY\n    COALESCE(leads_this_month, 0) ASC,          -- 1) menos leads no mês\n    COALESCE(updated_at, '1970-01-01') ASC,     -- 2) updated_at mais antigo\n    COALESCE(total_leads, 0) ASC,               -- 3) menor total de leads\n    random()                                    -- 4) desempate aleatório\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        -352
+      ],
+      "id": "f2d0c0e3-c19b-4420-8ee9-0d64d8dccd0c",
+      "name": "get_store",
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "autoformula-store-select-v2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -208,
+        -352
+      ],
+      "id": "645b7b04-83f9-4486-8a4b-40c235fdc524",
+      "name": "SelectStore",
+      "webhookId": "bce9cb46-aa5f-4d21-84b0-a846c7560410"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        208,
+        -352
+      ],
+      "id": "579f288e-9238-4853-9b68-6d6367dd3387",
+      "name": "ReturnStore"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "get_store": {
+      "main": [
+        [
+          {
+            "node": "ReturnStore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SelectStore": {
+      "main": [
+        [
+          {
+            "node": "get_store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "f2594bc6-6c3e-469c-a88c-8e5ab7412deb",
+  "meta": {
+    "instanceId": "c3654042945384c4a54173c01471c8b89a69bd29ba1cd23f39817429dee1a884"
+  },
+  "id": "CjNzQ8W89TroorFC79AYD",
+  "tags": []
+}

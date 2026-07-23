@@ -54,6 +54,18 @@ def create_session(user_id: int) -> tuple[str, datetime]:
     return token, expires_at
 
 
+def _parse_dt(val: Any) -> Optional[datetime]:
+    if isinstance(val, datetime):
+        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+    if isinstance(val, str):
+        try:
+            dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    return None
+
+
 def get_user_by_token(token: str) -> Optional[dict]:
     if not token:
         return None
@@ -69,11 +81,8 @@ def get_user_by_token(token: str) -> Optional[dict]:
         ).fetchone()
     if not row:
         return None
-    try:
-        expires = datetime.fromisoformat(row["expires_at"])
-    except ValueError:
-        return None
-    if expires < datetime.now(timezone.utc):
+    expires = _parse_dt(row["expires_at"])
+    if not expires or expires < datetime.now(timezone.utc):
         revoke_session(token)
         return None
     return {

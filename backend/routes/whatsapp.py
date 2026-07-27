@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from .. import db, ingest
@@ -173,17 +173,14 @@ async def evolution_inbound(store_id: int, payload: dict, request: Request):
 
 
 @router.post("/webhooks/whatsapp/zapi/{store_id}")
-async def zapi_inbound(store_id: int, payload: dict):
+async def zapi_inbound(store_id: int, payload: dict, background_tasks: BackgroundTasks):
     provider = load_provider_for_store(store_id)
     if not provider or provider.cfg.kind != "zapi":
         raise HTTPException(404, "Provider Z-API não configurado para esta loja")
     provider_db_id = _provider_db_id(store_id)
     inbounds = provider.parse_inbound(payload)
     for inbound in inbounds:
-        try:
-            await ingest.handle_inbound(provider, provider_db_id, inbound)
-        except Exception:
-            logger.exception("Falha ao processar inbound Z-API (store=%s)", store_id)
+        background_tasks.add_task(ingest.handle_inbound, provider, provider_db_id, inbound)
     return {"ok": True, "ingested": len(inbounds)}
 
 

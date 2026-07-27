@@ -264,7 +264,19 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     """Persiste a mensagem recebida, chama o SDR, envia a resposta e persiste tudo."""
     store_id = provider.cfg.store_id
 
+    # 0) Deduplicação por wa_message_id
+    if inbound.wa_message_id:
+        with db.tx() as conn:
+            dup = conn.execute(
+                "SELECT id FROM whatsapp_events WHERE store_id = ? AND direction = 'inbound' AND wa_message_id = ?",
+                (store_id, inbound.wa_message_id),
+            ).fetchone()
+            if dup:
+                logger.info("Mensagem duplicada ignorada (wa_message_id=%s, store_id=%s)", inbound.wa_message_id, store_id)
+                return
+
     # 1) abre/cria conversa, persiste mensagem inbound e loga evento + billing.
+
     with db.tx() as conn:
         conv = _find_or_create_conversation(conn, store_id, inbound.from_number)
         is_human = inbound.raw.get("_is_human_intervention", False) if isinstance(inbound.raw, dict) else False

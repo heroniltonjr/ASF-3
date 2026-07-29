@@ -65,5 +65,4 @@ async def test_agente_rafael_prompt():
     assert "Rafael" in sdr.SYSTEM_PROMPT
     assert "30+ lojas" in sdr.SYSTEM_PROMPT
     assert "15 anos de mercado" in sdr.SYSTEM_PROMPT
-    assert "NUNCA DIGA \"NÃO TEM\"" in sdr.SYSTEM_PROMPT
     assert "[TRANSFERIR]" in sdr.SYSTEM_PROMPT

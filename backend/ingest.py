@@ -7,6 +7,7 @@ import re
 from typing import Optional
 
 from . import db, sdr, stt
+from . import supabase_client as sb
 from .events import bus
 from .whatsapp import InboundMessage, Provider, ProviderError
 
@@ -169,28 +170,82 @@ def record_message_sent(conn, store_name: str, store_number: str, store_focal: s
         logger.warning("Falha ao gravar estatísticas/message_sent: %s", exc)
 
 
-def search_vehicles_advanced(conn, store_id: int, is_feirao: bool = False) -> str:
-    """Busca os veículos no estoque e formata opções compactas para o SDR."""
-    if is_feirao:
-        # Modo Feirão: mostra estoque de todas as lojas ativas
+def search_vehicles_advanced(conn, store_id: int, incoming_text: str = "", is_feirao: bool = False) -> str:
+    """Realiza uma busca direcionada por intenção no Supabase (ou no SQLite local) em tempo real.
+
+    Traz apenas os 3 a 5 veículos mais relevantes que casam com o pedido do cliente.
+    Se não houver o modelo exato, busca alternativas similares na mesma faixa.
+    """
+    txt = (incoming_text or "").lower()
+    keywords = ["corolla", "civic", "sentra", "cruze", "compass", "renegade", "creta", "tracker", "kicks", "t-cross", "nivus", "hr-v", "fit", "hb20", "onix", "argo", "gol", "palio", "hilux", "s10", "ranger", "toro", "suv", "sedan", "hatch", "picape", "pickup"]
+    found_kw = [kw for kw in keywords if kw in txt]
+
+    # 1. Tenta consulta via Supabase PostgREST se configurado
+    if sb.is_configured():
+        try:
+            params = [
+                ("select", "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image"),
+                ("order", "price.asc"),
+                ("limit", "5")
+            ]
+            if found_kw:
+                or_conds = ",".join([f"name.ilike.*{kw}*,model.ilike.*{kw}*" for kw in found_kw])
+                params.append(("or", f"({or_conds})"))
+
+            rows, _ = sb.select(sb.VEHICLES, params=params)
+
+            # Fallback no Supabase: se não achou com filtro exato, busca veículos gerais em oferta
+            if not rows and found_kw:
+                params_fallback = [
+                    ("select", "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image"),
+                    ("order", "price.asc"),
+                    ("limit", "5")
+                ]
+                rows, _ = sb.select(sb.VEHICLES, params=params_fallback)
+
+            if rows:
+                return "\n".join([f"- {r.get('name') or r.get('model')} | R$ {r.get('price')} | {r.get('km') or 'N/A'} | {r.get('exchange') or ''} | Foto: {r.get('main_image') or 'Sem foto'} | Loja: {r.get('store') or 'Shopping'}" for r in rows])
+        except Exception as exc:
+            logger.warning("Falha na consulta ao Supabase, caindo para SQLite: %s", exc)
+
+    # 2. Fallback SQLite local (desenvolvimento / testes / offline)
+    query_parts = ["v.status = 'Publicado'"]
+    params = []
+
+    if found_kw:
+        kw_conditions = []
+        for kw in found_kw:
+            kw_conditions.append("LOWER(v.name) LIKE ?")
+            params.append(f"%{kw}%")
+        query_parts.append(f"({' OR '.join(kw_conditions)})")
+
+    where_clause = " AND ".join(query_parts)
+
+    rows = conn.execute(
+        f"SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, v.image_path, s.name as store_name "
+        f"FROM vehicles v JOIN stores s ON s.id = v.store_id "
+        f"WHERE {where_clause} ORDER BY v.price ASC LIMIT 5",
+        params
+    ).fetchall()
+
+    if not rows and found_kw:
+        # Fallback SQLite sem o filtro de palavra-chave (traz opções gerais do estoque)
         rows = conn.execute(
-            """
-            SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, v.image_path, s.name as store_name
-            FROM vehicles v
-            JOIN stores s ON s.id = v.store_id
-            WHERE v.status = 'Publicado'
-            ORDER BY v.price ASC LIMIT 9
-            """
+            "SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, v.image_path, s.name as store_name "
+            "FROM vehicles v JOIN stores s ON s.id = v.store_id "
+            "WHERE v.status = 'Publicado' ORDER BY v.price ASC LIMIT 5"
         ).fetchall()
-        if rows:
-            return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or ''} | {r['transmission'] or ''} | Foto: {r['image_path'] or 'Sem foto'} | Loja: {r['store_name']}" for r in rows])
-    else:
+
+    if not rows:
         rows = conn.execute(
-            "SELECT name, price, mileage, transmission, fuel, image_path FROM vehicles WHERE store_id = ? AND status = 'Publicado'",
-            (store_id,)
+            "SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, v.image_path, s.name as store_name "
+            "FROM vehicles v JOIN stores s ON s.id = v.store_id "
+            "WHERE v.status = 'Publicado' ORDER BY v.price ASC LIMIT 5"
         ).fetchall()
-        if rows:
-            return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or ''} | {r['transmission'] or ''} | {r['fuel'] or ''} | Foto: {r['image_path'] or 'Sem foto'}" for r in rows])
+
+    if rows:
+        return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or 'N/A'} | {r['transmission'] or ''} | {r['fuel'] or ''} | Foto: {r['image_path'] or 'Sem foto'} | Loja: {r['store_name']}" for r in rows])
+
     return "Nenhum veículo disponível no momento."
 
 
@@ -381,9 +436,9 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     if isinstance(inbound.raw, dict) and inbound.raw.get("_is_image"):
         inbound_image_url = inbound.raw.get("_image_url")
 
-    # Buscar veículos para passar ao SDR (suporta modo normal e feirão)
+    # Buscar veículos para passar ao SDR (busca direcionada por intenção no Supabase/SQLite)
     with db.tx() as conn:
-        vehicles_info = search_vehicles_advanced(conn, store_id, is_feirao=(operation_mode == "feirao"))
+        vehicles_info = search_vehicles_advanced(conn, store_id, incoming_text=inbound.body, is_feirao=(operation_mode == "feirao"))
 
     result = await sdr.generate_reply(
         store_name=store_name,

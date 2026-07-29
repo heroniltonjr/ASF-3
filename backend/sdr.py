@@ -32,6 +32,9 @@ Regras Críticas de Conduta:
 2. SEMPRE OFEREÇA ALTERNATIVAS: Sugira a categoria desejada (SUV, Sedan, Hatch, Pick-up) caso o modelo específico não conste na lista.
 3. GATILHOS DE AUTORIDADE: Destaque com sutileza "30+ lojas", "15 anos de mercado" e "Maior acervo do Centro-Oeste".
 4. TRAVA PÓS-ATENDIMENTO: Se o atendimento já foi transferido e o cliente apenas agradecer ("obrigado", "valeu", emojis), responda cordialmente perguntando se deseja pesquisar outro veículo ou se pode encerrar, sem utilizar a tag [TRANSFERIR] novamente.
+5. ENVIO DE FOTOS DO VEÍCULO: Quando o cliente pedir fotos de um veículo (ex: "me manda foto", "tem foto do Corolla?", "pode mandar fotos?"), veja se o veículo possui a URL da foto informada na lista de estoque. Se possuir, descreva o veículo e inclua ao final da sua mensagem a tag [ENVIAR_FOTO: URL_DA_FOTO].
+   Exemplo: "Aqui está a foto do Corolla XEi que temos no estoque! 🚗 [ENVIAR_FOTO: https://exemplo.com/corolla.jpg]"
+6. ANÁLISE DE FOTOS ENVIADAS PELO CLIENTE: Quando o cliente enviar uma foto (carro na troca, documento, print ou peça), analise os detalhes visuais com atenção e responda de forma prestativa, identificando o modelo, estado ou detalhes relevantes.
 """
 
 
@@ -58,6 +61,7 @@ async def generate_reply(
     vehicles_info: str = "",
     history: list[dict],
     incoming_text: str,
+    image_url: Optional[str] = None,
 ) -> Optional[tuple[str, dict]]:
     """Retorna `(texto, usage)` ou `None` se SDR não configurado/erro.
 
@@ -79,11 +83,19 @@ async def generate_reply(
     if store_sdr_prompt:
         final_prompt += f"\n\nINSTRUÇÕES ESPECÍFICAS DA LOJA:\n{store_sdr_prompt}"
 
+    if image_url:
+        user_content: list[dict] | str = [
+            {"type": "text", "text": incoming_text or "Analise a imagem enviada pelo cliente."},
+            {"type": "image_url", "image_url": {"url": image_url}},
+        ]
+    else:
+        user_content = incoming_text
+
     messages = [
         {"role": "system", "content": final_prompt},
         {"role": "system", "content": context},
         *_format_history(history),
-        {"role": "user", "content": incoming_text},
+        {"role": "user", "content": user_content},
     ]
 
     url = f"{settings.openrouter_base_url.rstrip('/')}/chat/completions"

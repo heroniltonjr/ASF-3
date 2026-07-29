@@ -35,6 +35,10 @@ class Settings:
     openrouter_model: str = os.getenv("OPENROUTER_MODEL", "openai/gpt-5-mini")
     openrouter_base_url: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
+    # Transcrição de Áudio (OpenAI Whisper)
+    openai_api_key: str = (os.getenv("OPENAI_API_KEY") or "").strip()
+    stt_model: str = os.getenv("STT_MODEL", "whisper-1").strip()
+
     # Supabase (projeto "Locks") — fonte de dados da vitrine pública.
     # A chave anon é pública por design (RLS "read active vehicles" cobre a leitura).
     # .strip() protege contra quebra de linha/espaço acidental ao colar no .env

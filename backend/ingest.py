@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Optional
 
-from . import db, sdr
+from . import db, sdr, stt
 from .events import bus
 from .whatsapp import InboundMessage, Provider, ProviderError
 
@@ -175,7 +175,7 @@ def search_vehicles_advanced(conn, store_id: int, is_feirao: bool = False) -> st
         # Modo Feirão: mostra estoque de todas as lojas ativas
         rows = conn.execute(
             """
-            SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, s.name as store_name
+            SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, v.image_path, s.name as store_name
             FROM vehicles v
             JOIN stores s ON s.id = v.store_id
             WHERE v.status = 'Publicado'
@@ -183,14 +183,14 @@ def search_vehicles_advanced(conn, store_id: int, is_feirao: bool = False) -> st
             """
         ).fetchall()
         if rows:
-            return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or ''} | {r['transmission'] or ''} | Loja: {r['store_name']}" for r in rows])
+            return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or ''} | {r['transmission'] or ''} | Foto: {r['image_path'] or 'Sem foto'} | Loja: {r['store_name']}" for r in rows])
     else:
         rows = conn.execute(
-            "SELECT name, price, mileage, transmission, fuel FROM vehicles WHERE store_id = ? AND status = 'Publicado'",
+            "SELECT name, price, mileage, transmission, fuel, image_path FROM vehicles WHERE store_id = ? AND status = 'Publicado'",
             (store_id,)
         ).fetchall()
         if rows:
-            return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or ''} | {r['transmission'] or ''} | {r['fuel'] or ''}" for r in rows])
+            return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or ''} | {r['transmission'] or ''} | {r['fuel'] or ''} | Foto: {r['image_path'] or 'Sem foto'}" for r in rows])
     return "Nenhum veículo disponível no momento."
 
 
@@ -274,6 +274,16 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
             if dup:
                 logger.info("Mensagem duplicada ignorada (wa_message_id=%s, store_id=%s)", inbound.wa_message_id, store_id)
                 return
+
+    # Transcrição de áudio via Whisper (STT) se for mensagem de voz
+    if isinstance(inbound.raw, dict) and inbound.raw.get("_is_audio"):
+        audio_url = inbound.raw.get("_audio_url")
+        if audio_url:
+            transcript = await stt.transcribe_audio_url(audio_url)
+            if transcript:
+                inbound.body = f"[🎙️ Áudio transcrito]: {transcript}"
+            else:
+                inbound.body = "[🎙️ Áudio sem transcrição disponível]"
 
     # 1) abre/cria conversa, persiste mensagem inbound e loga evento + billing.
 
@@ -366,6 +376,11 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
         logger.info("Conversa %s no status %s ou intervenção humana. SDR ignorado.", conv["id"], conv.get("status"))
         return
 
+    # Extrai imagem se a mensagem recebida contiver uma foto
+    inbound_image_url = None
+    if isinstance(inbound.raw, dict) and inbound.raw.get("_is_image"):
+        inbound_image_url = inbound.raw.get("_image_url")
+
     # Buscar veículos para passar ao SDR (suporta modo normal e feirão)
     with db.tx() as conn:
         vehicles_info = search_vehicles_advanced(conn, store_id, is_feirao=(operation_mode == "feirao"))
@@ -377,6 +392,7 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
         vehicles_info=vehicles_info,
         history=history[:-1],  # sem a última (que é a inbound — já entra como user prompt)
         incoming_text=inbound.body,
+        image_url=inbound_image_url,
     )
     if not result:
         logger.info("SDR sem resposta para conversa %s (chave não configurada ou erro).", conv["id"])
@@ -384,6 +400,13 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     reply, usage = result
 
     qualified = False
+    send_photo_url = None
+    if "[ENVIAR_FOTO:" in reply:
+        match_photo = re.search(r'\[ENVIAR_FOTO:\s*([^\]]+)\]', reply)
+        if match_photo:
+            send_photo_url = match_photo.group(1).strip()
+            reply = re.sub(r'\[ENVIAR_FOTO:\s*[^\]]+\]', '', reply).strip()
+
     lower_reply = reply.lower()
 
     if "[TRANSFERIR]" in reply:
@@ -444,7 +467,10 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
 
     # 4) tenta enviar via provider (creds podem ser fake em dev — não bloqueia o fluxo)
     try:
-        out = await provider.send_text(inbound.from_number, reply)
+        if send_photo_url:
+            out = await provider.send_image(inbound.from_number, send_photo_url, caption=reply)
+        else:
+            out = await provider.send_text(inbound.from_number, reply)
     except ProviderError as exc:
         logger.warning("Falha ao enviar via provider (provider=%s store=%s): %s",
                        provider.cfg.kind, store_id, exc)

@@ -155,16 +155,55 @@ class ZApiProvider:
         if not text and isinstance(payload.get("text"), dict):
             text = payload.get("text", {}).get("message") or ""
 
-        # Fallback para mídias com legenda
-        if not text and isinstance(msg_obj, dict):
+        # Fallback para mídias com legenda ou áudio/imagem/voz
+        audio_url = ""
+        is_audio = False
+        image_url = ""
+        is_image = False
+
+        if isinstance(payload.get("audio"), dict):
+            audio_url = payload.get("audio", {}).get("audioUrl") or payload.get("audio", {}).get("url") or ""
+        if not audio_url and isinstance(payload.get("audioUrl"), str):
+            audio_url = payload.get("audioUrl") or ""
+
+        if isinstance(payload.get("image"), dict):
+            img_obj = payload.get("image", {})
+            image_url = img_obj.get("imageUrl") or img_obj.get("url") or ""
+            if not text:
+                text = img_obj.get("caption") or ""
+        if not image_url and isinstance(payload.get("imageUrl"), str):
+            image_url = payload.get("imageUrl") or ""
+
+        if isinstance(msg_obj, dict):
             inner_msg = msg_obj.get("message") or {}
             if isinstance(inner_msg, dict):
-                text = (
-                    inner_msg.get("imageMessage", {}).get("caption")
-                    or inner_msg.get("videoMessage", {}).get("caption")
-                    or inner_msg.get("documentMessage", {}).get("caption")
-                    or ""
-                )
+                img_msg = inner_msg.get("imageMessage") or {}
+                if isinstance(img_msg, dict):
+                    if not text:
+                        text = img_msg.get("caption") or ""
+                    if not image_url:
+                        image_url = img_msg.get("url") or img_msg.get("imageUrl") or ""
+
+                if not text:
+                    text = (
+                        inner_msg.get("videoMessage", {}).get("caption")
+                        or inner_msg.get("documentMessage", {}).get("caption")
+                        or ""
+                    )
+
+                audio_msg = inner_msg.get("audioMessage") or {}
+                if isinstance(audio_msg, dict) and not audio_url:
+                    audio_url = audio_msg.get("url") or audio_msg.get("audioUrl") or ""
+
+        if audio_url:
+            is_audio = True
+            if not text:
+                text = "[Áudio]"
+
+        if image_url:
+            is_image = True
+            if not text:
+                text = "[Imagem]"
 
         if not text:
             if isinstance(payload.get("text"), str):
@@ -189,13 +228,21 @@ class ZApiProvider:
         if not wa_message_id:
             wa_message_id = str(payload.get("messageId") or "")
 
+        raw_payload = dict(payload)
+        if is_audio:
+            raw_payload["_is_audio"] = True
+            raw_payload["_audio_url"] = audio_url
+        if is_image:
+            raw_payload["_is_image"] = True
+            raw_payload["_image_url"] = image_url
+
         return [
             InboundMessage(
                 wa_message_id=wa_message_id,
                 from_number=from_number,
                 to_number=str(payload.get("instanceId") or ""),
                 body=text,
-                raw=payload,
+                raw=raw_payload,
             )
         ]
 

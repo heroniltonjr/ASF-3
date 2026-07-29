@@ -9,15 +9,29 @@ from typing import Optional
 from . import db, sdr, stt
 from . import supabase_client as sb
 from .events import bus
+from .settings import settings
 from .whatsapp import InboundMessage, Provider, ProviderError, load_provider_for_store
 
 logger = logging.getLogger(__name__)
 
 # Preços-base do WhatsApp (BRL/mensagem). Tunáveis no futuro por env/tenant.
 WHATSAPP_IN_BRL = 0.05
-WHATSAPP_OUT_BRL = 0.10
+WHATSAPP_OUT_BRL = 0.15
 # Conversão USD→BRL para custo IA (snapshot — refinar via API de câmbio depois).
 USD_TO_BRL = 5.0
+
+
+def _normalize_image_url(url: Optional[str]) -> Optional[str]:
+    """Garante que a URL da imagem seja absoluta (HTTP/HTTPS) para envio no WhatsApp."""
+    if not url or not isinstance(url, str):
+        return None
+    url = url.strip()
+    if url.lower() in ("sem foto", "null", "none", ""):
+        return None
+    if not (url.startswith("http://") or url.startswith("https://")):
+        base = settings.public_base_url.rstrip("/")
+        url = f"{base}/{url.lstrip('/')}"
+    return url
 
 
 def _find_or_create_conversation(conn, store_id: int, phone: str, lead_name: Optional[str] = None) -> dict:
@@ -204,7 +218,7 @@ def search_vehicles_advanced(conn, store_id: int, incoming_text: str = "", is_fe
                 rows, _ = sb.select(sb.VEHICLES, params=params_fallback)
 
             if rows:
-                return "\n".join([f"- {r.get('name') or r.get('model')} | R$ {r.get('price')} | {r.get('km') or 'N/A'} | {r.get('exchange') or ''} | Foto: {r.get('main_image') or 'Sem foto'} | Loja: {r.get('store') or 'Shopping'}" for r in rows])
+                return "\n".join([f"- {r.get('name') or r.get('model')} | R$ {r.get('price')} | {r.get('km') or 'N/A'} | {r.get('exchange') or ''} | Foto: {_normalize_image_url(r.get('main_image')) or 'Sem foto'} | Loja: {r.get('store') or 'Shopping'}" for r in rows])
         except Exception as exc:
             logger.warning("Falha na consulta ao Supabase, caindo para SQLite: %s", exc)
 
@@ -244,7 +258,7 @@ def search_vehicles_advanced(conn, store_id: int, incoming_text: str = "", is_fe
         ).fetchall()
 
     if rows:
-        return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or 'N/A'} | {r['transmission'] or ''} | {r['fuel'] or ''} | Foto: {r['image_path'] or 'Sem foto'} | Loja: {r['store_name']}" for r in rows])
+        return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or 'N/A'} | {r['transmission'] or ''} | {r['fuel'] or ''} | Foto: {_normalize_image_url(r['image_path']) or 'Sem foto'} | Loja: {r['store_name']}" for r in rows])
 
     return "Nenhum veículo disponível no momento."
 
@@ -459,7 +473,8 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     if "[ENVIAR_FOTO:" in reply:
         match_photo = re.search(r'\[ENVIAR_FOTO:\s*([^\]]+)\]', reply)
         if match_photo:
-            send_photo_url = match_photo.group(1).strip()
+            raw_url = match_photo.group(1).strip()
+            send_photo_url = _normalize_image_url(raw_url)
             reply = re.sub(r'\[ENVIAR_FOTO:\s*[^\]]+\]', '', reply).strip()
 
     lower_reply = reply.lower()
@@ -523,7 +538,11 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     # 4) tenta enviar via provider (creds podem ser fake em dev — não bloqueia o fluxo)
     try:
         if send_photo_url:
-            out = await provider.send_image(inbound.from_number, send_photo_url, caption=reply)
+            try:
+                out = await provider.send_image(inbound.from_number, send_photo_url, caption=reply)
+            except ProviderError as img_exc:
+                logger.warning("Falha ao enviar imagem via provider (%s). Fazendo fallback para envio de texto.", img_exc)
+                out = await provider.send_text(inbound.from_number, reply)
         else:
             out = await provider.send_text(inbound.from_number, reply)
     except ProviderError as exc:
@@ -644,7 +663,8 @@ async def process_idle_followups(idle_minutes: int = 15, max_followup_attempts: 
         if "[ENVIAR_FOTO:" in reply:
             match_photo = re.search(r'\[ENVIAR_FOTO:\s*([^\]]+)\]', reply)
             if match_photo:
-                send_photo_url = match_photo.group(1).strip()
+                raw_url = match_photo.group(1).strip()
+                send_photo_url = _normalize_image_url(raw_url)
                 reply = re.sub(r'\[ENVIAR_FOTO:\s*[^\]]+\]', '', reply).strip()
 
         provider = load_provider_for_store(store_id)
@@ -657,7 +677,11 @@ async def process_idle_followups(idle_minutes: int = 15, max_followup_attempts: 
 
         try:
             if send_photo_url:
-                out = await provider.send_image(c["customer_phone"], send_photo_url, caption=reply)
+                try:
+                    out = await provider.send_image(c["customer_phone"], send_photo_url, caption=reply)
+                except ProviderError as img_exc:
+                    logger.warning("Falha ao enviar foto via provider no follow-up (%s). Fazendo fallback para texto.", img_exc)
+                    out = await provider.send_text(c["customer_phone"], reply)
             else:
                 out = await provider.send_text(c["customer_phone"], reply)
         except ProviderError as exc:

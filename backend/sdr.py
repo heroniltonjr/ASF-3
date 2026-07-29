@@ -99,7 +99,7 @@ async def generate_reply(
         "model": settings.openrouter_model,
         "messages": messages,
         "temperature": 1,   # reasoning models exigem temperature=1
-        "max_tokens": 1500,  # reasoning models consomem tokens no pensamento interno
+        "max_tokens": 4000,  # reasoning models consomem tokens no pensamento interno
     }
     headers = {
         "Authorization": f"Bearer {settings.openrouter_api_key}",

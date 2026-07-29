@@ -9,7 +9,7 @@ from typing import Optional
 from . import db, sdr, stt
 from . import supabase_client as sb
 from .events import bus
-from .whatsapp import InboundMessage, Provider, ProviderError
+from .whatsapp import InboundMessage, Provider, ProviderError, load_provider_for_store
 
 logger = logging.getLogger(__name__)
 
@@ -551,3 +551,132 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
             body=reply, raw=out.raw,
             conversation_id=conv["id"], message_id=outbound_msg_id,
         )
+
+
+async def process_idle_followups(idle_minutes: int = 15, max_followup_attempts: int = 3) -> dict:
+    """Realiza varredura periódica de conversas inativas há mais de `idle_minutes`.
+
+    - Seleciona conversas com `status = 'SDR ativo'`.
+    - Se a última mensagem foi do cliente, providencia o retorno pendente.
+    - Se a última mensagem foi do agente, verifica quantas mensagens consecutivas
+      do agente existem no final. Se for < `max_followup_attempts`, gera um follow-up.
+      Se for >= `max_followup_attempts`, pula para não incomodar o cliente.
+    """
+    processed = 0
+    skipped_max_attempts = 0
+    errors = 0
+
+    with db.tx() as conn:
+        idle_cutoff = conn.execute("SELECT DATETIME('now', ?)", (f"-{idle_minutes} minutes",)).fetchone()[0]
+        convs = conn.execute(
+            """
+            SELECT c.id, c.store_id, c.customer_phone, c.lead_name, c.intent, c.status,
+                   s.name as store_name, s.sdr_prompt, s.operation_mode
+            FROM conversations c
+            JOIN stores s ON s.id = c.store_id
+            WHERE c.status = 'SDR ativo'
+              AND c.updated_at <= ?
+            ORDER BY c.updated_at ASC
+            """,
+            (idle_cutoff,)
+        ).fetchall()
+
+    for c in convs:
+        conv_id = c["id"]
+        store_id = c["store_id"]
+
+        with db.tx() as conn:
+            msgs = conn.execute(
+                "SELECT sender, body FROM messages WHERE conversation_id = ? ORDER BY id ASC",
+                (conv_id,)
+            ).fetchall()
+
+        if not msgs:
+            continue
+
+        consecutive_agent_msgs = 0
+        for m in reversed(msgs):
+            if m["sender"] == "agent":
+                consecutive_agent_msgs += 1
+            else:
+                break
+
+        last_msg = msgs[-1]
+        last_sender = last_msg["sender"]
+
+        if last_sender == "agent" and consecutive_agent_msgs >= max_followup_attempts:
+            logger.info("Conversa %s atingiu limite de %s acompanhamentos sem resposta. Ignorando.", conv_id, max_followup_attempts)
+            skipped_max_attempts += 1
+            continue
+
+        if last_sender == "lead":
+            followup_instruction = (
+                f"[ACOMPANHAMENTO DE INATIVIDADE]: O cliente enviou a última mensagem ('{last_msg['body']}') "
+                "há algum tempo e a conversa ficou parada. Entregue as opções de veículos solicitadas "
+                "ou forneça o retorno pendente de forma objetiva e cordial."
+            )
+        else:
+            followup_instruction = (
+                "[ACOMPANHAMENTO DE INATIVIDADE]: O cliente não respondeu a sua mensagem anterior há algum tempo. "
+                f"Você já enviou {consecutive_agent_msgs} mensagem(ns) de acompanhamento. Faça um acompanhamento curto, "
+                "educado e sem pressão no WhatsApp, perguntando se ele teve a oportunidade de ver as opções ou se precisa de ajuda."
+            )
+
+        with db.tx() as conn:
+            vehicles_info = search_vehicles_advanced(conn, store_id, incoming_text=last_msg["body"], is_feirao=(c["operation_mode"] == "feirao"))
+
+        history_dicts = [{"sender": m["sender"], "body": m["body"]} for m in msgs]
+
+        result = await sdr.generate_reply(
+            store_name=c["store_name"],
+            store_sdr_prompt=c["sdr_prompt"],
+            intent=c["intent"],
+            vehicles_info=vehicles_info,
+            history=history_dicts,
+            incoming_text=followup_instruction,
+        )
+
+        if not result:
+            continue
+        reply, usage = result
+
+        send_photo_url = None
+        if "[ENVIAR_FOTO:" in reply:
+            match_photo = re.search(r'\[ENVIAR_FOTO:\s*([^\]]+)\]', reply)
+            if match_photo:
+                send_photo_url = match_photo.group(1).strip()
+                reply = re.sub(r'\[ENVIAR_FOTO:\s*[^\]]+\]', '', reply).strip()
+
+        provider = load_provider_for_store(store_id)
+        if not provider:
+            logger.warning("Nenhum provider ativo para a loja %s na conversa %s", store_id, conv_id)
+            continue
+
+        with db.tx() as conn:
+            outbound_msg_id = _persist_message(conn, conv_id, "agent", reply, customer_name=c["lead_name"], customer_phone=c["customer_phone"])
+
+        try:
+            if send_photo_url:
+                out = await provider.send_image(c["customer_phone"], send_photo_url, caption=reply)
+            else:
+                out = await provider.send_text(c["customer_phone"], reply)
+        except ProviderError as exc:
+            logger.warning("Falha ao enviar follow-up via provider (conv=%s): %s", conv_id, exc)
+            errors += 1
+        else:
+            processed += 1
+            await bus.publish({
+                "type": "message.created",
+                "store_id": store_id,
+                "conversation_id": conv_id,
+                "sender": "agent",
+                "body": reply,
+                "customer_name": c["lead_name"],
+                "customer_phone": c["customer_phone"],
+            })
+
+    return {
+        "processed": processed,
+        "skipped_max_attempts": skipped_max_attempts,
+        "errors": errors
+    }

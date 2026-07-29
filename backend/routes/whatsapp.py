@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
 from .. import db, ingest
@@ -214,3 +214,13 @@ async def simulate_inbound(
     )
     await ingest.handle_inbound(provider, _provider_db_id(store_id), inbound)
     return {"ok": True}
+
+
+@router.post("/cron/process-followups")
+async def trigger_idle_followups(
+    idle_minutes: int = Query(15, ge=1),
+    max_attempts: int = Query(3, ge=1),
+):
+    """Executa a varredura e o acompanhamento de conversas inativas."""
+    result = await ingest.process_idle_followups(idle_minutes=idle_minutes, max_followup_attempts=max_attempts)
+    return {"ok": True, **result}

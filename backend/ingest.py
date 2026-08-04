@@ -12,6 +12,8 @@ from .events import bus
 from .settings import settings
 from .whatsapp import InboundMessage, Provider, ProviderError, load_provider_for_store
 
+from urllib.parse import quote
+
 logger = logging.getLogger(__name__)
 
 # Preços-base do WhatsApp (BRL/mensagem). Tunáveis no futuro por env/tenant.
@@ -22,16 +24,19 @@ USD_TO_BRL = 5.0
 
 
 def _normalize_image_url(url: Optional[str]) -> Optional[str]:
-    """Garante que a URL da imagem seja absoluta (HTTP/HTTPS) para envio no WhatsApp."""
+    """Converte qualquer URL de imagem (assets locais ou URLs remotas .jfif/Supabase) em uma URL pública proxy com extensão .jpg para envio limpo no Z-API/WhatsApp."""
     if not url or not isinstance(url, str):
         return None
     url = url.strip()
     if url.lower() in ("sem foto", "null", "none", ""):
         return None
-    if not (url.startswith("http://") or url.startswith("https://")):
-        base = settings.public_base_url.rstrip("/")
-        url = f"{base}/{url.lstrip('/')}"
-    return url
+
+    if "/api/media/image-proxy" in url:
+        return url
+
+    base = settings.public_base_url.rstrip("/")
+    encoded_target = quote(url, safe="")
+    return f"{base}/api/media/image-proxy?url={encoded_target}&ext=.jpg"
 
 
 def _find_or_create_conversation(conn, store_id: int, phone: str, lead_name: Optional[str] = None) -> dict:

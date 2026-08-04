@@ -112,7 +112,7 @@ async def test_send_vehicle_photo_flow(app):
         assert send_image_mock.call_count == 1
         call_args = send_image_mock.call_args
         assert call_args[0][0] == "5566933334444"
-        assert call_args[0][1] == "https://site.com/corolla.jpg"
+        assert "image-proxy" in call_args[0][1]
         assert "Aqui está a foto do Corolla XEi" in call_args[1].get("caption", call_args[0][2] if len(call_args[0]) > 2 else "")
 
     # Confirma que no banco o texto foi limpo sem a tag [ENVIAR_FOTO: ...]

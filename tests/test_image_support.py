@@ -123,3 +123,34 @@ async def test_send_vehicle_photo_flow(app):
         ).fetchall()
         assert len(msgs) == 1
         assert "[ENVIAR_FOTO:" not in msgs[0]["body"]
+
+
+@pytest.mark.asyncio
+async def test_send_vehicle_gallery_photos_flow(app):
+    """Garante que a tag [ENVIAR_FOTO: URL1, URL2] dispara múltiplas imagens em sequência."""
+    cfg = ProviderConfig(
+        store_id=2,
+        kind="zapi",
+        display_number="+55 65 99999-0002",
+        config={"instance_id": "INST123", "instance_token": "TOK123"},
+    )
+    provider = ZApiProvider(cfg)
+
+    inbound = InboundMessage(
+        wa_message_id="ZAPI-GALLERY-REQ-1",
+        from_number="5566955556666",
+        to_number="INST123",
+        body="Manda as fotos do Civic",
+        raw={"messageId": "ZAPI-GALLERY-REQ-1"},
+    )
+
+    fake_outbound = type("X", (), {"wa_message_id": "wamid.img.out", "raw": {}})()
+    sdr_reply = "Aqui estão as fotos do Civic! 🚗 [ENVIAR_FOTO: https://site.com/foto1.jpg, https://site.com/foto2.jpg]"
+    sdr_mock = AsyncMock(return_value=(sdr_reply, {"model": "gpt-mock"}))
+    send_image_mock = AsyncMock(return_value=fake_outbound)
+
+    with patch("backend.sdr.generate_reply", new=sdr_mock), \
+         patch.object(ZApiProvider, "send_image", new=send_image_mock):
+        await handle_inbound(provider, provider_db_id=None, inbound=inbound)
+
+        assert send_image_mock.call_count == 2

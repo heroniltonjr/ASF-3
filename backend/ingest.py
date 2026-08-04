@@ -39,6 +39,35 @@ def _normalize_image_url(url: Optional[str]) -> Optional[str]:
     return f"{base}/api/media/image-proxy?url={encoded_target}&ext=.jpg"
 
 
+def _extract_pictures(main_image: Optional[str], pictures_raw: object = None) -> list[str]:
+    """Extrai uma lista de URLs das fotos (imagem principal + galeria `pictures`)."""
+    urls: list[str] = []
+    main_norm = _normalize_image_url(main_image)
+    if main_norm:
+        urls.append(main_norm)
+
+    if isinstance(pictures_raw, str):
+        try:
+            pics_obj = json.loads(pictures_raw)
+        except Exception:
+            pics_obj = [pictures_raw]
+    else:
+        pics_obj = pictures_raw
+
+    if isinstance(pics_obj, list):
+        for pic in pics_obj:
+            raw_u = None
+            if isinstance(pic, str):
+                raw_u = pic
+            elif isinstance(pic, dict):
+                raw_u = pic.get("remote_image_url") or pic.get("url") or pic.get("image_url")
+            norm_u = _normalize_image_url(raw_u)
+            if norm_u and norm_u not in urls:
+                urls.append(norm_u)
+
+    return urls[:4]
+
+
 def _find_or_create_conversation(conn, store_id: int, phone: str, lead_name: Optional[str] = None) -> dict:
     row = conn.execute(
         "SELECT * FROM conversations WHERE store_id = ? AND customer_phone = ? ORDER BY id DESC LIMIT 1",
@@ -203,7 +232,7 @@ def search_vehicles_advanced(conn, store_id: int, incoming_text: str = "", is_fe
     if sb.is_configured():
         try:
             params = [
-                ("select", "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image"),
+                ("select", "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image,pictures"),
                 ("order", "price.asc"),
                 ("limit", "5")
             ]
@@ -216,14 +245,19 @@ def search_vehicles_advanced(conn, store_id: int, incoming_text: str = "", is_fe
             # Fallback no Supabase: se não achou com filtro exato, busca veículos gerais em oferta
             if not rows and found_kw:
                 params_fallback = [
-                    ("select", "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image"),
+                    ("select", "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image,pictures"),
                     ("order", "price.asc"),
                     ("limit", "5")
                 ]
                 rows, _ = sb.select(sb.VEHICLES, params=params_fallback)
 
             if rows:
-                return "\n".join([f"- {r.get('name') or r.get('model')} | R$ {r.get('price')} | {r.get('km') or 'N/A'} | {r.get('exchange') or ''} | Foto: {_normalize_image_url(r.get('main_image')) or 'Sem foto'} | Loja: {r.get('store') or 'Shopping'}" for r in rows])
+                formatted_lines = []
+                for r in rows:
+                    pics = _extract_pictures(r.get("main_image"), r.get("pictures"))
+                    pics_str = ", ".join(pics) if pics else "Sem foto"
+                    formatted_lines.append(f"- {r.get('name') or r.get('model')} | R$ {r.get('price')} | {r.get('km') or 'N/A'} | {r.get('exchange') or ''} | Fotos: {pics_str} | Loja: {r.get('store') or 'Shopping'}")
+                return "\n".join(formatted_lines)
         except Exception as exc:
             logger.warning("Falha na consulta ao Supabase, caindo para SQLite: %s", exc)
 
@@ -263,7 +297,12 @@ def search_vehicles_advanced(conn, store_id: int, incoming_text: str = "", is_fe
         ).fetchall()
 
     if rows:
-        return "\n".join([f"- {r['name']} | R$ {r['price']} | {r['mileage'] or 'N/A'} | {r['transmission'] or ''} | {r['fuel'] or ''} | Foto: {_normalize_image_url(r['image_path']) or 'Sem foto'} | Loja: {r['store_name']}" for r in rows])
+        formatted_lines = []
+        for r in rows:
+            pics = _extract_pictures(r['image_path'], r['pictures_json'] if 'pictures_json' in r.keys() else None)
+            pics_str = ", ".join(pics) if pics else "Sem foto"
+            formatted_lines.append(f"- {r['name']} | R$ {r['price']} | {r['mileage'] or 'N/A'} | {r['transmission'] or ''} | {r['fuel'] or ''} | Fotos: {pics_str} | Loja: {r['store_name']}")
+        return "\n".join(formatted_lines)
 
     return "Nenhum veículo disponível no momento."
 
@@ -474,12 +513,15 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
     reply, usage = result
 
     qualified = False
-    send_photo_url = None
+    send_photo_urls = []
     if "[ENVIAR_FOTO:" in reply:
         match_photo = re.search(r'\[ENVIAR_FOTO:\s*([^\]]+)\]', reply)
         if match_photo:
-            raw_url = match_photo.group(1).strip()
-            send_photo_url = _normalize_image_url(raw_url)
+            raw_urls = match_photo.group(1).split(",")
+            for u in raw_urls:
+                norm = _normalize_image_url(u.strip())
+                if norm and norm not in send_photo_urls:
+                    send_photo_urls.append(norm)
             reply = re.sub(r'\[ENVIAR_FOTO:\s*[^\]]+\]', '', reply).strip()
 
     lower_reply = reply.lower()
@@ -542,12 +584,19 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
 
     # 4) tenta enviar via provider (creds podem ser fake em dev — não bloqueia o fluxo)
     try:
-        if send_photo_url:
+        if send_photo_urls:
+            first_url = send_photo_urls[0]
             try:
-                out = await provider.send_image(inbound.from_number, send_photo_url, caption=reply)
+                out = await provider.send_image(inbound.from_number, first_url, caption=reply)
             except ProviderError as img_exc:
                 logger.warning("Falha ao enviar imagem via provider (%s). Fazendo fallback para envio de texto.", img_exc)
                 out = await provider.send_text(inbound.from_number, reply)
+            else:
+                for add_url in send_photo_urls[1:]:
+                    try:
+                        await provider.send_image(inbound.from_number, add_url, caption="")
+                    except Exception as add_exc:
+                        logger.warning("Falha ao enviar foto adicional (%s): %s", add_url, add_exc)
         else:
             out = await provider.send_text(inbound.from_number, reply)
     except ProviderError as exc:
@@ -664,12 +713,15 @@ async def process_idle_followups(idle_minutes: int = 15, max_followup_attempts: 
             continue
         reply, usage = result
 
-        send_photo_url = None
+        send_photo_urls = []
         if "[ENVIAR_FOTO:" in reply:
             match_photo = re.search(r'\[ENVIAR_FOTO:\s*([^\]]+)\]', reply)
             if match_photo:
-                raw_url = match_photo.group(1).strip()
-                send_photo_url = _normalize_image_url(raw_url)
+                raw_urls = match_photo.group(1).split(",")
+                for u in raw_urls:
+                    norm = _normalize_image_url(u.strip())
+                    if norm and norm not in send_photo_urls:
+                        send_photo_urls.append(norm)
                 reply = re.sub(r'\[ENVIAR_FOTO:\s*[^\]]+\]', '', reply).strip()
 
         provider = load_provider_for_store(store_id)
@@ -681,12 +733,19 @@ async def process_idle_followups(idle_minutes: int = 15, max_followup_attempts: 
             outbound_msg_id = _persist_message(conn, conv_id, "agent", reply, customer_name=c["lead_name"], customer_phone=c["customer_phone"])
 
         try:
-            if send_photo_url:
+            if send_photo_urls:
+                first_url = send_photo_urls[0]
                 try:
-                    out = await provider.send_image(c["customer_phone"], send_photo_url, caption=reply)
+                    out = await provider.send_image(c["customer_phone"], first_url, caption=reply)
                 except ProviderError as img_exc:
                     logger.warning("Falha ao enviar foto via provider no follow-up (%s). Fazendo fallback para texto.", img_exc)
                     out = await provider.send_text(c["customer_phone"], reply)
+                else:
+                    for add_url in send_photo_urls[1:]:
+                        try:
+                            await provider.send_image(c["customer_phone"], add_url, caption="")
+                        except Exception as add_exc:
+                            logger.warning("Falha ao enviar foto adicional (%s): %s", add_url, add_exc)
             else:
                 out = await provider.send_text(c["customer_phone"], reply)
         except ProviderError as exc:

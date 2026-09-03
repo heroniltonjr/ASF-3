@@ -2,6 +2,7 @@
 # Aponte o A record do DOMAIN para o IP público do servidor antes de subir.
 
 {
+    debug
     auto_https disable_certs
 }
 

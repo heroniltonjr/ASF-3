@@ -23,6 +23,7 @@ services:
     image: caddy:2-alpine
     container_name: formula-caddy
     restart: unless-stopped
+    command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     depends_on:
       - app
     ports:

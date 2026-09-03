@@ -2,11 +2,14 @@
 # Aponte o A record do DOMAIN para o IP público do servidor antes de subir.
 
 {
+    debug
     auto_https off
 }
 
 :443 {
-    tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
+    tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key {
+        on_demand
+    }
 
     @sse {
         path /api/events

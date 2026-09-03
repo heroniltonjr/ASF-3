@@ -1,10 +1,6 @@
 # Caddyfile — proxy reverso com HTTPS automático (Let's Encrypt).
 # Aponte o A record do DOMAIN para o IP público do servidor antes de subir.
 
-{
-    email {$ACME_EMAIL}
-}
-
 {$DOMAIN} {
     encode zstd gzip
 

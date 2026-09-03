@@ -34,6 +34,7 @@ services:
       ACME_EMAIL: "${ACME_EMAIL:?defina ACME_EMAIL no .env}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/etc/caddy/certs:ro
       - caddy-data:/data
       - caddy-config:/config
     networks:

@@ -8,6 +8,8 @@
 {$DOMAIN} {
     encode zstd gzip
 
+    tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
+
     # SSE precisa de buffering desligado e timeouts longos.
     @sse {
         path /api/events

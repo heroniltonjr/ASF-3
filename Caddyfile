@@ -2,10 +2,12 @@
 # Aponte o A record do DOMAIN para o IP público do servidor antes de subir.
 
 {
-    auto_https off
+    auto_https disable_certs
 }
 
-:443 {
+autoshoppingformula.com.br {
+    encode zstd gzip
+
     tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
 
     @sse {
@@ -32,8 +34,4 @@
         output stdout
         format console
     }
-}
-
-:80 {
-    redir https://{host}{uri} permanent
 }

@@ -2,8 +2,7 @@
 # Aponte o A record do DOMAIN para o IP público do servidor antes de subir.
 
 {
-    # Desativa tentativas automáticas de emissão ACME mantendo roteamento
-    auto_https disable_certificates
+    auto_https disable_certs
 }
 
 autoshoppingformula.com.br {

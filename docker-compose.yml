@@ -18,12 +18,14 @@ services:
       - "4173"
     networks:
       - edge
-
   caddy:
     image: caddy:2-alpine
     container_name: formula-caddy
     restart: unless-stopped
     command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     depends_on:
       - app
     ports:

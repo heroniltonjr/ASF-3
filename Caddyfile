@@ -3,15 +3,10 @@
 
 {
     auto_https off
-    certificates {
-        load_files /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
-    }
 }
 
 :443 {
-    tls internal {
-        on_demand off
-    }
+    tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
 
     @sse {
         path /api/events

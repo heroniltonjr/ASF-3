@@ -1,10 +1,9 @@
 {
-    auto_https disable_certs
+    debug
+    email {$ACME_EMAIL}
 }
 
 autoshoppingformula.com.br {
-    encode zstd gzip
-
     tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
 
     @sse {
@@ -31,4 +30,12 @@ autoshoppingformula.com.br {
         output stdout
         format console
     }
+}
+
+2-25-143-70.sslip.io {
+    reverse_proxy host.docker.internal:3040
+}
+
+:80 {
+    redir https://{host}{uri} permanent
 }

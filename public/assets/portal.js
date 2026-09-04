@@ -56,7 +56,7 @@ function imageFor(vehicle) {
 function vehicleCardHTML(v) {
   const img = imageFor(v);
   return `
-    <a class="vehicle-card" href="/portal/veiculo.html?id=${v.id}">
+    <a class="vehicle-card" href="/veiculo.html?id=${v.id}">
       <div class="vehicle-photo">
         <img src="${img}" alt="${v.name}" loading="lazy" />
         <span class="badge">Publicado</span>
@@ -87,7 +87,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const path = window.location.pathname;
   document.querySelectorAll('.nav-links a').forEach(a => {
     const href = a.getAttribute('href');
-    if (href && (path === href || (href !== '/portal/' && path.startsWith(href)))) {
+    if (href && (path === href || (href !== '/' && path.startsWith(href)))) {
       a.classList.add('active');
     }
   });
@@ -121,7 +121,7 @@ function storeCardHTML(s) {
   const sub = s.city || (s.type === 'Shopping' ? 'Shopping consolidador' : 'Loja parceira');
   const label = s.active_vehicles === 1 ? 'veículo no estoque' : 'veículos no estoque';
   return `
-    <a class="store-card" href="/portal/estoque.html?store=${encodeURIComponent(s.id)}">
+    <a class="store-card" href="/estoque.html?store=${encodeURIComponent(s.id)}">
       ${logo}
       <h3>${s.name}</h3>
       <p>${sub}</p>
@@ -227,7 +227,7 @@ async function initVehicleDetail() {
               <span>Vendido por <strong>${v.store_name}</strong></span>
               ${v.store_city ? `<small>${v.store_city}</small>` : ''}
             </div>
-            <a href="/portal/estoque.html?store=${encodeURIComponent(v.store_id)}">Ver estoque</a>
+            <a href="/estoque.html?store=${encodeURIComponent(v.store_id)}">Ver estoque</a>
           </div>
           ${simulatorHTML(v.price)}
           <a class="btn btn-whatsapp" href="${v.whatsapp_link}" target="_blank" rel="noopener">

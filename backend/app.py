@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import auth, db, seed
@@ -94,22 +94,57 @@ def create_app() -> FastAPI:
     def health():
         return {"ok": True, "database": db.get_db_info()}
 
-    # --- Portal público (cliente final) montado em /portal -------------------
+    # --- Painel Administrativo (/admin) --------------------------------------
+    @app.get("/admin", include_in_schema=False)
+    def admin_redirect():
+        return RedirectResponse(url="/admin/", status_code=301)
+
+    @app.get("/sistema", include_in_schema=False)
+    @app.get("/painel", include_in_schema=False)
+    def aliases_admin():
+        return RedirectResponse(url="/admin/", status_code=307)
+
+    app.mount("/admin", StaticFiles(directory=str(STATIC_ROOT), html=True), name="admin")
+
+    # --- Multiatendimento Mobile PWA e Service Worker -----------------------
+    @app.get("/atendimento", include_in_schema=False)
+    def atendimento_redirect():
+        return RedirectResponse(url="/atendimento.html", status_code=301)
+
+    @app.get("/atendimento.html", include_in_schema=False)
+    def get_atendimento():
+        return FileResponse(STATIC_ROOT / "atendimento.html")
+
+    @app.get("/sw.js", include_in_schema=False)
+    def get_sw():
+        return FileResponse(STATIC_ROOT / "sw.js", media_type="application/javascript")
+
+    @app.get("/manifest.json", include_in_schema=False)
+    def get_manifest():
+        return FileResponse(STATIC_ROOT / "manifest.json", media_type="application/manifest+json")
+
+    # --- Retrocompatibilidade /portal ---------------------------------------
     public_root = STATIC_ROOT / "public"
+    public_assets = public_root / "assets"
+    if public_assets.exists():
+        app.mount("/portal/assets", StaticFiles(directory=str(public_assets)), name="portal_assets_compat")
+
+    @app.get("/portal", include_in_schema=False)
+    @app.get("/portal/", include_in_schema=False)
+    def redirect_portal_root():
+        return RedirectResponse(url="/", status_code=301)
+
+    @app.get("/portal/{file_path:path}", include_in_schema=False)
+    def redirect_portal_path(file_path: str):
+        return RedirectResponse(url=f"/{file_path}", status_code=301)
+
+    # --- Portal Público na Raiz (/) -----------------------------------------
     if public_root.exists():
-        @app.get("/portal", include_in_schema=False)
-        def redirect_portal():
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url="/portal/")
+        @app.get("/", include_in_schema=False)
+        def public_home():
+            return FileResponse(public_root / "index.html")
 
-        app.mount("/portal", StaticFiles(directory=str(public_root), html=True), name="portal")
-
-    # SPA admin + estáticos: index.html na raiz; demais arquivos via StaticFiles.
-    @app.get("/", include_in_schema=False)
-    def root():
-        return FileResponse(STATIC_ROOT / "index.html")
-
-    app.mount("/", StaticFiles(directory=str(STATIC_ROOT), html=True), name="static")
+        app.mount("/", StaticFiles(directory=str(public_root), html=True), name="public_portal")
 
     return app
 

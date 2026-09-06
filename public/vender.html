@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/portal.css" />
+  <link rel="stylesheet" href="/assets/portal.css?v=1.4" />
   <style>
     /* =====================================================================
        Vender — design overrides
@@ -24,7 +24,14 @@
       --max-w-v: 1140px;
     }
 
-    /* Reset de fontes */
+    /* Reset de fontes e proteção de overflow */
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      max-width: 100vw;
+      width: 100%;
+    }
     body { font-family: 'Inter', -apple-system, sans-serif; }
 
     /* Container ajustado */
@@ -466,28 +473,40 @@
       .v-form-card { box-shadow: none; border: 1px solid #eee; }
     }
     @media (max-width: 768px) {
+      .topbar-info { display: none !important; }
+      .v-hero-left h1 { font-size: clamp(24px, 6vw, 36px) !important; }
+      .v-hero-sub { font-size: 15px !important; }
       .v-nav-links { display: none; }
-      .v-mobile-toggle { display: block; }
+      .v-mobile-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+      }
       .v-nav-links.open {
         display: flex;
         position: absolute;
         top: 100%; left: 0; right: 0;
         background: #fff;
         flex-direction: column;
-        padding: 16px 24px;
-        border-bottom: 1px solid #eee;
-        box-shadow: 0 4px 16px rgba(0,0,0,.08);
+        padding: 16px 20px 24px;
+        border-bottom: 2px solid #eee;
+        box-shadow: 0 12px 28px rgba(0,0,0,.15);
         gap: 12px;
+        z-index: 1000;
       }
-      .v-nav-links.open .v-nav-cta { width: fit-content; }
-      .v-footer-grid { grid-template-columns: 1fr 1fr; }
+      .v-nav-links.open .v-nav-cta { width: 100%; text-align: center; justify-content: center; }
+      .v-footer-grid { grid-template-columns: 1fr; gap: 24px; }
       .v-mini-stats { flex-direction: column; gap: 8px; align-items: flex-start; }
       .v-mini-sep { display: none; }
       .v-mini-stat { padding: 0; }
-      .v-hero { padding: 56px 0; }
+      .v-hero { padding: 48px 0; }
+      .v-container { padding: 0 16px; }
     }
     @media (max-width: 480px) {
       .v-footer-grid { grid-template-columns: 1fr; }
+      .v-form-card { padding: 20px 16px; }
     }
   </style>
 </head>
@@ -690,12 +709,25 @@
     </div>
   </footer>
 
-  <script src="/assets/portal.js"></script>
+  <script src="/assets/portal.js?v=1.4"></script>
   <script>
     // Mobile nav toggle
-    document.getElementById('mobileToggle').addEventListener('click', function() {
-      document.getElementById('navLinks').classList.toggle('open');
-    });
+    const mToggle = document.getElementById('mobileToggle');
+    const nLinks = document.getElementById('navLinks');
+    if (mToggle && nLinks) {
+      mToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        nLinks.classList.toggle('open');
+      });
+      document.addEventListener('click', function(e) {
+        if (!nLinks.contains(e.target) && !mToggle.contains(e.target)) {
+          nLinks.classList.remove('open');
+        }
+      });
+      nLinks.querySelectorAll('a').forEach(function(a) {
+        a.addEventListener('click', function() { nLinks.classList.remove('open'); });
+      });
+    }
 
     // Form submit — reutiliza o handler do portal.js se disponível, senão faz próprio
     document.getElementById('lead-form').addEventListener('submit', async function(e) {

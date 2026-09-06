@@ -80,7 +80,18 @@ window.addEventListener('DOMContentLoaded', () => {
   const toggle = document.querySelector('.mobile-toggle');
   const links = document.querySelector('.nav-links');
   if (toggle && links) {
-    toggle.addEventListener('click', () => links.classList.toggle('open'));
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      links.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+      if (!links.contains(e.target) && !toggle.contains(e.target)) {
+        links.classList.remove('open');
+      }
+    });
+    links.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => links.classList.remove('open'));
+    });
   }
 
   // marca link ativo
@@ -149,7 +160,16 @@ async function initCatalogo() {
   const countEl = document.querySelector('#results-count');
   const form = document.querySelector('#filter-form');
   const storeSelect = document.querySelector('#filter-store');
+  const filterBtn = document.querySelector('#mobileFilterBtn');
+  const filtersAside = document.querySelector('#filtersAside') || document.querySelector('.filters');
   if (!grid || !form) return;
+
+  if (filterBtn && filtersAside) {
+    filterBtn.addEventListener('click', () => {
+      filtersAside.classList.toggle('is-open');
+      filterBtn.classList.toggle('active');
+    });
+  }
 
   // popula select de lojas
   try {
@@ -178,6 +198,12 @@ async function initCatalogo() {
         grid.innerHTML = '<div class="empty-state">Nenhum veículo encontrado com esses filtros. Tente reduzir os critérios.</div>';
       } else {
         grid.innerHTML = data.items.map(vehicleCardHTML).join('');
+      }
+
+      // No mobile, recolhe os filtros ao atualizar para focar nos resultados
+      if (window.innerWidth <= 960 && filtersAside && filtersAside.classList.contains('is-open')) {
+        filtersAside.classList.remove('is-open');
+        if (filterBtn) filterBtn.classList.remove('active');
       }
     } catch (err) {
       console.error(err);

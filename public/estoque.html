@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Veículos — Auto Shopping Fórmula</title>
-  <link rel="stylesheet" href="/assets/portal.css" />
+  <link rel="stylesheet" href="/assets/portal.css?v=1.4" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 </head>
 <body data-page="estoque">
@@ -49,8 +49,14 @@
   </section>
 
   <main class="container">
+    <div class="mobile-filter-bar">
+      <button class="mobile-filter-trigger" id="mobileFilterBtn" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        <span>Filtrar e Ordenar Veículos</span>
+      </button>
+    </div>
     <div class="catalogo">
-      <aside class="filters">
+      <aside class="filters" id="filtersAside">
         <h3>Filtrar</h3>
         <form id="filter-form">
           <div class="field">
@@ -117,6 +123,6 @@
     </div>
   </footer>
 
-  <script src="/assets/portal.js"></script>
+  <script src="/assets/portal.js?v=1.4"></script>
 </body>
 </html>

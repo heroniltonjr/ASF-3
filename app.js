@@ -230,15 +230,14 @@ function applyRole() {
   const role = currentRole();
   const config = ROLE_LABELS[role];
 
-  $$("[data-role]").forEach((btn) => btn.classList.toggle("active", btn.dataset.role === role));
-
   $("#roleEyebrow").textContent = config.eyebrow;
   $("#pageTitle").textContent = config.title;
   $("#heroKicker").textContent = role === "lojista" ? myStoreName() : config.heroKicker;
   $("#heroTitle").textContent = config.heroTitle;
   $("#heroText").textContent = config.heroText;
   $("#globalSearch").placeholder = config.search;
-  sessionButton.textContent = currentUser?.name || "Entrar";
+  sessionButton.textContent = currentUser ? `${currentUser.name} · Sair` : "Entrar";
+  sessionButton.title = currentUser ? "Clique para sair da conta e alternar de perfil" : "Entrar no portal";
 
   updateNavigation(config);
 
@@ -1127,6 +1126,7 @@ async function logout() {
   stores = []; vehicles = []; leads = []; conversations = []; currentConversationId = null;
   loginLayer.classList.add("show");
   sessionButton.textContent = "Entrar";
+  sessionButton.title = "Entrar no portal";
 }
 
 // ---------- Utils ----------
@@ -1150,27 +1150,6 @@ function showToast(message) {
 
 // ---------- Event wiring ----------
 $$("[data-view]").forEach((btn) => btn.addEventListener("click", () => showView(btn.dataset.view)));
-
-$$("[data-role]").forEach((btn) =>
-  btn.addEventListener("click", () => {
-    // sidebar role switch: re-login como o usuário demo correspondente
-    const demoEmail = {
-      master: "master@collab.com",
-      shopping: "gestor@asformula.com",
-      lojista: "betania@betania.com",
-    }[btn.dataset.role];
-    if (!demoEmail) return;
-    loginWithCredentials(demoEmail, "demo123").catch((e) => showToast(e.message));
-  })
-);
-
-$$("[data-login-role]").forEach((btn) =>
-  btn.addEventListener("click", () => {
-    $("#loginEmail").value = btn.dataset.email;
-    $("#loginPassword").value = "demo123";
-    $("#loginForm").requestSubmit();
-  })
-);
 
 $("#loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();

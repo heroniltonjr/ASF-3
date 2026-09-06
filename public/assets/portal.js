@@ -116,7 +116,7 @@ async function loadHighlights() {
 // --- Card de loja (compartilhado home + página /lojas) ------------------
 function storeCardHTML(s) {
   const logo = s.logo
-    ? `<div class="store-logo has-img"><img src="${s.logo}" alt="${s.name}" loading="lazy" /></div>`
+    ? `<div class="store-logo has-img" style="overflow:hidden;"><img src="${s.logo}" alt="${s.name}" loading="lazy" style="height:40px;max-height:40px;width:auto;max-width:100%;object-fit:contain;display:block;" /></div>`
     : `<div class="store-logo">${s.name.charAt(0)}</div>`;
   const sub = s.city || (s.type === 'Shopping' ? 'Shopping consolidador' : 'Loja parceira');
   const label = s.active_vehicles === 1 ? 'veículo no estoque' : 'veículos no estoque';

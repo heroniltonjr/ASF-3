@@ -533,7 +533,11 @@ section { padding: 64px 0; }
 }
 .store-logo {
   height: 54px;
+  min-height: 54px;
+  max-height: 54px;
   margin-bottom: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 .store-logo:not(.has-img) {
   width: 54px;
@@ -548,6 +552,8 @@ section { padding: 64px 0; }
 }
 .store-logo.has-img {
   height: 54px;
+  min-height: 54px;
+  max-height: 54px;
   width: auto;
   max-width: 160px;
   background: #fff;
@@ -557,13 +563,16 @@ section { padding: 64px 0; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 .store-logo.has-img img {
-  height: 40px;
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-  display: block;
+  height: 40px !important;
+  max-height: 40px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
 }
 .store-card h3 { margin: 0; font-size: 16px; color: var(--asf-blue-900); }
 .store-card p { margin: 0; color: var(--asf-text-soft); font-size: 13px; }

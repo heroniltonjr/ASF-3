@@ -496,8 +496,29 @@ async function initLojasPage() {
   }
 }
 
+// --- Botão Flutuante do WhatsApp ----------------------------------------
+function initFloatingWhatsApp() {
+  if (document.querySelector('.asf-whatsapp-float')) return;
+
+  const a = document.createElement('a');
+  a.className = 'asf-whatsapp-float';
+  a.href = 'https://wa.me/556592156577';
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.setAttribute('aria-label', 'Falar no WhatsApp');
+  a.title = 'Falar no WhatsApp';
+  a.innerHTML = `
+    <span class="whatsapp-tooltip">Falar no WhatsApp</span>
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 20.16C10.57 20.16 9.12 19.76 7.85 19L7.55 18.82L4.43 19.64L5.26 16.6L5.06 16.29C4.24 14.98 3.8 13.47 3.8 11.91C3.8 7.37 7.5 3.67 12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.16 12.05 20.16ZM16.57 14.45C16.32 14.33 15.1 13.73 14.88 13.65C14.65 13.57 14.49 13.53 14.32 13.78C14.16 14.03 13.69 14.58 13.55 14.74C13.41 14.9 13.26 14.92 13.02 14.8C12.77 14.68 11.98 14.42 11.04 13.58C10.31 12.92 9.82 12.11 9.68 11.87C9.54 11.62 9.66 11.49 9.79 11.36C9.9 11.25 10.03 11.07 10.15 10.93C10.28 10.79 10.32 10.69 10.4 10.52C10.48 10.36 10.44 10.22 10.38 10.1C10.32 9.98 9.82 8.76 9.62 8.27C9.42 7.79 9.22 7.85 9.07 7.85C8.93 7.84 8.76 7.84 8.6 7.84C8.44 7.84 8.17 7.9 7.95 8.15C7.72 8.39 7.09 8.98 7.09 10.2C7.09 11.42 7.98 12.59 8.1 12.75C8.22 12.92 9.85 15.42 12.33 16.49C12.92 16.75 13.38 16.9 13.73 17.02C14.32 17.2 14.86 17.18 15.29 17.11C15.77 17.04 16.76 16.51 16.97 15.93C17.17 15.36 17.17 14.87 17.11 14.77C17.05 14.66 16.89 14.59 16.57 14.45Z"/>
+    </svg>
+  `;
+  document.body.appendChild(a);
+}
+
 // --- Dispatcher: roda iniciadores baseado em data-page ------------------
 window.addEventListener('DOMContentLoaded', () => {
+  initFloatingWhatsApp();
   const page = document.body.dataset.page;
   if (page === 'home') {
     loadHighlights();

@@ -1077,3 +1077,87 @@ section { padding: 64px 0; }
   color: var(--asf-text-muted);
   margin-top: 8px;
 }
+
+/* ----- Botão Flutuante do WhatsApp -------------------------------------- */
+.asf-whatsapp-float {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #25D366;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 18px rgba(37, 211, 102, 0.42), 0 2px 8px rgba(0, 0, 0, 0.18);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease, background-color 0.2s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.asf-whatsapp-float:hover {
+  background-color: #20ba59;
+  transform: scale(1.08) translateY(-3px);
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.55), 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: #fff;
+}
+
+.asf-whatsapp-float:active {
+  transform: scale(0.95) translateY(0);
+  box-shadow: 0 2px 10px rgba(37, 211, 102, 0.35);
+}
+
+.asf-whatsapp-float svg {
+  width: 34px;
+  height: 34px;
+  fill: currentColor;
+  transition: transform 0.2s ease;
+}
+
+.asf-whatsapp-float:hover svg {
+  transform: scale(1.05);
+}
+
+.asf-whatsapp-float .whatsapp-tooltip {
+  position: absolute;
+  right: 72px;
+  background: var(--asf-blue-900, #0c162c);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 6px 14px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  font-family: 'Inter', sans-serif;
+}
+
+.asf-whatsapp-float:hover .whatsapp-tooltip {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (max-width: 560px) {
+  .asf-whatsapp-float {
+    bottom: 18px;
+    right: 18px;
+    width: 54px;
+    height: 54px;
+  }
+  .asf-whatsapp-float svg {
+    width: 30px;
+    height: 30px;
+  }
+  .asf-whatsapp-float .whatsapp-tooltip {
+    display: none;
+  }
+}

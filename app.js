@@ -113,9 +113,18 @@ async function api(path, options = {}) {
     ...options,
   });
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+  let payload = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch (err) {
+    if (!response.ok) {
+      const httpErr = new Error(text || `Erro HTTP ${response.status}`);
+      httpErr.status = response.status;
+      throw httpErr;
+    }
+  }
   if (!response.ok) {
-    const err = new Error(payload.error || `Erro ${response.status}`);
+    const err = new Error(payload.error || text || `Erro ${response.status}`);
     err.status = response.status;
     throw err;
   }
@@ -149,12 +158,12 @@ function normalizeStore(s) {
 function normalizeConversation(c) {
   return {
     ...c,
-    lead: c.lead_name,
+    lead: c.lead_name || c.customer_phone || "Lead",
     store: c.store_name,
-    messages: (c.messages || []).map((m) => ({
+    messages: c.messages ? c.messages.map((m) => ({
       type: m.sender === "agent" ? "agent" : m.sender === "human" ? "human" : "lead",
       text: m.body,
-    })),
+    })) : null,
   };
 }
 
@@ -205,12 +214,8 @@ async function fetchAll() {
   teamData = t.team || [];
   const baseConvs = c.conversations || [];
 
-  // hidrata mensagens em paralelo (n pequeno na demo)
-  const detailed = await Promise.all(
-    baseConvs.map((conv) => api(`/api/conversations/${conv.id}`).then((r) => r.conversation))
-  );
-  conversations = detailed.map(normalizeConversation);
-  if (!conversations.find((c) => c.id === currentConversationId)) {
+  conversations = baseConvs.map(normalizeConversation);
+  if (!conversations.find((conv) => conv.id === currentConversationId)) {
     currentConversationId = conversations[0]?.id ?? null;
   }
 }
@@ -505,7 +510,7 @@ function renderConversations() {
   });
 }
 
-function renderChat() {
+async function renderChat() {
   const conv = conversations.find((c) => c.id === currentConversationId) || conversations[0];
   if (!conv) {
     messagesEl.innerHTML = '<div class="message">Nenhuma conversa disponível para este acesso.</div>';
@@ -516,16 +521,37 @@ function renderChat() {
   $("#leadIntent").textContent = conv.intent || "";
   $("#replyInput").placeholder = currentRole() === "master" ? "Adicionar nota de auditoria" : "Responder como atendente humano";
 
-  messagesEl.innerHTML = conv.messages
-    .map(
-      (m) => `
+  if (conv.messages === null) {
+    messagesEl.innerHTML = '<div class="message">Carregando mensagens…</div>';
+    try {
+      const detailed = await api(`/api/conversations/${conv.id}`);
+      if (detailed.conversation) {
+        conv.messages = (detailed.conversation.messages || []).map((m) => ({
+          type: m.sender === "agent" ? "agent" : m.sender === "human" ? "human" : "lead",
+          text: m.body,
+        }));
+        if (detailed.conversation.details) conv.details = detailed.conversation.details;
+      } else {
+        conv.messages = [];
+      }
+    } catch (err) {
+      console.error("Erro ao carregar mensagens da conversa", err);
+      conv.messages = [];
+    }
+  }
+
+  messagesEl.innerHTML = (conv.messages && conv.messages.length)
+    ? conv.messages
+        .map(
+          (m) => `
     <div class="message ${m.type === "agent" ? "agent" : m.type === "human" ? "human" : ""}">
       ${escapeHtml(m.text)}
       <small>${m.type === "agent" ? "SDR IA" : m.type === "human" ? "Atendente" : conv.lead}</small>
     </div>
   `
-    )
-    .join("");
+        )
+        .join("")
+    : '<div class="message">Nenhuma mensagem registrada nesta conversa.</div>';
 
   leadDetails.innerHTML = Object.entries(conv.details || {})
     .map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`)

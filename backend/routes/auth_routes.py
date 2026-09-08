@@ -22,6 +22,11 @@ def login(payload: dict, response: Response):
             "SELECT id, email, name, role, tenant_id, store_id, password_hash FROM users WHERE email = ?",
             (email,),
         ).fetchone()
+        if not row and email.endswith(".com.br"):
+            row = conn.execute(
+                "SELECT id, email, name, role, tenant_id, store_id, password_hash FROM users WHERE email = ?",
+                (email[:-3],),  # tenta sem '.br' (ex: gestor@asformula.com)
+            ).fetchone()
     if not row or not auth.verify_password(password, row["password_hash"]):
         raise HTTPException(401, "Credenciais inválidas")
 

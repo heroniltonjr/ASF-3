@@ -3,7 +3,7 @@
     email {$ACME_EMAIL}
 }
 
-autoshoppingformula.com.br {
+autoshoppingformula.com.br, www.autoshoppingformula.com.br {
     tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
 
     @sse {

@@ -3,7 +3,12 @@
     email {$ACME_EMAIL}
 }
 
-autoshoppingformula.com.br, www.autoshoppingformula.com.br {
+www.autoshoppingformula.com.br {
+    tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
+    redir https://autoshoppingformula.com.br{uri} permanent
+}
+
+autoshoppingformula.com.br {
     tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
 
     @sse {

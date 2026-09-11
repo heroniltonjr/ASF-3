@@ -182,14 +182,19 @@ flowchart TD
 
 Para acomodar os dados de forma profissional e sem sobrecarregar o usuário, o modal ou tela de cadastro será dividido em **seções estruturadas**:
 
-### 4.1 Seção 1: Galeria de Fotos (Upload Drag & Drop)
-- **Área de Dropzone:** Aceita arrastar múltiplos arquivos ou selecionar da galeria/câmera.
-- **Grid de Miniaturas Interativo:**
-  - Visualização imediata das fotos enviadas.
-  - **Drag & Drop para reordenar:** A ordem definida no grid determina a ordem do array no `pictures`.
-  - **Identificador de Foto de Capa:** Badge dourada "★ Foto Principal" na primeira foto, com botão para definir qualquer outra foto como principal com 1 clique.
-  - Botão de exclusão (lixeira) em cada miniatura.
-  - Indicador de upload com barra de progresso.
+### 4.1 Seção 1: Galeria de Fotos e Arquitetura do Componente de Upload (Two-Phase Upload)
+
+A interface de envio de fotos adota o padrão **Two-Phase Upload (Upload Desacoplado Assíncrono com Pré-visualização Imediata)**, que oferece a melhor ergonomia e confiabilidade:
+
+#### Fluxo de Interação:
+1. **Área de Dropzone Integrada:** O modal conta com um componente visual de arraste com suporte a clique para abrir seletor de arquivos ou câmera (em dispositivos móveis), aceitando múltiplos arquivos simultâneos (`accept="image/jpeg,image/png,image/webp"`).
+2. **Preview Instantâneo (Fase 1 - Local):** Assim que os arquivos são selecionados pelo usuário, o navegador gera URLs de blob locais via `URL.createObjectURL(file)`, exibindo imediatamente as miniaturas no grid com um indicador de progresso (*spinner* / barra de percentual).
+3. **Upload Paralelo em Segundo Plano (Fase 1 - Nuvem):** O frontend dispara o envio assíncrono para `POST /api/vehicles/upload-photos`. O backend processa as 8 variantes no R2 e retorna a lista de URLs permanentes em `1200x900`. O card da foto atualiza para o status "Enviado com sucesso" (ícone verde).
+4. **Interação com a Galeria:**
+   - **Reordenação Drag & Drop:** O usuário pode clicar e arrastar os cards de fotos para organizar a ordem de exibição. Essa ordem física determina diretamente a sequência do JSON gerado no campo `pictures`.
+   - **Seleção da Foto Principal (Capa):** Por padrão, a primeira foto assume a capa (badge "★ Foto de Capa"). Qualquer outra foto pode se tornar a capa com um clique no botão "Definir como principal", o que atualiza automaticamente o valor que será gravado no campo `image_path` (e `main_image`).
+   - **Exclusão de Fotos:** Botão de lixeira em cada card remove a foto da lista antes do salvamento.
+5. **Gravação do Veículo (Fase 2 - Commit):** Ao clicar em "Publicar veículo", o formulário apenas envia um JSON leve com os atributos do carro e o array de URLs já prontas no R2, evitando requisições multipart pesadas no momento do submit.
 
 ### 4.2 Seção 2: Identificação do Veículo
 - Linha 1 (Grid 3 colunas):
@@ -244,6 +249,18 @@ Interface com chips clicáveis com os opcionais mais buscados pelo mercado:
 
 ### 4.6 Seção 6: Observações do Anúncio (`note`)
 - Textarea expansível com informações comerciais, laudo cautelar aprovado, histórico de revisões na concessionária e garantia de fábrica ou loja.
+
+### 4.7 Matriz de Permissões e Perfis de Cadastro (RBAC)
+
+O sistema já possui distinção nativa de regras e comportamentos por perfil no ecossistema:
+
+| Perfil | Acesso ao Cadastro de Veículos? | Título da Tela no Portal | Comportamento da Seleção de Loja | Permissões no Backend |
+| :--- | :---: | :--- | :--- | :--- |
+| **`gestor`** | **Sim (Central)** | *"Cadastro central de veículos"* | **Exibe seletor de lojas** (permite cadastrar para qualquer uma das 22 lojas do shopping) | Acesso total ao CRUD de veículos de qualquer loja |
+| **`lojista`** | **Sim (Loja)** | *"Meus veículos publicados"* | **Oculta o seletor de lojas** (o veículo é automaticamente associado ao `store_id` da loja do lojista logado) | Restrito via `STORE_SCOPED_ROLES` apenas aos veículos da sua própria loja |
+| **`master`** | **Sim (Superadmin)** | *"Inventário global conectado"* | **Exibe seletor de lojas** (gestão de todas as lojas e tenants) | Acesso irrestrito a todas as rotas e tabelas |
+| **`vendedor`** | Leitura (Padrão) | *"Estoque de veículos"* | Não cadastra por padrão (foco operacional em atendimento no WhatsApp e CRM) | Permissão de consulta `GET /api/vehicles` com escopo restrito à sua loja |
+| **Cliente / Público** | Captação de Lead | *"Quero vender meu carro"* (`/vender.html`) | Formulário público externo de proposta/avaliação | Grava como lead no CRM; não cadastra direto no estoque |
 
 ---
 

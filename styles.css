@@ -193,6 +193,18 @@ button {
   flex: 0 0 20px;
 }
 
+.team-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-icon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
 .dashboard-icon,
 .funnel-icon,
 .chat-icon,

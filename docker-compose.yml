@@ -14,6 +14,7 @@ services:
       COOKIE_SECURE: "true"
     volumes:
       - formula-data:/data
+      - /opt/formulaos_photos:/opt/formulaos_photos
     expose:
       - "4173"
     networks:

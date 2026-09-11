@@ -113,56 +113,68 @@ Armazena a URL completa da foto marcada como Principal/Capa:
 
 ---
 
-### 3.4 Pipeline Automatizado de Processamento (FastAPI + Pillow)
+### 3.4 Estrutura de Conexão com o Cloudflare R2 Storage
+
+O domínio público `https://cdn.autoshoppingformula.com.br` está vinculado diretamente ao Bucket **R2** da Cloudflare:
+- **Bucket R2:** `webdisco`
+- **S3 Endpoint URL:** `https://4fb6af1e0321d6274a1fa0252cd8cf64.r2.cloudflarestorage.com`
+- **Account ID:** `4fb6af1e0321d6274a1fa0252cd8cf64`
+- **Chave de Objeto no Bucket:** `storage/webdisco/{YYYY}/{MM}/{DD}/{RESOLUCAO}/{HASH_MD5}.jpg`
 
 ```mermaid
 flowchart TD
-    UI["Frontend Admin (Gestor / Lojista)"] -->|1. Upload Multipart de Fotos| API["POST /api/vehicles/upload-photos"]
-    
-    subgraph Processamento no Backend (formula-os)
-        API --> Val["Valida Arquivo (MIME: JPEG, PNG, WEBP; Max 15MB)"]
-        Val --> Hash["Calcula Hash MD5 dos bytes do arquivo original"]
-        Hash --> Orig["Grava original: .../storage/webdisco/YYYY/MM/DD/original/{hash}.jpg"]
-        
-        Orig --> Fork["Fork de Processamento Paralelo (Pillow ImageOps)"]
-        
-        Fork --> R1200["1200x900 (Fit 4:3, JPEG q=88, Lanczos)"]
-        Fork --> R800["800x600 (Fit 4:3, JPEG q=85)"]
-        Fork --> R560["560x420 (Fit 4:3, JPEG q=85)"]
-        Fork --> R370["370x278 (Fit 4:3, JPEG q=85)"]
-        Fork --> R270["270x203 (Fit 4:3, JPEG q=82)"]
-        Fork --> R120["120x120 (Crop 1:1 centralizado, JPEG q=80)"]
-        Fork --> R80["80x60 (Fit 4:3, JPEG q=80)"]
+    subgraph Frontend Admin
+        UI["Tela de Cadastro de Veículo"] -->|1. Envia fotos| API["POST /api/vehicles/upload-photos"]
     end
-    
-    subgraph Distribuição & CDN
-        R1200 & R800 & R560 & R370 & R270 & R120 & R80 --> Storage["Armazenamento no Servidor (/opt/formulaos_photos/...)"]
-        Storage --> Caddy["Caddy (cdn.autoshoppingformula.com.br)"]
-        Caddy --> Cloudflare["Cloudflare Edge Cache"]
+
+    subgraph Backend FastAPI
+        API --> Pillow["Pillow: Gera 8 variantes (original + 7 resoluções)"]
+        Pillow --> UploadMode{Estratégia de Upload}
     end
-    
-    Cloudflare -->|2. Retorna URLs 1200x900 da CDN| UI
-    UI -->|3. Salva Veículo| DB[("formulaos_vehicles")]
+
+    subgraph "Estratégia A: Upload Direto S3 API (Recomendada)"
+        UploadMode -->|boto3 S3 client| R2Direct["Cloudflare R2 (s3://webdisco)"]
+    end
+
+    subgraph "Estratégia B: Volume Local + AWS CLI Sync"
+        UploadMode -->|Salva no disco| VPSLocal["/opt/formulaos_photos/storage/..."]
+        VPSLocal -->|aws s3 sync / background| R2Sync["Cloudflare R2 (s3://webdisco)"]
+    end
+
+    R2Direct --> CDN["Cloudflare CDN (cdn.autoshoppingformula.com.br)"]
+    R2Sync --> CDN
+    CDN -->|Retorna URLs 1200x900| UI
+    UI -->|Salva veículo| DB[("formulaos_vehicles")]
 ```
 
-### 3.5 Integração de Infraestrutura (Caddy + Cloudflare)
-Para que a CDN pública responda com altíssima performance:
-1. **Volume Compartilhado:** No `docker-compose.yml`, montamos `/opt/formulaos_photos:/opt/formulaos_photos` tanto no container `formula-os` (com permissão de escrita para salvar os uploads processados) quanto no container `formula-caddy` (leitura).
-2. **Bloco Caddyfile:**
-   ```caddyfile
-   cdn.autoshoppingformula.com.br {
-       tls /etc/caddy/certs/autoshopping.crt /etc/caddy/certs/autoshopping.key
-       root * /opt/formulaos_photos
-       file_server {
-           precompressed gzip
-       }
-       header {
-           Cache-Control "public, max-age=31536000, immutable"
-           Access-Control-Allow-Origin "*"
-       }
-   }
-   ```
-3. **Cloudflare CDN Edge:** Com a rota ativa no Caddy e Cloudflare no proxy (nuvem laranja), todos os acessos das imagens são cacheados nas bordas da Cloudflare por até 1 ano, garantindo tráfego quase nulo no servidor de origem para visualização pública de estoque.
+---
+
+### 3.5 Comparativo das Estratégias de Upload
+
+#### Estratégia A: Processamento no Backend + Upload Direto no R2 (Recomendada)
+- **Como funciona:**
+  1. O endpoint `POST /api/vehicles/upload-photos` processa a imagem em memória (gerando os 8 buffers JPEG correspondentes).
+  2. Utilizando a biblioteca padrão `boto3` (ou `aioboto3`) configurada com o endpoint `https://4fb6af1e0321d6274a1fa0252cd8cf64.r2.cloudflarestorage.com`, o backend envia os 8 arquivos em paralelo diretamente para `s3://webdisco/storage/webdisco/...`.
+  3. Opcionalmente, pode gravar uma cópia local em `/opt/formulaos_photos` se for desejado manter backup no disco da VPS.
+- **Vantagens:**
+  - **Disponibilidade Instantânea:** O arquivo fica disponível em `https://cdn.autoshoppingformula.com.br` no mesmo segundo do upload.
+  - **Sem Jobs Assíncronos:** Não depende de processos em background (`nohup aws s3 sync`), filas de sincronização ou cron jobs.
+  - **Portabilidade Cloud-Native:** Se a aplicação rodar em múltiplos nós, containers efêmeros ou Docker swarm, o upload funciona sem depender do filesystem local do host.
+
+#### Estratégia B: Upload no Disco Local da VPS + Sincronização via AWS CLI
+- **Como funciona:**
+  1. O backend salva as 8 resoluções no diretório `/opt/formulaos_photos/storage/webdisco/{YYYY}/{MM}/{DD}/{resolucao}/{hash}.jpg`.
+  2. O backend executa o comando da AWS CLI já configurada na VPS:
+     ```bash
+     aws s3 sync /opt/formulaos_photos/storage/webdisco/{YYYY}/{MM}/{DD} \
+       s3://webdisco/storage/webdisco/{YYYY}/{MM}/{DD} \
+       --endpoint-url https://4fb6af1e0321d6274a1fa0252cd8cf64.r2.cloudflarestorage.com
+     ```
+- **Vantagens:**
+  - Utiliza as credenciais já existentes e ativas em `/root/.aws/credentials` na VPS.
+  - Mantém 100% dos arquivos locais como espelho.
+- **Consideração:**
+  - Para uploads de novos veículos, o comando `aws s3 cp` ou `aws s3 sync` deve ser executado para o diretório específico do dia/lote para que seja rápido (1 a 2 segundos) em vez de varrer todo o disco de 16 GB.
 
 ---
 

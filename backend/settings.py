@@ -57,5 +57,13 @@ class Settings:
     # Em produção aponte para um volume persistente: /data/uploads
     uploads_dir: str = os.getenv("UPLOADS_DIR", str(ROOT / "uploads"))
 
+    # Cloudflare R2 Storage (CDN Veículos)
+    r2_endpoint_url: str = os.getenv("R2_ENDPOINT_URL", "https://4fb6af1e0321d6274a1fa0252cd8cf64.r2.cloudflarestorage.com").strip()
+    r2_bucket_name: str = os.getenv("R2_BUCKET_NAME", "webdisco").strip()
+    r2_access_key_id: str = (os.getenv("R2_ACCESS_KEY_ID") or os.getenv("AWS_ACCESS_KEY_ID") or "").strip()
+    r2_secret_access_key: str = (os.getenv("R2_SECRET_ACCESS_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY") or "").strip()
+    r2_public_domain: str = os.getenv("R2_PUBLIC_DOMAIN", "https://cdn.autoshoppingformula.com.br").strip().rstrip("/")
+    photos_storage_dir: str = os.getenv("PHOTOS_STORAGE_DIR", "/opt/formulaos_photos").strip()
+
 
 settings = Settings()

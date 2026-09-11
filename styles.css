@@ -1454,3 +1454,329 @@ select {
     max-width: 96%;
   }
 }
+
+/* ==========================================================================
+   Story 2.3: Interface Expandida de Cadastro e Edição de Veículos & Galeria
+   ========================================================================== */
+
+.modal-card.modal-large {
+  width: min(920px, 96vw);
+  max-height: min(90vh, 880px);
+}
+
+.vehicle-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.vehicle-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.vehicle-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.vehicle-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.vehicle-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vehicle-form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.grid-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-col-full {
+  grid-column: 1 / -1;
+}
+
+/* Dropzone de Fotos */
+.photo-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  background: var(--soft);
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.photo-dropzone:hover,
+.photo-dropzone.dragover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.photo-dropzone .dropzone-icon {
+  font-size: 28px;
+}
+
+.photo-dropzone strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.photo-dropzone span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Galeria de Fotos no Modal */
+.photo-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.photo-gallery-item {
+  position: relative;
+  aspect-ratio: 4/3;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid var(--line);
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.photo-gallery-item.is-cover {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+}
+
+.photo-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-cover-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.photo-actions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
+  padding: 6px 4px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.photo-gallery-item:hover .photo-actions {
+  opacity: 1;
+}
+
+.photo-action-btn {
+  background: rgba(255,255,255,0.9);
+  border: none;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.photo-action-btn:hover {
+  background: #fff;
+}
+
+.photo-action-btn.delete {
+  color: #ef4444;
+}
+
+.photo-action-btn.delete:hover {
+  background: #fef2f2;
+}
+
+.photo-uploading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.upload-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Badges e Toggles */
+.toggles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.toggle-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.toggle-card:hover {
+  border-color: #cbd5e1;
+  background: var(--soft);
+}
+
+.toggle-card input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.toggle-card span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Chips de Opcionais */
+.chip-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.chip:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.chip.active {
+  color: #fff;
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.chip-custom-input {
+  display: flex;
+  gap: 8px;
+}
+
+.chip-custom-input input {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .grid-cols-4,
+  .grid-cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-cols-4,
+  .grid-cols-3,
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+

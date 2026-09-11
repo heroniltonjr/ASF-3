@@ -107,9 +107,13 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
 
 // ---------- API helpers ----------
 async function api(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
+  const headers = isFormData
+    ? { ...(options.headers || {}) }
+    : { "Content-Type": "application/json", ...(options.headers || {}) };
   const response = await fetch(path, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers,
     ...options,
   });
   const text = await response.text();
@@ -124,7 +128,7 @@ async function api(path, options = {}) {
     }
   }
   if (!response.ok) {
-    const err = new Error(payload.error || text || `Erro ${response.status}`);
+    const err = new Error(payload.error || payload.detail || text || `Erro ${response.status}`);
     err.status = response.status;
     throw err;
   }
@@ -874,49 +878,576 @@ function closeModal() {
 
 function openVehicleModal(vehicle = null) {
   const role = currentRole();
-  const lojistaStores = stores.filter((s) => s.type === "Lojista");
-  const fields = [
-    { label: "Modelo do carro", name: "name", value: vehicle?.name, placeholder: "Ex: Honda Civic Touring 2022", required: true },
-    { label: "Preço", name: "price", value: vehicle?.price, placeholder: "Ex: R$ 119.900", required: true },
-    { label: "Quilometragem", name: "mileage", value: vehicle?.mileage, placeholder: "Ex: 48.000 km", required: true },
-    { label: "Câmbio", name: "transmission", value: vehicle?.transmission, type: "select", options: ["Automático", "Manual", "CVT"], required: true },
-    { label: "Combustível", name: "fuel", value: vehicle?.fuel, type: "select", options: ["Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido"], required: true },
-    { label: "Status", name: "status", value: vehicle?.status || "Publicado", type: "select", options: ["Publicado", "Pausado", "Sem atualização"], required: true },
+  const lojistaStores = stores.filter((s) => s.type === "Lojista" || s.name);
+
+  // Estado da galeria e fotos
+  let picturesList = [];
+  if (vehicle?.pictures && Array.isArray(vehicle.pictures) && vehicle.pictures.length > 0) {
+    picturesList = vehicle.pictures.map((p) => ({
+      remote_image_url: typeof p === "string" ? p : p.remote_image_url || p.url,
+      is_uploading: false,
+    }));
+  } else if (vehicle?.image_path) {
+    picturesList = [{ remote_image_url: vehicle.image_path, is_uploading: false }];
+  }
+
+  let coverUrl = vehicle?.main_image || vehicle?.image_path || (picturesList[0]?.remote_image_url || "");
+
+  // Estado dos opcionais
+  const DEFAULT_OPTIONS = [
+    "Ar-condicionado", "Direção elétrica", "Vidros elétricos", "Travas elétricas",
+    "Alarme", "Freios ABS", "Airbags frontais", "Airbags laterais",
+    "Bancos de couro", "Central multimídia", "Apple CarPlay / Android Auto",
+    "Câmera de ré", "Sensor de estacionamento", "Teto solar", "Rodas de liga leve",
+    "Piloto automático", "Faróis em LED", "Computador de bordo",
+    "Chave presencial / Start-Stop", "Controle de estabilidade", "Volante multifuncional"
   ];
-  if (role !== "lojista") {
-    const options = lojistaStores.map((s) => s.name);
-    fields.splice(3, 0, {
-      label: "Lojista",
-      name: "store_name",
-      value: vehicle?.store || options[0],
-      type: "select",
-      options,
-      required: true,
+  const selectedItems = new Set(Array.isArray(vehicle?.item_list) ? vehicle.item_list : []);
+
+  const modalTitle = vehicle
+    ? `Editar veículo: ${escapeHtml(vehicle.name)}`
+    : role === "lojista"
+    ? "Cadastrar meu veículo"
+    : "Cadastro central de veículos";
+
+  const submitLabel = vehicle ? "Salvar alterações" : "Publicar veículo";
+
+  // Renderiza a casca do modal
+  modalLayer.innerHTML = `
+    <div class="modal-backdrop" data-modal-close="true"></div>
+    <section class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header">
+        <h3 id="modalTitle">${modalTitle}</h3>
+        <button class="icon-close" data-modal-close="true" type="button" aria-label="Fechar modal">×</button>
+      </header>
+
+      <form id="vehicleExpandedForm" class="vehicle-form-container">
+        <!-- 1. Galeria de Fotos & CDN -->
+        <section class="vehicle-section">
+          <div class="vehicle-section-header">
+            <span class="vehicle-section-title"><span class="section-icon">📷</span> Galeria de Fotos (Cloudflare R2)</span>
+            <small style="color: var(--muted); font-size: 11px;">8 resoluções automáticas • Max 15MB por foto</small>
+          </div>
+
+          <div class="photo-dropzone" id="photoDropzone">
+            <span class="dropzone-icon">☁️</span>
+            <strong>Arraste fotos do veículo aqui ou clique para selecionar</strong>
+            <span>Formatos suportados: JPEG, PNG e WEBP (otimização instantânea)</span>
+            <input type="file" id="vehiclePhotoInput" multiple accept="image/jpeg,image/png,image/webp" style="display: none;" />
+          </div>
+
+          <div class="photo-gallery-grid" id="photoGalleryGrid"></div>
+        </section>
+
+        <!-- 2. Classificação Veicular -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">🚗</span> Classificação e Identificação</span>
+          <div class="vehicle-form-grid grid-cols-3">
+            <label class="form-field">
+              <span>Marca *</span>
+              <input name="brand" id="vehBrand" type="text" value="${escapeAttr(vehicle?.brand || "")}" placeholder="Ex: Toyota, Honda, Jeep" required />
+            </label>
+            <label class="form-field">
+              <span>Modelo *</span>
+              <input name="model" id="vehModel" type="text" value="${escapeAttr(vehicle?.model || "")}" placeholder="Ex: Corolla, Civic, Compass" required />
+            </label>
+            <label class="form-field">
+              <span>Versão</span>
+              <input name="version" id="vehVersion" type="text" value="${escapeAttr(vehicle?.version || "")}" placeholder="Ex: XEi 2.0 Direct Shift, Longitude" />
+            </label>
+          </div>
+
+          <div class="vehicle-form-grid grid-cols-4">
+            <label class="form-field">
+              <span>Categoria</span>
+              <select name="category" id="vehCategory">
+                ${["Sedan", "Hatch", "SUV", "Picape", "Cupê", "Minivan", "Perua", "Utilitário", "Moto"].map(c => `
+                  <option value="${c}" ${vehicle?.category === c ? "selected" : ""}>${c}</option>
+                `).join("")}
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Portas</span>
+              <select name="doors">
+                <option value="4" ${vehicle?.doors === 4 ? "selected" : ""}>4 portas</option>
+                <option value="2" ${vehicle?.doors === 2 ? "selected" : ""}>2 portas</option>
+                <option value="3" ${vehicle?.doors === 3 ? "selected" : ""}>3 portas</option>
+                <option value="5" ${vehicle?.doors === 5 ? "selected" : ""}>5 portas</option>
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Cor</span>
+              <input name="color" type="text" value="${escapeAttr(vehicle?.color || "")}" placeholder="Ex: Branco Pérola, Preto" />
+            </label>
+            <label class="form-field">
+              <span>Placa (Interno)</span>
+              <input name="plate" type="text" value="${escapeAttr(vehicle?.plate || "")}" placeholder="Ex: BRA2E19" maxlength="8" style="text-transform: uppercase;" />
+            </label>
+          </div>
+
+          <div class="vehicle-form-grid grid-cols-3">
+            <label class="form-field" style="grid-column: span 2;">
+              <span>Título Comercial (Vitrine) *</span>
+              <input name="name" id="vehName" type="text" value="${escapeAttr(vehicle?.name || "")}" placeholder="Ex: Toyota Corolla XEi 2.0 2023" required />
+            </label>
+            <label class="form-field">
+              <span>Código de Estoque / Unidade</span>
+              <input name="unit_id" type="text" value="${escapeAttr(vehicle?.unit_id || "")}" placeholder="Ex: EST-1092" />
+            </label>
+          </div>
+        </section>
+
+        <!-- 3. Ano, KM, Mecânica e Valores -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">⚙️</span> Mecânica, Rodagem e Valores</span>
+          <div class="vehicle-form-grid grid-cols-4">
+            <label class="form-field">
+              <span>Ano Fabricação</span>
+              <input name="fabrication_year" id="vehFabYear" type="number" min="1950" max="2035" value="${escapeAttr(vehicle?.fabrication_year || "")}" placeholder="Ex: 2022" />
+            </label>
+            <label class="form-field">
+              <span>Ano Modelo</span>
+              <input name="model_year" id="vehModYear" type="number" min="1950" max="2035" value="${escapeAttr(vehicle?.model_year || "")}" placeholder="Ex: 2023" />
+            </label>
+            <label class="form-field">
+              <span>Quilometragem (KM)</span>
+              <input name="km" id="vehKm" type="text" value="${escapeAttr(vehicle?.km ?? (vehicle?.mileage ? vehicle.mileage.replace(/\D/g, '') : ''))}" placeholder="Ex: 48000" />
+            </label>
+            <label class="form-field">
+              <span>Preço de Venda (R$) *</span>
+              <input name="price" id="vehPrice" type="text" value="${escapeAttr(vehicle?.price || "")}" placeholder="Ex: 119900 ou R$ 119.900" required />
+            </label>
+          </div>
+
+          <div class="vehicle-form-grid grid-cols-3">
+            <label class="form-field">
+              <span>Câmbio</span>
+              <select name="transmission">
+                ${["Automático", "Manual", "CVT", "Automatizado"].map(t => `
+                  <option value="${t}" ${vehicle?.transmission === t || vehicle?.exchange === t ? "selected" : ""}>${t}</option>
+                `).join("")}
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Combustível</span>
+              <select name="fuel">
+                ${["Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido", "GNV"].map(f => `
+                  <option value="${f}" ${vehicle?.fuel === f || vehicle?.fuel_text === f ? "selected" : ""}>${f}</option>
+                `).join("")}
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Status</span>
+              <select name="status">
+                ${["Publicado", "Pausado", "Vendido", "Rascunho"].map(s => `
+                  <option value="${s}" ${(vehicle?.status || "Publicado") === s ? "selected" : ""}>${s}</option>
+                `).join("")}
+              </select>
+            </label>
+          </div>
+
+          ${role !== "lojista" ? `
+            <div class="vehicle-form-grid grid-cols-2">
+              <label class="form-field grid-col-full">
+                <span>Lojista Proprietário do Veículo *</span>
+                <select name="store_id" required>
+                  ${lojistaStores.map(s => `
+                    <option value="${s.id}" ${vehicle?.store_id === s.id ? "selected" : ""}>${escapeHtml(s.name)}</option>
+                  `).join("")}
+                </select>
+              </label>
+            </div>
+          ` : ""}
+        </section>
+
+        <!-- 4. Badges Comerciais (Toggles) -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">🏷️</span> Destaques e Badges Comerciais</span>
+          <div class="toggles-grid">
+            <label class="toggle-card">
+              <input type="checkbox" name="featured" ${vehicle?.featured ? "checked" : ""} />
+              <span>★ Destaque na Vitrine</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="new_vehicle" ${vehicle?.new_vehicle ? "checked" : ""} />
+              <span>0 km (Novo)</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="shielded" ${vehicle?.shielded ? "checked" : ""} />
+              <span>🛡️ Blindado</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="in_transit" ${vehicle?.in_transit ? "checked" : ""} />
+              <span>🚚 Em Trânsito</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="sold" ${vehicle?.sold ? "checked" : ""} />
+              <span>Vendido</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="active" ${(vehicle?.active ?? true) ? "checked" : ""} />
+              <span>Ativo no Estoque</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- 5. Opcionais e Acessórios -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">✨</span> Opcionais e Itens de Série</span>
+          <div class="chip-container">
+            <div class="chip-grid" id="chipGrid"></div>
+            <div class="chip-custom-input">
+              <input type="text" id="customChipInput" placeholder="Adicionar outro opcional (ex: Som Harman Kardon) e pressione Enter..." />
+              <button type="button" class="mini-button" id="addCustomChipBtn">+ Adicionar</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. Observações Comerciais -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">📝</span> Observações e Histórico</span>
+          <label class="form-field">
+            <textarea name="note" placeholder="Descreva revisões, garantias, estado de pneus, laudo cautelar e diferenciais deste veículo..." rows="3">${escapeAttr(vehicle?.note || "")}</textarea>
+          </label>
+        </section>
+
+        <!-- Ações do Modal -->
+        <div class="modal-actions" style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button class="ghost-button" data-modal-close="true" type="button">Cancelar</button>
+          <button class="primary-button" id="saveVehicleBtn" type="submit">${submitLabel}</button>
+        </div>
+      </form>
+    </section>
+  `;
+
+  modalLayer.classList.add("show");
+  modalLayer.setAttribute("aria-hidden", "false");
+
+  // DOM Refs dentro do modal
+  const form = modalLayer.querySelector("#vehicleExpandedForm");
+  const dropzone = modalLayer.querySelector("#photoDropzone");
+  const fileInput = modalLayer.querySelector("#vehiclePhotoInput");
+  const galleryGrid = modalLayer.querySelector("#photoGalleryGrid");
+  const chipGrid = modalLayer.querySelector("#chipGrid");
+  const customChipInput = modalLayer.querySelector("#customChipInput");
+  const addCustomChipBtn = modalLayer.querySelector("#addCustomChipBtn");
+
+  const brandInput = modalLayer.querySelector("#vehBrand");
+  const modelInput = modalLayer.querySelector("#vehModel");
+  const versionInput = modalLayer.querySelector("#vehVersion");
+  const modYearInput = modalLayer.querySelector("#vehModYear");
+  const nameInput = modalLayer.querySelector("#vehName");
+
+  // Auto-sugestão de título
+  let userEditedTitle = Boolean(vehicle?.name);
+  nameInput.addEventListener("input", () => {
+    userEditedTitle = true;
+  });
+
+  function updateSuggestedTitle() {
+    if (userEditedTitle) return;
+    const parts = [
+      brandInput.value.trim(),
+      modelInput.value.trim(),
+      versionInput.value.trim(),
+      modYearInput.value.trim(),
+    ].filter(Boolean);
+    if (parts.length > 0) {
+      nameInput.value = parts.join(" ");
+    }
+  }
+
+  brandInput.addEventListener("input", updateSuggestedTitle);
+  modelInput.addEventListener("input", updateSuggestedTitle);
+  versionInput.addEventListener("input", updateSuggestedTitle);
+  modYearInput.addEventListener("input", updateSuggestedTitle);
+
+  // Renderizador da Galeria de Fotos
+  function renderGallery() {
+    if (picturesList.length === 0) {
+      galleryGrid.innerHTML = `<p style="grid-column: 1 / -1; color: var(--muted); font-size: 13px; text-align: center; padding: 8px 0;">Nenhuma foto cadastrada ainda.</p>`;
+      return;
+    }
+
+    galleryGrid.innerHTML = picturesList.map((pic, idx) => {
+      const isCover = (pic.remote_image_url === coverUrl) || (!coverUrl && idx === 0);
+      if (isCover && !coverUrl) coverUrl = pic.remote_image_url;
+
+      return `
+        <div class="photo-gallery-item ${isCover ? 'is-cover' : ''}" data-index="${idx}">
+          <img src="${pic.remote_image_url}" alt="Foto ${idx + 1}" />
+          ${isCover ? `<span class="photo-cover-badge">★ Capa</span>` : ""}
+          ${pic.is_uploading ? `
+            <div class="photo-uploading-overlay">
+              <div class="upload-spinner"></div>
+              <span>Enviando...</span>
+            </div>
+          ` : `
+            <div class="photo-actions">
+              <div style="display: flex; gap: 3px;">
+                ${idx > 0 ? `<button type="button" class="photo-action-btn move-left" title="Mover para a esquerda" data-idx="${idx}">◀</button>` : ""}
+                ${idx < picturesList.length - 1 ? `<button type="button" class="photo-action-btn move-right" title="Mover para a direita" data-idx="${idx}">▶</button>` : ""}
+              </div>
+              <div style="display: flex; gap: 3px;">
+                ${!isCover ? `<button type="button" class="photo-action-btn set-cover" title="Definir como foto de capa" data-idx="${idx}">Capa</button>` : ""}
+                <button type="button" class="photo-action-btn delete" title="Remover foto" data-idx="${idx}">×</button>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }).join("");
+
+    // Eventos dos botões da galeria
+    galleryGrid.querySelectorAll(".set-cover").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        if (picturesList[idx]) {
+          coverUrl = picturesList[idx].remote_image_url;
+          renderGallery();
+        }
+      });
+    });
+
+    galleryGrid.querySelectorAll(".move-left").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        if (idx > 0) {
+          const item = picturesList.splice(idx, 1)[0];
+          picturesList.splice(idx - 1, 0, item);
+          renderGallery();
+        }
+      });
+    });
+
+    galleryGrid.querySelectorAll(".move-right").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        if (idx < picturesList.length - 1) {
+          const item = picturesList.splice(idx, 1)[0];
+          picturesList.splice(idx + 1, 0, item);
+          renderGallery();
+        }
+      });
+    });
+
+    galleryGrid.querySelectorAll(".delete").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        const removed = picturesList.splice(idx, 1)[0];
+        if (removed && removed.remote_image_url === coverUrl) {
+          coverUrl = picturesList[0]?.remote_image_url || "";
+        }
+        renderGallery();
+      });
     });
   }
 
-  openModal(vehicle ? "Editar veículo" : "Cadastrar veículo", fields, vehicle ? "Salvar veículo" : "Publicar veículo", async (data) => {
-    const storeName = role === "lojista" ? myStoreName() : data.store_name;
-    const store = stores.find((s) => s.name === storeName);
-    const payload = {
-      name: data.name,
-      price: data.price,
-      mileage: data.mileage,
-      transmission: data.transmission,
-      fuel: data.fuel,
-      status: data.status,
-      image_path: vehicle?.image_path || "assets/car-city.jpg",
-      ...(role === "lojista" ? {} : { store_id: store?.id }),
-    };
-    if (vehicle) {
-      await api(`/api/vehicles/${vehicle.id}`, { method: "PATCH", body: JSON.stringify(payload) });
-      showToast("Veículo atualizado");
-    } else {
-      await api("/api/vehicles", { method: "POST", body: JSON.stringify(payload) });
-      showToast("Veículo publicado no estoque");
+  // Upload handler via FormData
+  async function handleFilesUpload(files) {
+    const validFiles = [];
+    for (const f of files) {
+      if (!f.type.startsWith("image/")) {
+        showToast(`Arquivo ignorado (não é imagem): ${f.name}`);
+        continue;
+      }
+      if (f.size > 15 * 1024 * 1024) {
+        showToast(`Imagem excede 15MB: ${f.name}`);
+        continue;
+      }
+      validFiles.push(f);
     }
-    await refreshAndRender();
-    showView("vehicles");
+    if (validFiles.length === 0) return;
+
+    // Adiciona previews temporários na galeria
+    const tempEntries = validFiles.map(f => {
+      const tempUrl = URL.createObjectURL(f);
+      const entry = { remote_image_url: tempUrl, is_uploading: true, file: f };
+      picturesList.push(entry);
+      return entry;
+    });
+    renderGallery();
+
+    const formData = new FormData();
+    for (const f of validFiles) {
+      formData.append("files", f);
+    }
+
+    try {
+      const res = await api("/api/vehicles/upload-photos", {
+        method: "POST",
+        body: formData,
+      });
+
+      const uploaded = res.photos || res.uploaded || [];
+      if (uploaded.length > 0) {
+        // Substitui os itens temporários pelas URLs permanentes da CDN
+        tempEntries.forEach((entry, i) => {
+          if (uploaded[i]) {
+            entry.remote_image_url = uploaded[i].remote_image_url;
+            entry.is_uploading = false;
+          }
+        });
+        if (!coverUrl && picturesList[0]) {
+          coverUrl = picturesList[0].remote_image_url;
+        }
+        showToast(`${uploaded.length} foto(s) enviada(s) para a CDN!`);
+      }
+    } catch (err) {
+      // Remove entradas temporárias com erro
+      tempEntries.forEach(entry => {
+        const idx = picturesList.indexOf(entry);
+        if (idx !== -1) picturesList.splice(idx, 1);
+      });
+      showToast(`Falha no upload de fotos: ${err.message}`);
+    } finally {
+      renderGallery();
+    }
+  }
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length > 0) {
+      handleFilesUpload([...fileInput.files]);
+      fileInput.value = "";
+    }
+  });
+
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+  });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer?.files?.length) {
+      handleFilesUpload([...e.dataTransfer.files]);
+    }
+  });
+
+  renderGallery();
+
+  // Renderizador de Chips de Opcionais
+  function renderChips() {
+    const allChips = Array.from(new Set([...DEFAULT_OPTIONS, ...selectedItems]));
+    chipGrid.innerHTML = allChips.map(item => {
+      const active = selectedItems.has(item);
+      return `
+        <button type="button" class="chip ${active ? 'active' : ''}" data-chip="${escapeAttr(item)}">
+          ${active ? "✓ " : "+ "}${escapeHtml(item)}
+        </button>
+      `;
+    }).join("");
+
+    chipGrid.querySelectorAll(".chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = btn.dataset.chip;
+        if (selectedItems.has(item)) {
+          selectedItems.delete(item);
+        } else {
+          selectedItems.add(item);
+        }
+        renderChips();
+      });
+    });
+  }
+
+  function addCustomChip() {
+    const val = customChipInput.value.trim();
+    if (val) {
+      selectedItems.add(val);
+      customChipInput.value = "";
+      renderChips();
+    }
+  }
+
+  addCustomChipBtn.addEventListener("click", addCustomChip);
+  customChipInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomChip();
+    }
+  });
+
+  renderChips();
+
+  // Submit Handler
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const stillUploading = picturesList.some(p => p.is_uploading);
+    if (stillUploading) {
+      showToast("Aguarde a finalização do upload das fotos antes de salvar.");
+      return;
+    }
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    const activePics = picturesList.filter(p => !p.is_uploading && p.remote_image_url);
+    const finalCover = coverUrl || (activePics[0]?.remote_image_url || "");
+
+    const payload = {
+      name: (data.name || "").trim(),
+      brand: (data.brand || "").trim(),
+      model: (data.model || "").trim(),
+      version: (data.version || "").trim(),
+      category: data.category || "Sedan",
+      doors: data.doors ? Number(data.doors) : 4,
+      color: (data.color || "").trim(),
+      plate: (data.plate || "").trim().toUpperCase(),
+      unit_id: (data.unit_id || "").trim(),
+      fabrication_year: data.fabrication_year ? Number(data.fabrication_year) : null,
+      model_year: data.model_year ? Number(data.model_year) : null,
+      km: data.km ? Number(String(data.km).replace(/\D/g, "")) : null,
+      price: (data.price || "").trim(),
+      transmission: data.transmission || "Automático",
+      exchange: data.transmission || "Automático",
+      fuel: data.fuel || "Flex",
+      fuel_text: data.fuel || "Flex",
+      status: data.status || "Publicado",
+      featured: form.querySelector("[name='featured']").checked,
+      new_vehicle: form.querySelector("[name='new_vehicle']").checked,
+      shielded: form.querySelector("[name='shielded']").checked,
+      in_transit: form.querySelector("[name='in_transit']").checked,
+      sold: form.querySelector("[name='sold']").checked,
+      active: form.querySelector("[name='active']").checked,
+      item_list: Array.from(selectedItems),
+      note: (data.note || "").trim(),
+      pictures: activePics.map(p => ({ remote_image_url: p.remote_image_url })),
+      image_path: finalCover || "assets/car-city.jpg",
+      main_image: finalCover || "assets/car-city.jpg",
+    };
+
+    if (role !== "lojista") {
+      payload.store_id = Number(data.store_id);
+    }
+
+    try {
+      if (vehicle) {
+        await api(`/api/vehicles/${vehicle.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        showToast("Veículo atualizado com sucesso!");
+      } else {
+        await api("/api/vehicles", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        showToast("Veículo publicado no estoque com sucesso!");
+      }
+      closeModal();
+      await refreshAndRender();
+      showView("vehicles");
+    } catch (err) {
+      showToast(err.message || "Erro ao salvar veículo");
+    }
   });
 }
 

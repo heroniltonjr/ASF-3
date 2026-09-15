@@ -83,8 +83,12 @@ async def upload_vehicle_photos(
 
 
 import json
-import uuid
+import logging
 import re
+import uuid
+from decimal import Decimal
+
+logger = logging.getLogger("asf.vehicles")
 
 
 def _format_vehicle_row(v: dict) -> dict:
@@ -113,6 +117,16 @@ def _format_vehicle_row(v: dict) -> dict:
     for flag in ("active", "sold", "featured", "new_vehicle", "shielded", "in_transit"):
         if flag in v and v[flag] is not None:
             v[flag] = bool(v[flag])
+
+    # 4. Formatação consistente de preço para frontend e testes
+    if v.get("price") is not None:
+        p = v["price"]
+        if isinstance(p, Decimal):
+            v["price"] = str(int(p)) if p % 1 == 0 else str(p)
+        elif isinstance(p, float):
+            v["price"] = str(int(p)) if p.is_integer() else str(p)
+        else:
+            v["price"] = str(p)
 
     return v
 
@@ -170,8 +184,39 @@ _PATCHABLE = {
 }
 
 
+def _parse_price(val: Any) -> float | None:
+    if val is None:
+        return None
+    if isinstance(val, (int, float, Decimal)):
+        return float(val)
+    s = re.sub(r"[^\d.,]", "", str(val).strip())
+    if not s:
+        return None
+    if "." in s and "," in s:
+        s = s.replace(".", "").replace(",", ".") if s.rfind(",") > s.rfind(".") else s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
+    elif "." in s:
+        parts = s.split(".")
+        if (len(parts) == 2 and len(parts[1]) == 3 and len(parts[0]) <= 3) or len(parts) > 2:
+            s = s.replace(".", "")
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return None
+
+
 def _sync_vehicle_data(data: dict) -> None:
     """Sincroniza pares de campos compatíveis (km/mileage, transmission/exchange, etc)."""
+    # 0. Normalização do preço (float para PostgreSQL numeric, formato consistente no SQLite)
+    if "price" in data and data["price"] is not None:
+        parsed_price = _parse_price(data["price"])
+        if parsed_price is not None:
+            if db.is_postgres():
+                data["price"] = parsed_price
+            else:
+                data["price"] = str(int(parsed_price)) if parsed_price.is_integer() else str(parsed_price)
+
     # 1. KM <-> Mileage
     if data.get("km") is not None and not data.get("mileage"):
         try:
@@ -209,16 +254,29 @@ def _sync_vehicle_data(data: dict) -> None:
             data["image_path"] = url
             data["main_image"] = url
 
-    # 6. Serialização JSON para arrays
+    # 6. Serialização JSON para arrays ou lista nativa (PostgreSQL)
     if isinstance(data.get("pictures"), list):
         data["pictures"] = json.dumps(data["pictures"], ensure_ascii=False)
-    if isinstance(data.get("item_list"), list):
-        data["item_list"] = json.dumps(data["item_list"], ensure_ascii=False)
 
-    # 7. Flags booleanas para inteiros no SQLite
+    if "item_list" in data and data["item_list"] is not None:
+        items = data["item_list"]
+        if isinstance(items, str):
+            try:
+                items = json.loads(items)
+            except Exception:
+                items = [i.strip() for i in items.split(",") if i.strip()]
+        if not isinstance(items, list):
+            items = []
+
+        if db.is_postgres():
+            data["item_list"] = items
+        else:
+            data["item_list"] = json.dumps(items, ensure_ascii=False)
+
+    # 7. Flags booleanas (compatíveis nativamente com SQLite e PostgreSQL)
     for flag in ("active", "sold", "featured", "new_vehicle", "shielded", "in_transit"):
         if flag in data and data[flag] is not None:
-            data[flag] = 1 if data[flag] else 0
+            data[flag] = bool(data[flag])
 
 
 @router.post("/vehicles", status_code=201)
@@ -230,41 +288,47 @@ def create_vehicle(payload: dict, user: dict = Depends(_ALL)):
     if missing:
         raise HTTPException(400, f"Campos obrigatórios: {', '.join(missing)}")
 
-    with db.tx() as conn:
-        # Preenche o nome da loja se não fornecido
-        if not payload.get("store") and payload.get("store_id"):
-            st = conn.execute("SELECT name FROM stores WHERE id = ?", (payload["store_id"],)).fetchone()
-            if st:
-                payload["store"] = st["name"]
+    try:
+        with db.tx() as conn:
+            # Preenche o nome da loja se não fornecido
+            if not payload.get("store") and payload.get("store_id"):
+                st = conn.execute("SELECT name FROM stores WHERE id = ?", (payload["store_id"],)).fetchone()
+                if st:
+                    payload["store"] = st["name"]
 
-        # Gera identificador se ausente
-        if not payload.get("identifier"):
-            payload["identifier"] = f"Trinix-Auto-id{uuid.uuid4().hex[:8]}"
+            # Gera identificador se ausente
+            if not payload.get("identifier"):
+                payload["identifier"] = f"Trinix-Auto-id{uuid.uuid4().hex[:8]}"
 
-        # Padrões para flags
-        payload.setdefault("status", "Publicado")
-        payload.setdefault("active", 1)
-        payload.setdefault("sold", 0)
-        payload.setdefault("featured", 0)
-        payload.setdefault("new_vehicle", 0)
-        payload.setdefault("shielded", 0)
-        payload.setdefault("in_transit", 0)
+            # Padrões para flags
+            payload.setdefault("status", "Publicado")
+            payload.setdefault("active", True)
+            payload.setdefault("sold", False)
+            payload.setdefault("featured", False)
+            payload.setdefault("new_vehicle", False)
+            payload.setdefault("shielded", False)
+            payload.setdefault("in_transit", False)
 
-        _sync_vehicle_data(payload)
+            _sync_vehicle_data(payload)
 
-        # Monta INSERT dinâmico com colunas presentes
-        cols = [c for c in _ALL_COLUMNS if c in payload and payload[c] is not None]
-        cols_str = ", ".join(cols)
-        placeholders = ", ".join("?" * len(cols))
-        values = [payload[c] for c in cols]
+            # Monta INSERT dinâmico com colunas presentes
+            cols = [c for c in _ALL_COLUMNS if c in payload and payload[c] is not None]
+            cols_str = ", ".join(cols)
+            placeholders = ", ".join("?" * len(cols))
+            values = [payload[c] for c in cols]
 
-        cur = conn.execute(f"INSERT INTO vehicles ({cols_str}) VALUES ({placeholders})", values)
-        row = conn.execute(
-            "SELECT v.*, s.name AS store_name FROM vehicles v JOIN stores s ON s.id = v.store_id WHERE v.id = ?",
-            (cur.lastrowid,),
-        ).fetchone()
+            cur = conn.execute(f"INSERT INTO vehicles ({cols_str}) VALUES ({placeholders})", values)
+            row = conn.execute(
+                "SELECT v.*, s.name AS store_name FROM vehicles v JOIN stores s ON s.id = v.store_id WHERE v.id = ?",
+                (cur.lastrowid,),
+            ).fetchone()
 
-    return {"vehicle": _format_vehicle_row(dict(row))}
+        return {"vehicle": _format_vehicle_row(dict(row))}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Erro ao criar veículo: %s", exc)
+        raise HTTPException(500, f"Erro ao criar veículo: {exc}")
 
 
 @router.patch("/vehicles/{vid}")
@@ -273,36 +337,42 @@ def update_vehicle(vid: int, payload: dict, user: dict = Depends(_ALL)):
         payload.pop("store_id", None)
         payload.pop("store", None)
 
-    with db.tx() as conn:
-        row = conn.execute("SELECT store_id FROM vehicles WHERE id = ?", (vid,)).fetchone()
-        if not row:
-            raise HTTPException(404, "Veículo não encontrado")
-        if user["role"] in STORE_SCOPED_ROLES and row["store_id"] != user.get("store_id"):
-            raise HTTPException(403, "Veículo de outra loja")
+    try:
+        with db.tx() as conn:
+            row = conn.execute("SELECT store_id FROM vehicles WHERE id = ?", (vid,)).fetchone()
+            if not row:
+                raise HTTPException(404, "Veículo não encontrado")
+            if user["role"] in STORE_SCOPED_ROLES and row["store_id"] != user.get("store_id"):
+                raise HTTPException(403, "Veículo de outra loja")
 
-        # Se mudou store_id por gestor/master, atualiza o nome store
-        if "store_id" in payload and not payload.get("store"):
-            st = conn.execute("SELECT name FROM stores WHERE id = ?", (payload["store_id"],)).fetchone()
-            if st:
-                payload["store"] = st["name"]
+            # Se mudou store_id por gestor/master, atualiza o nome store
+            if "store_id" in payload and not payload.get("store"):
+                st = conn.execute("SELECT name FROM stores WHERE id = ?", (payload["store_id"],)).fetchone()
+                if st:
+                    payload["store"] = st["name"]
 
-        _sync_vehicle_data(payload)
+            _sync_vehicle_data(payload)
 
-        updates = {k: v for k, v in payload.items() if k in _PATCHABLE}
-        if not updates:
-            raise HTTPException(400, "Nada a atualizar")
+            updates = {k: v for k, v in payload.items() if k in _PATCHABLE}
+            if not updates:
+                raise HTTPException(400, "Nada a atualizar")
 
-        cols = ", ".join(f"{k} = ?" for k in updates)
-        conn.execute(
-            f"UPDATE vehicles SET {cols}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            [*updates.values(), vid],
-        )
-        out = conn.execute(
-            "SELECT v.*, s.name AS store_name FROM vehicles v JOIN stores s ON s.id = v.store_id WHERE v.id = ?",
-            (vid,),
-        ).fetchone()
+            cols = ", ".join(f"{k} = ?" for k in updates)
+            conn.execute(
+                f"UPDATE vehicles SET {cols}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                [*updates.values(), vid],
+            )
+            out = conn.execute(
+                "SELECT v.*, s.name AS store_name FROM vehicles v JOIN stores s ON s.id = v.store_id WHERE v.id = ?",
+                (vid,),
+            ).fetchone()
 
-    return {"vehicle": _format_vehicle_row(dict(out))}
+        return {"vehicle": _format_vehicle_row(dict(out))}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Erro ao atualizar veículo %s: %s", vid, exc)
+        raise HTTPException(500, f"Erro ao atualizar veículo: {exc}")
 
 
 @router.delete("/vehicles/{vid}", status_code=204)

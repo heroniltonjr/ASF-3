@@ -205,3 +205,8 @@ def get_db_info() -> str:
     return f"sqlite3:{DB_PATH.name}"
 
 
+def is_postgres() -> bool:
+    return "PYTEST_CURRENT_TEST" not in os.environ and bool(os.getenv("DATABASE_URL") and not os.getenv("SQLITE_PATH"))
+
+
+

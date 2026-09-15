@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from PIL import Image
 import io

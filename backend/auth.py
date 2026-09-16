@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import os
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -12,6 +13,9 @@ from . import db
 
 SESSION_COOKIE = "formula_session"
 SESSION_TTL_DAYS = 7
+
+_SESSION_CACHE: dict[str, tuple[dict, float]] = {}
+_SESSION_CACHE_TTL = 30.0  # 30s de cache local para reduzir round-trips repetidos de auth
 
 # PBKDF2-HMAC-SHA256 — sempre disponível no stdlib, adequado para protótipo.
 # OWASP 2023 recomenda >= 600_000 iterações para SHA-256.
@@ -69,6 +73,16 @@ def _parse_dt(val: Any) -> Optional[datetime]:
 def get_user_by_token(token: str) -> Optional[dict]:
     if not token:
         return None
+
+    now = time.time()
+    cached = _SESSION_CACHE.get(token)
+    if cached:
+        user, exp = cached
+        if now < exp:
+            return user
+        else:
+            _SESSION_CACHE.pop(token, None)
+
     with db.tx() as conn:
         row = conn.execute(
             """
@@ -85,7 +99,8 @@ def get_user_by_token(token: str) -> Optional[dict]:
     if not expires or expires < datetime.now(timezone.utc):
         revoke_session(token)
         return None
-    return {
+
+    user = {
         "id": row["id"],
         "email": row["email"],
         "name": row["name"],
@@ -93,11 +108,14 @@ def get_user_by_token(token: str) -> Optional[dict]:
         "tenant_id": row["tenant_id"],
         "store_id": row["store_id"],
     }
+    _SESSION_CACHE[token] = (user, now + _SESSION_CACHE_TTL)
+    return user
 
 
 def revoke_session(token: str) -> None:
     if not token:
         return
+    _SESSION_CACHE.pop(token, None)
     with db.tx() as conn:
         conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
 

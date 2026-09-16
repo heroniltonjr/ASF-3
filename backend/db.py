@@ -144,9 +144,22 @@ class SQLToPostgresCursorWrapper:
         return iter(self._cur)
 
 
+from psycopg2 import pool as pg_pool
+
+_PG_POOL: Any = None
+
+
+def _get_pg_pool(db_url: str) -> pg_pool.ThreadedConnectionPool:
+    global _PG_POOL
+    if _PG_POOL is None or getattr(_PG_POOL, "closed", True):
+        _PG_POOL = pg_pool.ThreadedConnectionPool(minconn=2, maxconn=15, dsn=db_url)
+    return _PG_POOL
+
+
 class SQLToPostgresConnectionWrapper:
-    def __init__(self, conn: Any):
+    def __init__(self, conn: Any, pool: Any = None):
         self._conn = conn
+        self._pool = pool
 
     def cursor(self) -> SQLToPostgresCursorWrapper:
         cur = self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -164,7 +177,18 @@ class SQLToPostgresConnectionWrapper:
         self._conn.rollback()
 
     def close(self) -> None:
-        self._conn.close()
+        if self._pool is not None and not getattr(self._pool, "closed", True):
+            try:
+                if getattr(self._conn, "closed", 1) == 0:
+                    self._conn.rollback()
+                self._pool.putconn(self._conn)
+            except Exception:
+                try:
+                    self._conn.close()
+                except Exception:
+                    pass
+        else:
+            self._conn.close()
 
 
 def connect() -> Any:
@@ -179,8 +203,16 @@ def connect() -> Any:
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
     else:
-        conn = psycopg2.connect(db_url)
-        return SQLToPostgresConnectionWrapper(conn)
+        try:
+            pool = _get_pg_pool(db_url)
+            raw_conn = pool.getconn()
+            if getattr(raw_conn, "closed", 0) != 0:
+                pool.putconn(raw_conn, close=True)
+                raw_conn = pool.getconn()
+            return SQLToPostgresConnectionWrapper(raw_conn, pool=pool)
+        except Exception:
+            conn = psycopg2.connect(db_url)
+            return SQLToPostgresConnectionWrapper(conn)
 
 
 @contextmanager

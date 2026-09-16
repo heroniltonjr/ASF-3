@@ -1428,6 +1428,13 @@ function openVehicleModal(vehicle = null) {
       payload.store_id = Number(data.store_id);
     }
 
+    const submitBtn = form.querySelector("button[type='submit']");
+    const originalText = submitBtn ? submitBtn.textContent : "Salvar veículo";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Salvando veículo...";
+    }
+
     try {
       if (vehicle) {
         await api(`/api/vehicles/${vehicle.id}`, {
@@ -1447,6 +1454,11 @@ function openVehicleModal(vehicle = null) {
       showView("vehicles");
     } catch (err) {
       showToast(err.message || "Erro ao salvar veículo");
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
     }
   });
 }

@@ -1,6 +1,7 @@
 """Conexão SQLite/PostgreSQL + executor de migrations."""
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
@@ -8,10 +9,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 import psycopg2
 import psycopg2.extras
 
 ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / ".env")
 DB_PATH = Path(os.getenv("SQLITE_PATH") or (ROOT / "portal.sqlite3"))
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
@@ -43,6 +46,39 @@ def rewrite_sql(sql: str) -> str:
     return sql
 
 
+def _adapt_postgres_vars(query: str, vars: Any) -> Any:
+    """Adapta parâmetros para PostgreSQL, convertendo JSON strings de colunas text[] (ex: item_list) em listas nativas."""
+    if not vars or not isinstance(vars, (list, tuple)):
+        return vars
+    if "formulaos_vehicles" not in query.lower() or "item_list" not in query.lower():
+        return vars
+    vars_list = list(vars)
+    idx = None
+    query_upper = query.strip().upper()
+    if query_upper.startswith("INSERT"):
+        m = re.search(r"\(([^)]+)\)\s+VALUES", query, re.IGNORECASE)
+        if m:
+            cols = [c.strip().lower() for c in m.group(1).split(",")]
+            if "item_list" in cols:
+                idx = cols.index("item_list")
+    elif query_upper.startswith("UPDATE"):
+        cols = re.findall(r"(\w+)\s*=\s*%s", query, re.IGNORECASE)
+        cols = [c.lower() for c in cols]
+        if "item_list" in cols:
+            idx = cols.index("item_list")
+
+    if idx is not None and idx < len(vars_list):
+        val = vars_list[idx]
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+                if isinstance(parsed, list):
+                    vars_list[idx] = parsed
+            except Exception:
+                vars_list[idx] = [i.strip() for i in val.split(",") if i.strip()]
+    return tuple(vars_list) if isinstance(vars, tuple) else vars_list
+
+
 class SQLToPostgresCursorWrapper:
     def __init__(self, cur: Any):
         self._cur = cur
@@ -50,6 +86,7 @@ class SQLToPostgresCursorWrapper:
 
     def execute(self, query: str, vars: Any = None) -> SQLToPostgresCursorWrapper:
         adapted_query = rewrite_sql(query)
+        adapted_vars = _adapt_postgres_vars(adapted_query, vars)
         
         # Ignora comandos de PRAGMA do SQLite
         if query.strip().upper().startswith('PRAGMA'):
@@ -63,7 +100,7 @@ class SQLToPostgresCursorWrapper:
             stripped = adapted_query.strip().rstrip(';')
             adapted_query = f"{stripped} RETURNING *"
             
-        self._cur.execute(adapted_query, vars)
+        self._cur.execute(adapted_query, adapted_vars)
         
         if is_insert and not has_returning:
             try:
@@ -200,13 +237,15 @@ def rows_to_list(rows: Any) -> list[dict]:
 
 
 def get_db_info() -> str:
-    if os.getenv("DATABASE_URL") and not os.getenv("SQLITE_PATH"):
+    if is_postgres():
         return "supabase"
     return f"sqlite3:{DB_PATH.name}"
 
 
-def is_postgres() -> bool:
-    return "PYTEST_CURRENT_TEST" not in os.environ and bool(os.getenv("DATABASE_URL") and not os.getenv("SQLITE_PATH"))
+def is_postgres(conn: Any = None) -> bool:
+    if conn is not None:
+        return isinstance(conn, SQLToPostgresConnectionWrapper)
+    return "PYTEST_CURRENT_TEST" not in os.environ and bool(os.getenv("DATABASE_URL"))
 
 
 

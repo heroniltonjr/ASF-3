@@ -208,13 +208,15 @@ def _parse_price(val: Any) -> float | None:
         return None
 
 
-def _sync_vehicle_data(data: dict) -> None:
+def _sync_vehicle_data(data: dict, conn: Any = None) -> None:
     """Sincroniza pares de campos compatíveis (km/mileage, transmission/exchange, etc)."""
+    is_pg = db.is_postgres(conn)
+
     # 0. Normalização do preço (float para PostgreSQL numeric, formato consistente no SQLite)
     if "price" in data and data["price"] is not None:
         parsed_price = _parse_price(data["price"])
         if parsed_price is not None:
-            if db.is_postgres():
+            if is_pg:
                 data["price"] = parsed_price
             else:
                 data["price"] = str(int(parsed_price)) if parsed_price.is_integer() else str(parsed_price)
@@ -270,7 +272,7 @@ def _sync_vehicle_data(data: dict) -> None:
         if not isinstance(items, list):
             items = []
 
-        if db.is_postgres():
+        if is_pg:
             data["item_list"] = items
         else:
             data["item_list"] = json.dumps(items, ensure_ascii=False)
@@ -311,7 +313,7 @@ def create_vehicle(payload: dict, user: dict = Depends(_ALL)):
             payload.setdefault("shielded", False)
             payload.setdefault("in_transit", False)
 
-            _sync_vehicle_data(payload)
+            _sync_vehicle_data(payload, conn=conn)
 
             # Monta INSERT dinâmico com colunas presentes
             cols = [c for c in _ALL_COLUMNS if c in payload and payload[c] is not None]
@@ -353,7 +355,7 @@ def update_vehicle(vid: int, payload: dict, user: dict = Depends(_ALL)):
                 if st:
                     payload["store"] = st["name"]
 
-            _sync_vehicle_data(payload)
+            _sync_vehicle_data(payload, conn=conn)
 
             updates = {k: v for k, v in payload.items() if k in _PATCHABLE}
             if not updates:

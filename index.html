@@ -56,6 +56,15 @@
             <span class="nav-icon cost-icon"></span>
             <span class="nav-label">Custos e cobrança</span>
           </button>
+          <div class="nav-divider" style="margin: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.08);"></div>
+          <button id="navProfileBtn" type="button" title="Meu Perfil e configurações" hidden style="display: none;">
+            <span class="nav-icon user-nav-icon" style="display: flex; align-items: center; justify-content: center; font-size: 14px;">👤</span>
+            <span class="nav-label">Meu Perfil</span>
+          </button>
+          <button id="navLogoutBtn" class="nav-logout" type="button" title="Encerrar sessão no portal" hidden style="display: none;">
+            <span class="nav-icon logout-nav-icon" style="display: flex; align-items: center; justify-content: center; font-size: 14px;">🚪</span>
+            <span class="nav-label">Sair da conta</span>
+          </button>
         </nav>
 
         <div class="sidebar-card">
@@ -76,6 +85,7 @@
           <div class="topbar-actions">
             <a href="/" target="_blank" class="session-chip" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;" title="Abrir site público">🌐 Ver Site</a>
             <button class="session-chip" id="sessionButton" type="button">Entrar</button>
+            <button class="session-chip session-logout" id="logoutButton" type="button" title="Sair da conta e encerrar sessão" hidden style="display: none;">🚪 Sair</button>
             <label class="search">
               <span></span>
               <input id="globalSearch" type="search" placeholder="Buscar lead, carro ou lojista" />

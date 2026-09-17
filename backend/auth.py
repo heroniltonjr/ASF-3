@@ -120,6 +120,13 @@ def revoke_session(token: str) -> None:
         conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
 
 
+def invalidate_user_sessions(user_id: int) -> None:
+    """Invalida do cache em memória todas as sessões do usuário para forçar releitura do banco."""
+    for tok, (u, exp) in list(_SESSION_CACHE.items()):
+        if u.get("id") == user_id:
+            _SESSION_CACHE.pop(tok, None)
+
+
 def purge_expired() -> int:
     with db.tx() as conn:
         cur = conn.execute(

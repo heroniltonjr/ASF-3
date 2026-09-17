@@ -200,6 +200,9 @@ const toast = $("#toast");
 const modalLayer = $("#modalLayer");
 const loginLayer = $("#loginLayer");
 const sessionButton = $("#sessionButton");
+const logoutButton = $("#logoutButton");
+const navProfileBtn = $("#navProfileBtn");
+const navLogoutBtn = $("#navLogoutBtn");
 
 // ---------- Carga / refresh ----------
 async function fetchAll() {
@@ -245,8 +248,20 @@ function applyRole() {
   $("#heroTitle").textContent = config.heroTitle;
   $("#heroText").textContent = config.heroText;
   $("#globalSearch").placeholder = config.search;
-  sessionButton.textContent = currentUser ? `${currentUser.name} · Sair` : "Entrar";
-  sessionButton.title = currentUser ? "Clique para sair da conta e alternar de perfil" : "Entrar no portal";
+  sessionButton.textContent = currentUser ? `${currentUser.name} · Perfil` : "Entrar";
+  sessionButton.title = currentUser ? "Ver meu perfil e configurações de conta" : "Entrar no portal";
+  if (logoutButton) {
+    logoutButton.style.display = currentUser ? "inline-flex" : "none";
+    logoutButton.hidden = !currentUser;
+  }
+  if (navProfileBtn) {
+    navProfileBtn.style.display = currentUser ? "flex" : "none";
+    navProfileBtn.hidden = !currentUser;
+  }
+  if (navLogoutBtn) {
+    navLogoutBtn.style.display = currentUser ? "flex" : "none";
+    navLogoutBtn.hidden = !currentUser;
+  }
 
   updateNavigation(config);
 
@@ -1488,6 +1503,222 @@ function openStoreModal(store = null) {
   });
 }
 
+function openProfileModal() {
+  if (!currentUser) return;
+  const role = currentRole();
+  const initials = (currentUser.name || "U")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0].toUpperCase())
+    .join("");
+
+  const roleLabel = role === "master" ? "Master Ecossistema" : role === "shopping" ? "Gestor Shopping" : "Lojista";
+  const storeLabel = role === "lojista" ? myStoreName() : "Auto Shopping Formula";
+
+  modalLayer.innerHTML = `
+    <div class="modal-backdrop" data-modal-close="true"></div>
+    <section class="modal-card profile-modal" role="dialog" aria-modal="true" aria-label="Meu Perfil">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Formula OS</span>
+          <h3>Meu Perfil & Segurança</h3>
+        </div>
+        <button class="icon-close" data-modal-close="true" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <div style="padding: 20px;">
+        <!-- Header do perfil com avatar e dados da conta -->
+        <div class="profile-header-card">
+          <div class="profile-avatar">${escapeHtml(initials)}</div>
+          <div class="profile-meta">
+            <h4 id="profileDisplayName">${escapeHtml(currentUser.name)}</h4>
+            <p>${escapeHtml(currentUser.email)}</p>
+            <div class="profile-badges">
+              <span class="profile-badge role-${escapeAttr(role)}">${escapeHtml(roleLabel)}</span>
+              <span class="profile-badge badge-store">${escapeHtml(storeLabel)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 1: Atualizar Nome -->
+        <div class="profile-section" style="border-top: 0; padding-top: 0; margin-top: 0;">
+          <div class="profile-section-title">
+            <span>👤</span>
+            <span>Dados Pessoais</span>
+          </div>
+          <form id="profileNameForm" style="display: flex; gap: 10px; align-items: flex-end;">
+            <label class="form-field" style="flex: 1;">
+              <span>Nome de exibição</span>
+              <input id="profileNameInput" type="text" value="${escapeAttr(currentUser.name)}" minlength="2" required placeholder="Seu nome completo" />
+            </label>
+            <button class="primary-button" type="submit" id="saveProfileNameBtn" style="min-height: 42px; white-space: nowrap;">Salvar Nome</button>
+          </form>
+        </div>
+
+        <!-- Seção 2: Alterar Senha -->
+        <div class="profile-section">
+          <div class="profile-section-title">
+            <span>🔒</span>
+            <span>Alterar Senha</span>
+          </div>
+          <form id="profilePasswordForm" style="display: grid; gap: 12px;">
+            <label class="form-field">
+              <span>Senha atual</span>
+              <div class="password-input-wrap">
+                <input id="profileCurrentPassword" type="password" required autocomplete="current-password" placeholder="Digite sua senha atual" />
+                <button type="button" class="password-toggle-btn" data-target="profileCurrentPassword" title="Mostrar/ocultar senha">👁️</button>
+              </div>
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <label class="form-field">
+                <span>Nova senha</span>
+                <div class="password-input-wrap">
+                  <input id="profileNewPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+                  <button type="button" class="password-toggle-btn" data-target="profileNewPassword" title="Mostrar/ocultar senha">👁️</button>
+                </div>
+              </label>
+              <label class="form-field">
+                <span>Confirmar nova senha</span>
+                <div class="password-input-wrap">
+                  <input id="profileConfirmPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="Repita a nova senha" />
+                  <button type="button" class="password-toggle-btn" data-target="profileConfirmPassword" title="Mostrar/ocultar senha">👁️</button>
+                </div>
+              </label>
+            </div>
+            <div id="passwordError" style="color: #ef4444; font-size: 13px; display: none; margin-top: 2px;"></div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+              <button class="primary-button" type="submit" id="savePasswordBtn" style="min-height: 40px;">Atualizar Senha</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Seção 3: Logout / Sessão -->
+        <div class="profile-danger-zone">
+          <div>
+            <strong style="display: block; font-size: 14px; color: #991b1b;">Encerrar Sessão</strong>
+            <span style="font-size: 12px; color: #b91c1c;">Desconectar este dispositivo do portal</span>
+          </div>
+          <button class="danger-button" id="profileLogoutBtn" type="button">Sair da Conta</button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  modalLayer.classList.add("show");
+  modalLayer.setAttribute("aria-hidden", "false");
+
+  // Toggle visibilidade de senha
+  modalLayer.querySelectorAll(".password-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.dataset.target;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "🙈";
+      } else {
+        input.type = "password";
+        btn.textContent = "👁️";
+      }
+    });
+  });
+
+  // Salvar Nome
+  const nameForm = modalLayer.querySelector("#profileNameForm");
+  nameForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newName = document.getElementById("profileNameInput").value.trim();
+    if (newName.length < 2) {
+      showToast("O nome deve ter no mínimo 2 caracteres");
+      return;
+    }
+    const saveBtn = document.getElementById("saveProfileNameBtn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Salvando...";
+    try {
+      const res = await api("/api/me", {
+        method: "PATCH",
+        body: JSON.stringify({ name: newName }),
+      });
+      currentUser.name = res.user.name;
+      applyRole();
+      document.getElementById("profileDisplayName").textContent = currentUser.name;
+      const newInitials = (currentUser.name || "U")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0].toUpperCase())
+        .join("");
+      const avatarEl = modalLayer.querySelector(".profile-avatar");
+      if (avatarEl) avatarEl.textContent = newInitials;
+      showToast("Nome atualizado com sucesso!");
+    } catch (err) {
+      showToast(err.message || "Erro ao atualizar nome");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Salvar Nome";
+    }
+  });
+
+  // Salvar Senha
+  const pwdForm = modalLayer.querySelector("#profilePasswordForm");
+  const pwdError = modalLayer.querySelector("#passwordError");
+  pwdForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    pwdError.style.display = "none";
+    pwdError.textContent = "";
+
+    const current_password = document.getElementById("profileCurrentPassword").value;
+    const new_password = document.getElementById("profileNewPassword").value;
+    const confirm_password = document.getElementById("profileConfirmPassword").value;
+
+    if (new_password.length < 6) {
+      pwdError.textContent = "A nova senha deve ter no mínimo 6 caracteres.";
+      pwdError.style.display = "block";
+      return;
+    }
+    if (new_password !== confirm_password) {
+      pwdError.textContent = "A confirmação de nova senha não confere.";
+      pwdError.style.display = "block";
+      return;
+    }
+    if (new_password === current_password) {
+      pwdError.textContent = "A nova senha deve ser diferente da atual.";
+      pwdError.style.display = "block";
+      return;
+    }
+
+    const savePwdBtn = document.getElementById("savePasswordBtn");
+    savePwdBtn.disabled = true;
+    savePwdBtn.textContent = "Atualizando...";
+
+    try {
+      await api("/api/me/change-password", {
+        method: "POST",
+        body: JSON.stringify({ current_password, new_password, confirm_password }),
+      });
+      pwdForm.reset();
+      showToast("Senha alterada com sucesso!");
+    } catch (err) {
+      pwdError.textContent = err.message || "Falha ao alterar senha.";
+      pwdError.style.display = "block";
+    } finally {
+      savePwdBtn.disabled = false;
+      savePwdBtn.textContent = "Atualizar Senha";
+    }
+  });
+
+  // Logout
+  const logoutBtn = modalLayer.querySelector("#profileLogoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      closeModal();
+      logout();
+    });
+  }
+}
+
 // ---------- Ações ----------
 async function advanceLead(leadId) {
   try {
@@ -1696,6 +1927,19 @@ async function logout() {
   loginLayer.classList.add("show");
   sessionButton.textContent = "Entrar";
   sessionButton.title = "Entrar no portal";
+  if (logoutButton) {
+    logoutButton.style.display = "none";
+    logoutButton.hidden = true;
+  }
+  if (navProfileBtn) {
+    navProfileBtn.style.display = "none";
+    navProfileBtn.hidden = true;
+  }
+  if (navLogoutBtn) {
+    navLogoutBtn.style.display = "none";
+    navLogoutBtn.hidden = true;
+  }
+  showToast("Sessão encerrada com sucesso");
 }
 
 // ---------- Utils ----------
@@ -1732,7 +1976,16 @@ $("#loginForm").addEventListener("submit", async (event) => {
   }
 });
 
-sessionButton.addEventListener("click", () => logout());
+sessionButton.addEventListener("click", () => {
+  if (currentUser) {
+    openProfileModal();
+  } else {
+    loginLayer.classList.add("show");
+  }
+});
+if (logoutButton) logoutButton.addEventListener("click", () => logout());
+if (navLogoutBtn) navLogoutBtn.addEventListener("click", () => logout());
+if (navProfileBtn) navProfileBtn.addEventListener("click", () => openProfileModal());
 
 storeFilter.addEventListener("change", renderKanban);
 if (sellerFilter) sellerFilter.addEventListener("change", renderKanban);

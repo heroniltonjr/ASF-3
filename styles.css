@@ -125,16 +125,25 @@ button {
 
 .session-chip {
   min-height: 44px;
-  max-width: 230px;
-  padding: 0 14px;
-  overflow: hidden;
+  width: auto;
+  max-width: none;
+  padding: 0 16px;
   color: var(--ink);
   font-weight: 850;
+  font-size: 13px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 8px;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-store-indicator {
+  cursor: default;
+  user-select: text;
+  pointer-events: none;
 }
 
 .role-switch button {

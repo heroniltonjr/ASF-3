@@ -200,7 +200,6 @@ const toast = $("#toast");
 const modalLayer = $("#modalLayer");
 const loginLayer = $("#loginLayer");
 const sessionButton = $("#sessionButton");
-const logoutButton = $("#logoutButton");
 const navProfileBtn = $("#navProfileBtn");
 const navLogoutBtn = $("#navLogoutBtn");
 
@@ -248,12 +247,14 @@ function applyRole() {
   $("#heroTitle").textContent = config.heroTitle;
   $("#heroText").textContent = config.heroText;
   $("#globalSearch").placeholder = config.search;
-  sessionButton.textContent = currentUser ? `${currentUser.name} · Perfil` : "Entrar";
-  sessionButton.title = currentUser ? "Ver meu perfil e configurações de conta" : "Entrar no portal";
-  if (logoutButton) {
-    logoutButton.style.display = currentUser ? "inline-flex" : "none";
-    logoutButton.hidden = !currentUser;
-  }
+
+  // Indicador de loja dinâmico (não clicável quando logado)
+  const storeName = role === "lojista" ? myStoreName() : role === "shopping" ? "Auto Shopping Formula" : "Formula OS";
+  sessionButton.textContent = currentUser ? `🏪 ${storeName}` : "Entrar";
+  sessionButton.title = currentUser ? `Loja conectada: ${storeName}` : "Entrar no portal";
+  sessionButton.style.cursor = currentUser ? "default" : "pointer";
+  sessionButton.style.pointerEvents = currentUser ? "none" : "auto";
+
   if (navProfileBtn) {
     navProfileBtn.style.display = currentUser ? "flex" : "none";
     navProfileBtn.hidden = !currentUser;
@@ -264,6 +265,7 @@ function applyRole() {
   }
 
   updateNavigation(config);
+  updateNotificationBadge();
 
   const activeView = $(".view.active")?.id;
   if (!config.allowedViews.includes(activeView)) showView("overview");
@@ -299,6 +301,7 @@ function renderEverything() {
   renderStores();
   renderTeam();
   renderCosts();
+  updateNotificationBadge();
 }
 
 function renderOverview() {
@@ -1931,10 +1934,8 @@ async function logout() {
   loginLayer.classList.add("show");
   sessionButton.textContent = "Entrar";
   sessionButton.title = "Entrar no portal";
-  if (logoutButton) {
-    logoutButton.style.display = "none";
-    logoutButton.hidden = true;
-  }
+  sessionButton.style.cursor = "pointer";
+  sessionButton.style.pointerEvents = "auto";
   if (navProfileBtn) {
     navProfileBtn.style.display = "none";
     navProfileBtn.hidden = true;
@@ -1943,7 +1944,54 @@ async function logout() {
     navLogoutBtn.style.display = "none";
     navLogoutBtn.hidden = true;
   }
+  const badge = $("#notificationBadge");
+  if (badge) {
+    badge.style.display = "none";
+    badge.textContent = "0";
+  }
   showToast("Sessão encerrada com sucesso");
+}
+
+function updateNotificationBadge() {
+  const badge = $("#notificationBadge");
+  if (!badge) return 0;
+  if (!currentUser) {
+    badge.style.display = "none";
+    badge.textContent = "0";
+    return 0;
+  }
+  const role = currentRole();
+  let count = 0;
+  if (role === "lojista" || role === "vendedor") {
+    // Alertas direcionados exclusivamente à loja do usuário logado:
+    const storeId = currentUser.store_id;
+    const storeName = myStoreName();
+    const pendingConvs = conversations.filter((c) => {
+      const match = (storeId && c.store_id === storeId) || (c.store && c.store === storeName);
+      return match && (c.status === "Humano" || c.status === "Handoff humano" || c.status === "Em atendimento");
+    }).length;
+    const pendingLeads = leads.filter((l) => {
+      const match = (storeId && l.store_id === storeId) || (l.store && l.store === storeName);
+      return match && (l.stage === "Humano" || l.original_stage === "Humano");
+    }).length;
+    count = Math.max(pendingConvs, pendingLeads);
+  } else if (role === "shopping") {
+    const attentionStores = stores.filter((s) => s.status === "Atenção").length;
+    const humanConvs = conversations.filter((c) => c.status === "Humano" || c.status === "Handoff humano").length;
+    count = attentionStores + humanConvs;
+  } else {
+    const attentionStores = stores.filter((s) => s.status === "Atenção").length;
+    count = attentionStores;
+  }
+
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = "grid";
+  } else {
+    badge.textContent = "0";
+    badge.style.display = "none";
+  }
+  return count;
 }
 
 // ---------- Utils ----------
@@ -1981,13 +2029,8 @@ $("#loginForm").addEventListener("submit", async (event) => {
 });
 
 sessionButton.addEventListener("click", () => {
-  if (currentUser) {
-    openProfileModal();
-  } else {
-    loginLayer.classList.add("show");
-  }
+  if (!currentUser) loginLayer.classList.add("show");
 });
-if (logoutButton) logoutButton.addEventListener("click", () => logout());
 if (navLogoutBtn) navLogoutBtn.addEventListener("click", () => logout());
 if (navProfileBtn) navProfileBtn.addEventListener("click", () => openProfileModal());
 
@@ -2042,9 +2085,17 @@ storeTable.addEventListener("click", (event) => {
 });
 
 $("#notificationButton").addEventListener("click", () => {
-  const role = currentRole();
-  const count = role === "lojista" ? 3 : role === "shopping" ? 8 : 12;
-  showToast(`${count} eventos pedem atenção neste acesso`);
+  const count = updateNotificationBadge();
+  if (count === 0) {
+    showToast("Tudo em dia! Nenhum alerta pendente para seu acesso.");
+  } else {
+    const role = currentRole();
+    if (role === "lojista" || role === "vendedor") {
+      showToast(`${count} atendimento(s) ou lead(s) pendente(s) na sua loja`);
+    } else {
+      showToast(`${count} alerta(s) de lojas ou atendimentos no ecossistema`);
+    }
+  }
 });
 
 $("#globalSearch").addEventListener("input", (event) => {

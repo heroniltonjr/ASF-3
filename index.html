@@ -83,16 +83,14 @@
             <h1 id="pageTitle">Comando comercial do ecossistema</h1>
           </div>
           <div class="topbar-actions">
-            <a href="/" target="_blank" class="session-chip" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;" title="Abrir site público">🌐 Ver Site</a>
-            <button class="session-chip" id="sessionButton" type="button">Entrar</button>
-            <button class="session-chip session-logout" id="logoutButton" type="button" title="Sair da conta e encerrar sessão" hidden style="display: none;">🚪 Sair</button>
+            <div class="session-chip session-store-indicator" id="sessionButton" title="Loja atual">Carregando...</div>
             <label class="search">
               <span></span>
               <input id="globalSearch" type="search" placeholder="Buscar lead, carro ou lojista" />
             </label>
             <button class="icon-button" id="notificationButton" type="button" aria-label="Notificações">
               <span class="bell-icon"></span>
-              <i>8</i>
+              <i id="notificationBadge" style="display: none;">0</i>
             </button>
           </div>
         </header>

@@ -38,6 +38,13 @@ def get_store(store_id: int, user: dict = Depends(_ALL)):
     return {"store": dict(row)}
 
 
+DEFAULT_PLAN_REVENUE = {
+    "Enterprise": 18400,
+    "Pro": 1500,
+    "Start": 0,
+}
+
+
 @router.post("/stores", status_code=201)
 def create_store(payload: dict, user: dict = Depends(_MGMT)):
     name = (payload.get("name") or "").strip()
@@ -46,14 +53,30 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
     tenant_id = payload.get("tenant_id") or user.get("tenant_id")
     if not tenant_id:
         raise HTTPException(400, "tenant_id obrigatório")
+
+    store_type = payload.get("type") or "Lojista"
+    plan = payload.get("plan") or "Start"
+
+    if store_type == "Lojista" and plan == "Enterprise":
+        raise HTTPException(400, "O plano Enterprise é exclusivo para Tenants")
+
+    if plan not in DEFAULT_PLAN_REVENUE:
+        raise HTTPException(400, f"Plano inválido. Planos permitidos: {', '.join(DEFAULT_PLAN_REVENUE)}")
+
+    monthly_revenue = (
+        payload.get("monthly_revenue")
+        if payload.get("monthly_revenue") is not None
+        else DEFAULT_PLAN_REVENUE.get(plan, 0)
+    )
+
     fields = {
         "name": name, "tenant_id": tenant_id,
-        "type": payload.get("type") or "Lojista",
-        "plan": payload.get("plan") or "Start",
+        "type": store_type,
+        "plan": plan,
         "status": payload.get("status") or "Ativo",
         "response_time": payload.get("response_time"),
         "monthly_cost": payload.get("monthly_cost") or 0,
-        "monthly_revenue": payload.get("monthly_revenue") or 0,
+        "monthly_revenue": monthly_revenue,
     }
     cols = ", ".join(fields)
     placeholders = ", ".join("?" * len(fields))
@@ -71,12 +94,27 @@ def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
     updates = {k: v for k, v in payload.items() if k in _PATCHABLE}
     if not updates:
         raise HTTPException(400, "Nada a atualizar")
-    cols = ", ".join(f"{k} = ?" for k in updates)
+
     with db.tx() as conn:
+        current = conn.execute("SELECT id, type, plan, monthly_revenue FROM stores WHERE id = ?", (store_id,)).fetchone()
+        if not current:
+            raise HTTPException(404, "Loja não encontrada")
+
+        new_type = updates.get("type", current["type"])
+        new_plan = updates.get("plan", current["plan"])
+
+        if new_type == "Lojista" and new_plan == "Enterprise":
+            raise HTTPException(400, "O plano Enterprise é exclusivo para Tenants")
+
+        if new_plan not in DEFAULT_PLAN_REVENUE:
+            raise HTTPException(400, f"Plano inválido. Planos permitidos: {', '.join(DEFAULT_PLAN_REVENUE)}")
+
+        if "plan" in updates and "monthly_revenue" not in updates:
+            updates["monthly_revenue"] = DEFAULT_PLAN_REVENUE.get(new_plan, 0)
+
+        cols = ", ".join(f"{k} = ?" for k in updates)
         conn.execute(f"UPDATE stores SET {cols} WHERE id = ?", [*updates.values(), store_id])
         row = conn.execute("SELECT * FROM stores WHERE id = ?", (store_id,)).fetchone()
-    if not row:
-        raise HTTPException(404, "Loja não encontrada")
     return {"store": dict(row)}
 
 

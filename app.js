@@ -796,7 +796,7 @@ function renderCosts() {
           ["Custo por lead", Math.max(1, Math.round(stores.reduce((s, x) => s + x.cost, 0) / Math.max(leads.length, 1))), "WhatsApp + IA por oportunidade"],
         ]
       : [
-          ["Meu plano", stores.find((s) => s.id === currentUser?.store_id)?.revenue || 1290, "Mensalidade do agente"],
+          ["Meu plano", stores.find((s) => s.id === currentUser?.store_id)?.revenue || 0, "Mensalidade do agente"],
           ["Conversas usadas", stores.find((s) => s.id === currentUser?.store_id)?.cost || 0, "Consumo estimado do mês"],
           ["Leads recebidos", leads.length, "Oportunidades qualificadas"],
           ["Custo por lead", 12, "Estimativa operacional"],
@@ -813,6 +813,8 @@ function renderCosts() {
       <div class="cost-value">${
         label.includes("Leads") || label.includes("Lojistas") || label.includes("Conversas usadas")
           ? value
+          : label === "Meu plano" && value === 0
+          ? "Gratuito (R$ 0)"
           : formatMoney(value)
       }</div>
     </div>
@@ -1480,21 +1482,23 @@ function openVehicleModal(vehicle = null) {
 
 function openStoreModal(store = null) {
   const isMaster = currentRole() === "master";
+  const planOptions = isMaster ? ["Enterprise", "Pro", "Start"] : ["Start", "Pro"];
+  const defaultPlan = isMaster ? "Enterprise" : "Start";
   const fields = [
     { label: isMaster ? "Nome do tenant" : "Nome da loja", name: "name", value: store?.name, placeholder: "Ex: Prime Motors", required: true },
-    { label: "Plano", name: "plan", value: store?.plan || "Pro", type: "select", options: ["Start", "Pro", "Enterprise"], required: true },
+    { label: "Plano", name: "plan", value: store?.plan || defaultPlan, type: "select", options: planOptions, required: true },
     { label: "Status", name: "status", value: store?.status || "Ativo", type: "select", options: ["Ativo", "Atenção", "Pausado"], required: true },
     { label: "Instruções do SDR (Prompt IA)", name: "sdr_prompt", value: store?.sdr_prompt, type: "textarea", placeholder: "Regras específicas de atendimento e tom de voz" },
   ];
-  openModal(store ? "Editar lojista" : isMaster ? "Adicionar tenant" : "Adicionar lojista", fields, store ? "Salvar" : "Adicionar", async (data) => {
+  openModal(store ? (isMaster ? "Editar tenant" : "Editar lojista") : (isMaster ? "Adicionar tenant" : "Adicionar lojista"), fields, store ? "Salvar" : "Adicionar", async (data) => {
     if (store) {
       await api(`/api/stores/${store.id}`, { method: "PATCH", body: JSON.stringify(data) });
       showToast("Cadastro atualizado");
     } else {
-      const monthlyRevenue = data.plan === "Enterprise" ? 18400 : data.plan === "Pro" ? 1290 : 890;
+      const monthlyRevenue = data.plan === "Enterprise" ? 18400 : data.plan === "Pro" ? 1500 : 0;
       await api("/api/stores", {
         method: "POST",
-        body: JSON.stringify({ ...data, type: "Lojista", monthly_revenue: monthlyRevenue }),
+        body: JSON.stringify({ ...data, type: isMaster ? "Auto Shopping" : "Lojista", monthly_revenue: monthlyRevenue }),
       });
       showToast(isMaster ? "Tenant adicionado" : "Lojista convidado");
     }

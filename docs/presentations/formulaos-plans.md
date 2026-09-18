@@ -20,12 +20,11 @@ No ecossistema do **FormulaOS (ASF-3)**, os planos de assinatura para lojistas e
 
 ### 💳 Tabela de Planos de Assinatura
 
-| Plano | Mensalidade | Perfil Recomendado | Custo Operacional Médio (WhatsApp + IA) | Margem da Plataforma |
+| Plano | Mensalidade | Perfil Recomendado / Elegibilidade | Custo Operacional Médio (WhatsApp + IA) | Margem da Plataforma |
 | :--- | :---: | :--- | :---: | :---: |
-| **Start** | **R$ 890,00 / mês** | Lojas menores / Multimarcas com estoque rotativo padrão | ~R$ 280 a R$ 320 / mês | ~65% a 70% |
-| **Pro** *(Mais popular)* | **R$ 1.290,00 / mês** | Lojas consolidadas com alto volume de leads e estoque ativo | ~R$ 420 a R$ 510 / mês | ~60% a 68% |
-| **Enterprise** *(Lojista)* | **R$ 2.490,00 / mês** | Grandes redes / Seminovos de montadoras (ex: Seminovos Movida) | ~R$ 680 a R$ 850 / mês | ~65% a 72% |
-| **Enterprise** *(Shopping/Tenant)* | **R$ 18.400,00 / mês** | Nível Master/Shopping completo (Auto Shopping Fórmula central) | ~R$ 3.840 / mês | ~79% |
+| **Start** | **Gratuito (R$ 0,00)** | **Padrão para todas as lojas da rede**. Nenhuma loja aderiu ao Pro ainda; 100% da rede opera neste plano de entrada. | ~R$ 150 a R$ 250 / mês (absorvido pelo shopping) | N/A (modelo de atração de rede) |
+| **Pro** | **R$ 1.500,00 / mês** | Lojas com alto volume de vendas que desejam suporte dedicado e recursos premium. | ~R$ 420 a R$ 510 / mês | ~66% |
+| **Enterprise** | **R$ 18.400,00 / mês** | **Exclusivo para Tenants / Shoppings** (Auto Shopping Fórmula central). Proibido para lojistas individuais. | ~R$ 3.840 / mês | ~79% |
 
 ---
 

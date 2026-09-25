@@ -580,6 +580,9 @@
       <span class="shell-logo-text">Formula OS</span>
     </a>
     <div class="shell-user">
+      <button id="btn-sdr-mode" class="sdr-mode-badge" title="Alternar Modo do Agente Rafael" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+        <span id="sdr-mode-icon">🏢</span> <span id="sdr-mode-text" data-mode="normal">Modo Normal</span>
+      </button>
       <span id="user-name">…</span>
       <div class="shell-avatar" id="user-avatar">?</div>
     </div>
@@ -1855,6 +1858,52 @@
       window.location.href = '/';
     });
   }
+
+    // Alternar modo do Agente Rafael (Normal vs Feirão)
+    const btnSdrMode = document.getElementById('btn-sdr-mode');
+    if (btnSdrMode) {
+      if (currentUser && currentUser.store_id) {
+        api(`/api/stores/${currentUser.store_id}/sdr-mode`).then(data => {
+          updateSdrModeUI(data.operation_mode);
+        }).catch(e => console.error(e));
+      }
+      btnSdrMode.addEventListener('click', async () => {
+        const storeId = currentUser?.store_id || 1;
+        const currentMode = document.getElementById('sdr-mode-text').dataset.mode || 'normal';
+        const newMode = currentMode === 'normal' ? 'feirao' : 'normal';
+        try {
+          const res = await api(`/api/stores/${storeId}/sdr-mode`, {
+            method: 'PUT',
+            body: JSON.stringify({ operation_mode: newMode })
+          });
+          updateSdrModeUI(newMode);
+          toast(`Modo alterado para: ${newMode === 'feirao' ? '🎪 Modo Feirão' : '🏢 Modo Normal'}`);
+        } catch (e) {
+          toast('Erro ao alterar modo: ' + e.message);
+        }
+      });
+    }
+
+    function updateSdrModeUI(mode) {
+      const btn = document.getElementById('btn-sdr-mode');
+      const icon = document.getElementById('sdr-mode-icon');
+      const text = document.getElementById('sdr-mode-text');
+      if (!btn || !text) return;
+      text.dataset.mode = mode;
+      if (mode === 'feirao') {
+        icon.textContent = '🎪';
+        text.textContent = 'Modo Feirão';
+        btn.style.background = '#fef3c7';
+        btn.style.color = '#92400e';
+        btn.style.borderColor = '#fde68a';
+      } else {
+        icon.textContent = '🏢';
+        text.textContent = 'Modo Normal';
+        btn.style.background = '#eef2ff';
+        btn.style.color = '#3730a3';
+        btn.style.borderColor = '#c7d2fe';
+      }
+    }
 
   // --- Boot ----------------------------------------------------------------
   boot();

@@ -91,7 +91,7 @@ def get_conversation(cid: int, user: dict = Depends(_ALL)):
         if user["role"] in STORE_SCOPED_ROLES and row["store_id"] != user.get("store_id"):
             raise HTTPException(403, "Conversa de outra loja")
         msgs = conn.execute(
-            "SELECT id, sender, body, created_at, msg_type, media_url, delivery_status FROM messages WHERE conversation_id = ? ORDER BY id",
+            "SELECT id, sender, body, created_at, msg_type, media_url, delivery_status, customer_name, customer_phone FROM messages WHERE conversation_id = ? ORDER BY id",
             (cid,),
         ).fetchall()
 
@@ -123,14 +123,14 @@ def post_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
     if sender not in ("lead", "agent", "human"):
         raise HTTPException(400, "Sender inválido")
     with db.tx() as conn:
-        row = conn.execute("SELECT store_id FROM conversations WHERE id = ?", (cid,)).fetchone()
+        row = conn.execute("SELECT store_id, lead_name, customer_phone FROM conversations WHERE id = ?", (cid,)).fetchone()
         if not row:
             raise HTTPException(404, "Conversa não encontrada")
         if user["role"] in STORE_SCOPED_ROLES and row["store_id"] != user.get("store_id"):
             raise HTTPException(403, "Conversa de outra loja")
         cur = conn.execute(
-            "INSERT INTO messages (conversation_id, sender, body) VALUES (?, ?, ?)",
-            (cid, sender, text),
+            "INSERT INTO messages (conversation_id, sender, body, customer_name, customer_phone) VALUES (?, ?, ?, ?, ?)",
+            (cid, sender, text, row.get("lead_name"), row.get("customer_phone")),
         )
         # Mantém last_preview e incrementa unread apenas para mensagens do lead.
         preview = text[:120]
@@ -145,11 +145,11 @@ def post_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
             )
         else:
             conn.execute(
-                "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, last_preview = ? WHERE id = ?",
+                "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, last_human_activity_at = CURRENT_TIMESTAMP, last_preview = ? WHERE id = ?",
                 (preview, cid),
             )
         msg = conn.execute(
-            "SELECT id, sender, body, created_at FROM messages WHERE id = ?",
+            "SELECT id, sender, body, created_at, customer_name, customer_phone FROM messages WHERE id = ?",
             (cur.lastrowid,),
         ).fetchone()
     return {"message": dict(msg)}
@@ -247,12 +247,12 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
         body_text = text or (f"[{msg_type}]" if media_url else "")
         preview = body_text[:120]
         cur = conn.execute(
-            "INSERT INTO messages (conversation_id, sender, body, msg_type, media_url) VALUES (?, ?, ?, ?, ?)",
-            (cid, "human", body_text, msg_type, media_url),
+            "INSERT INTO messages (conversation_id, sender, body, msg_type, media_url, customer_name, customer_phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (cid, "human", body_text, msg_type, media_url, conv.get("lead_name"), conv.get("customer_phone")),
         )
         msg_id = cur.lastrowid
         conn.execute(
-            "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, last_preview = ? WHERE id = ?",
+            "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, last_human_activity_at = CURRENT_TIMESTAMP, last_preview = ? WHERE id = ?",
             (preview, cid),
         )
 
@@ -263,6 +263,8 @@ async def send_message(cid: int, payload: dict, user: dict = Depends(_ALL)):
         "conversation_id": cid,
         "sender": "human",
         "body": text,
+        "customer_name": conv.get("lead_name"),
+        "customer_phone": conv.get("customer_phone"),
     })
 
     # Tenta enviar pelo provider (degrada graciosamente se não configurado)

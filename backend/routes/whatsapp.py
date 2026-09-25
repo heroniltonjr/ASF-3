@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
 from .. import db, ingest
@@ -92,6 +92,26 @@ def remove_provider(store_id: int, user: dict = Depends(_ADMIN)):
     return None
 
 
+@router.get("/api/stores/{store_id}/sdr-mode")
+def get_sdr_mode(store_id: int, user: dict = Depends(_MGMT)):
+    _scope_check(user, store_id)
+    with db.tx() as conn:
+        row = conn.execute("SELECT operation_mode FROM stores WHERE id = ?", (store_id,)).fetchone()
+    mode = (row["operation_mode"] if row and "operation_mode" in row.keys() and row["operation_mode"] else "normal") or "normal"
+    return {"store_id": store_id, "operation_mode": mode}
+
+
+@router.put("/api/stores/{store_id}/sdr-mode")
+def update_sdr_mode(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
+    _scope_check(user, store_id)
+    mode = payload.get("operation_mode") or payload.get("mode")
+    if mode not in ("normal", "feirao"):
+        raise HTTPException(400, "operation_mode deve ser 'normal' ou 'feirao'")
+    with db.tx() as conn:
+        conn.execute("UPDATE stores SET operation_mode = ? WHERE id = ?", (mode, store_id))
+    return {"ok": True, "store_id": store_id, "operation_mode": mode}
+
+
 # --- Webhooks (públicos — autenticação via verify_token/segredo do provider) ---
 
 def _provider_db_id(store_id: int) -> Optional[int]:
@@ -153,17 +173,14 @@ async def evolution_inbound(store_id: int, payload: dict, request: Request):
 
 
 @router.post("/webhooks/whatsapp/zapi/{store_id}")
-async def zapi_inbound(store_id: int, payload: dict):
+async def zapi_inbound(store_id: int, payload: dict, background_tasks: BackgroundTasks):
     provider = load_provider_for_store(store_id)
     if not provider or provider.cfg.kind != "zapi":
         raise HTTPException(404, "Provider Z-API não configurado para esta loja")
     provider_db_id = _provider_db_id(store_id)
     inbounds = provider.parse_inbound(payload)
     for inbound in inbounds:
-        try:
-            await ingest.handle_inbound(provider, provider_db_id, inbound)
-        except Exception:
-            logger.exception("Falha ao processar inbound Z-API (store=%s)", store_id)
+        background_tasks.add_task(ingest.handle_inbound, provider, provider_db_id, inbound)
     return {"ok": True, "ingested": len(inbounds)}
 
 
@@ -197,3 +214,13 @@ async def simulate_inbound(
     )
     await ingest.handle_inbound(provider, _provider_db_id(store_id), inbound)
     return {"ok": True}
+
+
+@router.post("/cron/process-followups")
+async def trigger_idle_followups(
+    idle_minutes: int = Query(15, ge=1),
+    max_attempts: int = Query(3, ge=1),
+):
+    """Executa a varredura e o acompanhamento de conversas inativas."""
+    result = await ingest.process_idle_followups(idle_minutes=idle_minutes, max_followup_attempts=max_attempts)
+    return {"ok": True, **result}

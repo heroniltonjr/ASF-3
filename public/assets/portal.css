@@ -32,7 +32,13 @@
 
 * { box-sizing: border-box; }
 
-html, body { margin: 0; padding: 0; }
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -56,8 +62,10 @@ button { font-family: inherit; cursor: pointer; }
 
 .container {
   max-width: var(--max-w);
+  width: 100%;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
 /* ----- Top bar (faixa azul escura) -------------------------------------- */
@@ -66,12 +74,16 @@ button { font-family: inherit; cursor: pointer; }
   color: rgba(255,255,255,0.85);
   font-size: 13px;
   padding: 8px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 .topbar .container {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .topbar a { color: rgba(255,255,255,0.85); }
 .topbar a:hover { color: var(--asf-orange); }
@@ -188,8 +200,17 @@ button { font-family: inherit; cursor: pointer; }
   display: none;
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 26px;
   color: var(--asf-blue-900);
+  cursor: pointer;
+  padding: 8px 12px;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ----- Hero ------------------------------------------------------------- */
@@ -532,30 +553,53 @@ section { padding: 64px 0; }
   transform: translateY(-2px);
 }
 .store-logo {
-  width: 52px;
-  height: 52px;
+  height: 54px;
+  min-height: 54px;
+  max-height: 54px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.store-logo:not(.has-img) {
+  width: 54px;
+  height: 54px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--asf-blue-700), var(--asf-blue-500));
   background: linear-gradient(135deg, var(--asf-blue-700), var(--asf-blue-600));
   color: #fff;
   font-weight: 900;
   font-size: 22px;
   display: grid;
   place-items: center;
-  margin-bottom: 8px;
 }
 .store-logo.has-img {
-  width: 104px;
-  height: 60px;
+  height: 54px;
+  min-height: 54px;
+  max-height: 54px;
+  width: auto;
+  max-width: 160px;
   background: #fff;
   border: 1px solid var(--asf-border);
-  padding: 6px;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
 }
-.store-logo.has-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.store-logo.has-img img {
+  height: 40px !important;
+  max-height: 40px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
 .store-card h3 { margin: 0; font-size: 16px; color: var(--asf-blue-900); }
 .store-card p { margin: 0; color: var(--asf-text-soft); font-size: 13px; }
 .store-count {
-  margin-top: 6px;
+  margin-top: auto;
+  padding-top: 6px;
   font-size: 12px;
   font-weight: 700;
   color: var(--asf-orange);
@@ -648,6 +692,40 @@ section { padding: 64px 0; }
 }
 
 /* ----- Estoque (catálogo) ----------------------------------------------- */
+.mobile-filter-bar {
+  display: none;
+  margin: 20px 0 4px;
+}
+.mobile-filter-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  border: 2px solid var(--asf-red);
+  color: var(--asf-red);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 13px 20px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-filter-trigger:hover,
+.mobile-filter-trigger.active {
+  background: var(--asf-red);
+  color: #fff;
+}
+.mobile-filter-trigger svg {
+  transition: transform 0.2s ease;
+}
+.mobile-filter-trigger.active svg {
+  transform: rotate(180deg);
+}
+
 .catalogo {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -769,14 +847,15 @@ section { padding: 64px 0; }
 }
 .veh-sidebar { display: flex; flex-direction: column; gap: 20px; }
 .veh-sidebar h1 {
-  font-size: 28px;
+  font-size: clamp(22px, 5vw, 28px);
   font-weight: 800;
   margin: 0;
   color: var(--asf-blue-900);
-  line-height: 1.2;
+  line-height: 1.25;
+  word-break: break-word;
 }
 .veh-sidebar .price {
-  font-size: 36px;
+  font-size: clamp(26px, 6vw, 36px);
   font-weight: 800;
   color: var(--asf-orange);
   letter-spacing: -1px;
@@ -804,6 +883,8 @@ section { padding: 64px 0; }
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+  box-sizing: border-box;
 }
 .veh-store-logo {
   width: 64px;
@@ -911,32 +992,103 @@ section { padding: 64px 0; }
 /* ----- Responsivo ------------------------------------------------------- */
 @media (max-width: 960px) {
   .nav-links { display: none; }
-  .mobile-toggle { display: block; }
+  .mobile-toggle { display: flex; }
   .nav-links.open {
     display: flex;
     position: absolute;
     top: 100%; left: 0; right: 0;
     background: #fff;
     flex-direction: column;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--asf-border);
-    box-shadow: var(--shadow-md);
+    padding: 16px 20px 24px;
+    border-bottom: 2px solid var(--asf-border);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
+    gap: 8px;
+    z-index: 1000;
+  }
+  .nav-links.open li { width: 100%; }
+  .nav-links.open a {
+    display: block;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+  }
+  .nav-links.open a:hover,
+  .nav-links.open a.active {
+    background: var(--asf-blue-50);
+    color: var(--asf-red);
+  }
+  .nav-links.open a.active::after { display: none; }
+  .nav-links.open .nav-cta {
+    display: flex;
+    text-align: center;
+    justify-content: center;
+    margin-top: 6px;
+    width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
   }
   .quick-search-grid { grid-template-columns: 1fr 1fr; }
   .hero-stats { grid-template-columns: 1fr; max-width: 100%; }
-  .catalogo { grid-template-columns: 1fr; }
-  .filters { position: static; }
+  .mobile-filter-bar { display: block; }
+  .catalogo {
+    display: flex;
+    flex-direction: column;
+    padding-top: 20px;
+    gap: 20px;
+  }
+  .filters {
+    display: none;
+    position: static;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 12px;
+  }
+  .filters.is-open {
+    display: block;
+  }
   .veh-detail { grid-template-columns: 1fr; }
   .about-grid { grid-template-columns: 1fr; }
-  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
   .cta-band { grid-template-columns: 1fr; text-align: center; }
 }
 
+@media (max-width: 768px) {
+  .topbar-info { display: none !important; }
+  .topbar-social a:not(.topbar-system):not([href*="wa.me"]) { display: none !important; }
+  .topbar .container {
+    justify-content: space-between !important;
+    gap: 8px !important;
+    padding: 0 16px !important;
+  }
+  .topbar-system {
+    padding: 3px 10px;
+    font-size: 11px;
+  }
+  .topbar { padding: 6px 0; }
+}
+
 @media (max-width: 560px) {
+  .container { padding: 0 16px; }
   .quick-search-grid { grid-template-columns: 1fr; }
-  .topbar-info { display: none; }
-  .hero { padding: 60px 0 80px; }
-  .footer-grid { grid-template-columns: 1fr; }
+  .hero { padding: 48px 0 60px; }
+  .hero h1 { font-size: clamp(26px, 7vw, 40px) !important; }
+  .brand-text small { display: none; }
+  .brand-text strong { font-size: 14px !important; }
+  .brand-logo-img { height: 36px; }
+  .navbar .container { height: 58px !important; padding: 0 16px; }
+  .footer { padding: 40px 0 20px; margin-top: 40px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 24px; }
+  .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
+  .simulator-terms {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .sim-term-btn { padding: 10px 0; font-size: 15px; }
+  .veh-specs { padding: 14px; gap: 10px; }
+  .veh-store-tag { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .veh-store-tag .btn { width: 100%; text-align: center; }
 }
 
 /* ----- Simulador de Financiamento --------------------------------------- */
@@ -1053,4 +1205,88 @@ section { padding: 64px 0; }
   font-size: 11px;
   color: var(--asf-text-muted);
   margin-top: 8px;
+}
+
+/* ----- Botão Flutuante do WhatsApp -------------------------------------- */
+.asf-whatsapp-float {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #25D366;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 18px rgba(37, 211, 102, 0.42), 0 2px 8px rgba(0, 0, 0, 0.18);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease, background-color 0.2s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.asf-whatsapp-float:hover {
+  background-color: #20ba59;
+  transform: scale(1.08) translateY(-3px);
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.55), 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: #fff;
+}
+
+.asf-whatsapp-float:active {
+  transform: scale(0.95) translateY(0);
+  box-shadow: 0 2px 10px rgba(37, 211, 102, 0.35);
+}
+
+.asf-whatsapp-float svg {
+  width: 34px;
+  height: 34px;
+  fill: currentColor;
+  transition: transform 0.2s ease;
+}
+
+.asf-whatsapp-float:hover svg {
+  transform: scale(1.05);
+}
+
+.asf-whatsapp-float .whatsapp-tooltip {
+  position: absolute;
+  right: 72px;
+  background: var(--asf-blue-900, #0c162c);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 6px 14px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  font-family: 'Inter', sans-serif;
+}
+
+.asf-whatsapp-float:hover .whatsapp-tooltip {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (max-width: 560px) {
+  .asf-whatsapp-float {
+    bottom: 18px;
+    right: 18px;
+    width: 54px;
+    height: 54px;
+  }
+  .asf-whatsapp-float svg {
+    width: 30px;
+    height: 30px;
+  }
+  .asf-whatsapp-float .whatsapp-tooltip {
+    display: none;
+  }
 }

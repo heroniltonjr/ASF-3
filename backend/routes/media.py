@@ -1,12 +1,17 @@
 """Upload de mídia (fotos e áudios) para mensagens do multiatendimento."""
 from __future__ import annotations
 
+import logging
 import mimetypes
 import secrets
 from pathlib import Path
+from urllib.parse import unquote
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
+
+logger = logging.getLogger(__name__)
 
 from ..deps import require_roles
 from ..settings import settings
@@ -93,3 +98,38 @@ def serve_upload(filename: str):
         raise HTTPException(403, "Acesso negado") from None
     media_type, _ = mimetypes.guess_type(str(path))
     return FileResponse(str(path), media_type=media_type or "application/octet-stream")
+
+
+@router.get("/api/media/image-proxy", include_in_schema=False)
+async def proxy_image(url: str):
+    """Proxy público de imagens para o Z-API/WhatsApp (suporta assets locais e imagens externas)."""
+    if not url:
+        raise HTTPException(400, "url parameter is required")
+
+    target_url = unquote(url).strip()
+
+    # Se for asset local (ex: assets/car-city.jpg)
+    if not (target_url.startswith("http://") or target_url.startswith("https://")):
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        local_path = (root_dir / target_url.lstrip("/")).resolve()
+        if local_path.exists() and local_path.is_file():
+            media_type, _ = mimetypes.guess_type(str(local_path))
+            return FileResponse(str(local_path), media_type=media_type or "image/jpeg")
+        else:
+            raise HTTPException(404, f"Asset local não encontrado: {target_url}")
+
+    # Se for URL remota (ex: Supabase, CDN com .jfif)
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            resp = await client.get(target_url)
+            if resp.status_code >= 400:
+                raise HTTPException(resp.status_code, "Falha ao obter imagem remota")
+
+            content_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+            if not content_type.startswith("image/"):
+                content_type = "image/jpeg"
+
+            return Response(content=resp.content, media_type=content_type)
+    except Exception as exc:
+        logger.warning("Erro no proxy de imagem (%s): %s", target_url, exc)
+        raise HTTPException(502, f"Erro no proxy de imagem: {exc}") from exc

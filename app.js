@@ -107,15 +107,28 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
 
 // ---------- API helpers ----------
 async function api(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
+  const headers = isFormData
+    ? { ...(options.headers || {}) }
+    : { "Content-Type": "application/json", ...(options.headers || {}) };
   const response = await fetch(path, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers,
     ...options,
   });
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+  let payload = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch (err) {
+    if (!response.ok) {
+      const httpErr = new Error(text || `Erro HTTP ${response.status}`);
+      httpErr.status = response.status;
+      throw httpErr;
+    }
+  }
   if (!response.ok) {
-    const err = new Error(payload.error || `Erro ${response.status}`);
+    const err = new Error(payload.error || payload.detail || text || `Erro ${response.status}`);
     err.status = response.status;
     throw err;
   }
@@ -149,12 +162,12 @@ function normalizeStore(s) {
 function normalizeConversation(c) {
   return {
     ...c,
-    lead: c.lead_name,
+    lead: c.lead_name || c.customer_phone || "Lead",
     store: c.store_name,
-    messages: (c.messages || []).map((m) => ({
+    messages: c.messages ? c.messages.map((m) => ({
       type: m.sender === "agent" ? "agent" : m.sender === "human" ? "human" : "lead",
       text: m.body,
-    })),
+    })) : null,
   };
 }
 
@@ -187,6 +200,8 @@ const toast = $("#toast");
 const modalLayer = $("#modalLayer");
 const loginLayer = $("#loginLayer");
 const sessionButton = $("#sessionButton");
+const navProfileBtn = $("#navProfileBtn");
+const navLogoutBtn = $("#navLogoutBtn");
 
 // ---------- Carga / refresh ----------
 async function fetchAll() {
@@ -205,12 +220,8 @@ async function fetchAll() {
   teamData = t.team || [];
   const baseConvs = c.conversations || [];
 
-  // hidrata mensagens em paralelo (n pequeno na demo)
-  const detailed = await Promise.all(
-    baseConvs.map((conv) => api(`/api/conversations/${conv.id}`).then((r) => r.conversation))
-  );
-  conversations = detailed.map(normalizeConversation);
-  if (!conversations.find((c) => c.id === currentConversationId)) {
+  conversations = baseConvs.map(normalizeConversation);
+  if (!conversations.find((conv) => conv.id === currentConversationId)) {
     currentConversationId = conversations[0]?.id ?? null;
   }
 }
@@ -230,17 +241,31 @@ function applyRole() {
   const role = currentRole();
   const config = ROLE_LABELS[role];
 
-  $$("[data-role]").forEach((btn) => btn.classList.toggle("active", btn.dataset.role === role));
-
   $("#roleEyebrow").textContent = config.eyebrow;
   $("#pageTitle").textContent = config.title;
   $("#heroKicker").textContent = role === "lojista" ? myStoreName() : config.heroKicker;
   $("#heroTitle").textContent = config.heroTitle;
   $("#heroText").textContent = config.heroText;
   $("#globalSearch").placeholder = config.search;
-  sessionButton.textContent = currentUser?.name || "Entrar";
+
+  // Indicador de loja dinâmico (não clicável quando logado)
+  const storeName = role === "lojista" ? myStoreName() : role === "shopping" ? "Auto Shopping Formula" : "Formula OS";
+  sessionButton.textContent = currentUser ? `🏪 ${storeName}` : "Entrar";
+  sessionButton.title = currentUser ? `Loja conectada: ${storeName}` : "Entrar no portal";
+  sessionButton.style.cursor = currentUser ? "default" : "pointer";
+  sessionButton.style.pointerEvents = currentUser ? "none" : "auto";
+
+  if (navProfileBtn) {
+    navProfileBtn.style.display = currentUser ? "flex" : "none";
+    navProfileBtn.hidden = !currentUser;
+  }
+  if (navLogoutBtn) {
+    navLogoutBtn.style.display = currentUser ? "flex" : "none";
+    navLogoutBtn.hidden = !currentUser;
+  }
 
   updateNavigation(config);
+  updateNotificationBadge();
 
   const activeView = $(".view.active")?.id;
   if (!config.allowedViews.includes(activeView)) showView("overview");
@@ -276,6 +301,7 @@ function renderEverything() {
   renderStores();
   renderTeam();
   renderCosts();
+  updateNotificationBadge();
 }
 
 function renderOverview() {
@@ -506,7 +532,7 @@ function renderConversations() {
   });
 }
 
-function renderChat() {
+async function renderChat() {
   const conv = conversations.find((c) => c.id === currentConversationId) || conversations[0];
   if (!conv) {
     messagesEl.innerHTML = '<div class="message">Nenhuma conversa disponível para este acesso.</div>';
@@ -517,16 +543,37 @@ function renderChat() {
   $("#leadIntent").textContent = conv.intent || "";
   $("#replyInput").placeholder = currentRole() === "master" ? "Adicionar nota de auditoria" : "Responder como atendente humano";
 
-  messagesEl.innerHTML = conv.messages
-    .map(
-      (m) => `
+  if (conv.messages === null) {
+    messagesEl.innerHTML = '<div class="message">Carregando mensagens…</div>';
+    try {
+      const detailed = await api(`/api/conversations/${conv.id}`);
+      if (detailed.conversation) {
+        conv.messages = (detailed.conversation.messages || []).map((m) => ({
+          type: m.sender === "agent" ? "agent" : m.sender === "human" ? "human" : "lead",
+          text: m.body,
+        }));
+        if (detailed.conversation.details) conv.details = detailed.conversation.details;
+      } else {
+        conv.messages = [];
+      }
+    } catch (err) {
+      console.error("Erro ao carregar mensagens da conversa", err);
+      conv.messages = [];
+    }
+  }
+
+  messagesEl.innerHTML = (conv.messages && conv.messages.length)
+    ? conv.messages
+        .map(
+          (m) => `
     <div class="message ${m.type === "agent" ? "agent" : m.type === "human" ? "human" : ""}">
       ${escapeHtml(m.text)}
       <small>${m.type === "agent" ? "SDR IA" : m.type === "human" ? "Atendente" : conv.lead}</small>
     </div>
   `
-    )
-    .join("");
+        )
+        .join("")
+    : '<div class="message">Nenhuma mensagem registrada nesta conversa.</div>';
 
   leadDetails.innerHTML = Object.entries(conv.details || {})
     .map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`)
@@ -752,7 +799,7 @@ function renderCosts() {
           ["Custo por lead", Math.max(1, Math.round(stores.reduce((s, x) => s + x.cost, 0) / Math.max(leads.length, 1))), "WhatsApp + IA por oportunidade"],
         ]
       : [
-          ["Meu plano", stores.find((s) => s.id === currentUser?.store_id)?.revenue || 1290, "Mensalidade do agente"],
+          ["Meu plano", stores.find((s) => s.id === currentUser?.store_id)?.revenue || 0, "Mensalidade do agente"],
           ["Conversas usadas", stores.find((s) => s.id === currentUser?.store_id)?.cost || 0, "Consumo estimado do mês"],
           ["Leads recebidos", leads.length, "Oportunidades qualificadas"],
           ["Custo por lead", 12, "Estimativa operacional"],
@@ -769,6 +816,8 @@ function renderCosts() {
       <div class="cost-value">${
         label.includes("Leads") || label.includes("Lojistas") || label.includes("Conversas usadas")
           ? value
+          : label === "Meu plano" && value === 0
+          ? "Gratuito (R$ 0)"
           : formatMoney(value)
       }</div>
     </div>
@@ -849,75 +898,832 @@ function closeModal() {
 
 function openVehicleModal(vehicle = null) {
   const role = currentRole();
-  const lojistaStores = stores.filter((s) => s.type === "Lojista");
-  const fields = [
-    { label: "Modelo do carro", name: "name", value: vehicle?.name, placeholder: "Ex: Honda Civic Touring 2022", required: true },
-    { label: "Preço", name: "price", value: vehicle?.price, placeholder: "Ex: R$ 119.900", required: true },
-    { label: "Quilometragem", name: "mileage", value: vehicle?.mileage, placeholder: "Ex: 48.000 km", required: true },
-    { label: "Câmbio", name: "transmission", value: vehicle?.transmission, type: "select", options: ["Automático", "Manual", "CVT"], required: true },
-    { label: "Combustível", name: "fuel", value: vehicle?.fuel, type: "select", options: ["Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido"], required: true },
-    { label: "Status", name: "status", value: vehicle?.status || "Publicado", type: "select", options: ["Publicado", "Pausado", "Sem atualização"], required: true },
+  const lojistaStores = stores.filter((s) => s.type === "Lojista" || s.name);
+
+  // Estado da galeria e fotos
+  let picturesList = [];
+  if (vehicle?.pictures && Array.isArray(vehicle.pictures) && vehicle.pictures.length > 0) {
+    picturesList = vehicle.pictures.map((p) => ({
+      remote_image_url: typeof p === "string" ? p : p.remote_image_url || p.url,
+      is_uploading: false,
+    }));
+  } else if (vehicle?.image_path) {
+    picturesList = [{ remote_image_url: vehicle.image_path, is_uploading: false }];
+  }
+
+  let coverUrl = vehicle?.main_image || vehicle?.image_path || (picturesList[0]?.remote_image_url || "");
+
+  // Estado dos opcionais
+  const DEFAULT_OPTIONS = [
+    "Ar-condicionado", "Direção elétrica", "Vidros elétricos", "Travas elétricas",
+    "Alarme", "Freios ABS", "Airbags frontais", "Airbags laterais",
+    "Bancos de couro", "Central multimídia", "Apple CarPlay / Android Auto",
+    "Câmera de ré", "Sensor de estacionamento", "Teto solar", "Rodas de liga leve",
+    "Piloto automático", "Faróis em LED", "Computador de bordo",
+    "Chave presencial / Start-Stop", "Controle de estabilidade", "Volante multifuncional"
   ];
-  if (role !== "lojista") {
-    const options = lojistaStores.map((s) => s.name);
-    fields.splice(3, 0, {
-      label: "Lojista",
-      name: "store_name",
-      value: vehicle?.store || options[0],
-      type: "select",
-      options,
-      required: true,
+  const selectedItems = new Set(Array.isArray(vehicle?.item_list) ? vehicle.item_list : []);
+
+  const modalTitle = vehicle
+    ? `Editar veículo: ${escapeHtml(vehicle.name)}`
+    : role === "lojista"
+    ? "Cadastrar meu veículo"
+    : "Cadastro central de veículos";
+
+  const submitLabel = vehicle ? "Salvar alterações" : "Publicar veículo";
+
+  // Renderiza a casca do modal
+  modalLayer.innerHTML = `
+    <div class="modal-backdrop" data-modal-close="true"></div>
+    <section class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header">
+        <h3 id="modalTitle">${modalTitle}</h3>
+        <button class="icon-close" data-modal-close="true" type="button" aria-label="Fechar modal">×</button>
+      </header>
+
+      <form id="vehicleExpandedForm" class="vehicle-form-container">
+        <!-- 1. Galeria de Fotos & CDN -->
+        <section class="vehicle-section">
+          <div class="vehicle-section-header">
+            <span class="vehicle-section-title"><span class="section-icon">📷</span> Galeria de Fotos (Cloudflare R2)</span>
+            <small style="color: var(--muted); font-size: 11px;">8 resoluções automáticas • Max 15MB por foto</small>
+          </div>
+
+          <div class="photo-dropzone" id="photoDropzone">
+            <span class="dropzone-icon">☁️</span>
+            <strong>Arraste fotos do veículo aqui ou clique para selecionar</strong>
+            <span>Formatos suportados: JPEG, PNG e WEBP (otimização instantânea)</span>
+            <input type="file" id="vehiclePhotoInput" multiple accept="image/jpeg,image/png,image/webp" style="display: none;" />
+          </div>
+
+          <div class="photo-gallery-grid" id="photoGalleryGrid"></div>
+        </section>
+
+        <!-- 2. Classificação Veicular -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">🚗</span> Classificação e Identificação</span>
+          <div class="vehicle-form-grid grid-cols-3">
+            <label class="form-field">
+              <span>Marca *</span>
+              <input name="brand" id="vehBrand" type="text" value="${escapeAttr(vehicle?.brand || "")}" placeholder="Ex: Toyota, Honda, Jeep" required />
+            </label>
+            <label class="form-field">
+              <span>Modelo *</span>
+              <input name="model" id="vehModel" type="text" value="${escapeAttr(vehicle?.model || "")}" placeholder="Ex: Corolla, Civic, Compass" required />
+            </label>
+            <label class="form-field">
+              <span>Versão</span>
+              <input name="version" id="vehVersion" type="text" value="${escapeAttr(vehicle?.version || "")}" placeholder="Ex: XEi 2.0 Direct Shift, Longitude" />
+            </label>
+          </div>
+
+          <div class="vehicle-form-grid grid-cols-4">
+            <label class="form-field">
+              <span>Categoria</span>
+              <select name="category" id="vehCategory">
+                ${["Sedan", "Hatch", "SUV", "Picape", "Cupê", "Minivan", "Perua", "Utilitário", "Moto"].map(c => `
+                  <option value="${c}" ${vehicle?.category === c ? "selected" : ""}>${c}</option>
+                `).join("")}
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Portas</span>
+              <select name="doors">
+                <option value="4" ${vehicle?.doors === 4 ? "selected" : ""}>4 portas</option>
+                <option value="2" ${vehicle?.doors === 2 ? "selected" : ""}>2 portas</option>
+                <option value="3" ${vehicle?.doors === 3 ? "selected" : ""}>3 portas</option>
+                <option value="5" ${vehicle?.doors === 5 ? "selected" : ""}>5 portas</option>
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Cor</span>
+              <input name="color" type="text" value="${escapeAttr(vehicle?.color || "")}" placeholder="Ex: Branco Pérola, Preto" />
+            </label>
+            <label class="form-field">
+              <span>Placa (Interno)</span>
+              <input name="plate" type="text" value="${escapeAttr(vehicle?.plate || "")}" placeholder="Ex: BRA2E19" maxlength="8" style="text-transform: uppercase;" />
+            </label>
+          </div>
+
+          <div class="vehicle-form-grid grid-cols-3">
+            <label class="form-field" style="grid-column: span 2;">
+              <span>Título Comercial (Vitrine) *</span>
+              <input name="name" id="vehName" type="text" value="${escapeAttr(vehicle?.name || "")}" placeholder="Ex: Toyota Corolla XEi 2.0 2023" required />
+            </label>
+            <label class="form-field">
+              <span>Código de Estoque / Unidade</span>
+              <input name="unit_id" type="text" value="${escapeAttr(vehicle?.unit_id || "")}" placeholder="Ex: EST-1092" />
+            </label>
+          </div>
+        </section>
+
+        <!-- 3. Ano, KM, Mecânica e Valores -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">⚙️</span> Mecânica, Rodagem e Valores</span>
+          <div class="vehicle-form-grid grid-cols-4">
+            <label class="form-field">
+              <span>Ano Fabricação</span>
+              <input name="fabrication_year" id="vehFabYear" type="number" min="1950" max="2035" value="${escapeAttr(vehicle?.fabrication_year || "")}" placeholder="Ex: 2022" />
+            </label>
+            <label class="form-field">
+              <span>Ano Modelo</span>
+              <input name="model_year" id="vehModYear" type="number" min="1950" max="2035" value="${escapeAttr(vehicle?.model_year || "")}" placeholder="Ex: 2023" />
+            </label>
+            <label class="form-field">
+              <span>Quilometragem (KM)</span>
+              <input name="km" id="vehKm" type="text" value="${escapeAttr(vehicle?.km ?? (vehicle?.mileage ? vehicle.mileage.replace(/\D/g, '') : ''))}" placeholder="Ex: 48000" />
+            </label>
+            <label class="form-field">
+              <span>Preço de Venda (R$) *</span>
+              <input name="price" id="vehPrice" type="text" value="${escapeAttr(vehicle?.price || "")}" placeholder="Ex: 119900 ou R$ 119.900" required />
+            </label>
+          </div>
+
+          <div class="vehicle-form-grid grid-cols-3">
+            <label class="form-field">
+              <span>Câmbio</span>
+              <select name="transmission">
+                ${["Automático", "Manual", "CVT", "Automatizado"].map(t => `
+                  <option value="${t}" ${vehicle?.transmission === t || vehicle?.exchange === t ? "selected" : ""}>${t}</option>
+                `).join("")}
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Combustível</span>
+              <select name="fuel">
+                ${["Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido", "GNV"].map(f => `
+                  <option value="${f}" ${vehicle?.fuel === f || vehicle?.fuel_text === f ? "selected" : ""}>${f}</option>
+                `).join("")}
+              </select>
+            </label>
+            <label class="form-field">
+              <span>Status</span>
+              <select name="status">
+                ${["Publicado", "Pausado", "Vendido", "Rascunho"].map(s => `
+                  <option value="${s}" ${(vehicle?.status || "Publicado") === s ? "selected" : ""}>${s}</option>
+                `).join("")}
+              </select>
+            </label>
+          </div>
+
+          ${role !== "lojista" ? `
+            <div class="vehicle-form-grid grid-cols-2">
+              <label class="form-field grid-col-full">
+                <span>Lojista Proprietário do Veículo *</span>
+                <select name="store_id" required>
+                  ${lojistaStores.map(s => `
+                    <option value="${s.id}" ${vehicle?.store_id === s.id ? "selected" : ""}>${escapeHtml(s.name)}</option>
+                  `).join("")}
+                </select>
+              </label>
+            </div>
+          ` : ""}
+        </section>
+
+        <!-- 4. Badges Comerciais (Toggles) -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">🏷️</span> Destaques e Badges Comerciais</span>
+          <div class="toggles-grid">
+            <label class="toggle-card">
+              <input type="checkbox" name="featured" ${vehicle?.featured ? "checked" : ""} />
+              <span>★ Destaque na Vitrine</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="new_vehicle" ${vehicle?.new_vehicle ? "checked" : ""} />
+              <span>0 km (Novo)</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="shielded" ${vehicle?.shielded ? "checked" : ""} />
+              <span>🛡️ Blindado</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="in_transit" ${vehicle?.in_transit ? "checked" : ""} />
+              <span>🚚 Em Trânsito</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="sold" ${vehicle?.sold ? "checked" : ""} />
+              <span>Vendido</span>
+            </label>
+            <label class="toggle-card">
+              <input type="checkbox" name="active" ${(vehicle?.active ?? true) ? "checked" : ""} />
+              <span>Ativo no Estoque</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- 5. Opcionais e Acessórios -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">✨</span> Opcionais e Itens de Série</span>
+          <div class="chip-container">
+            <div class="chip-grid" id="chipGrid"></div>
+            <div class="chip-custom-input">
+              <input type="text" id="customChipInput" placeholder="Adicionar outro opcional (ex: Som Harman Kardon) e pressione Enter..." />
+              <button type="button" class="mini-button" id="addCustomChipBtn">+ Adicionar</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. Observações Comerciais -->
+        <section class="vehicle-section">
+          <span class="vehicle-section-title"><span class="section-icon">📝</span> Observações e Histórico</span>
+          <label class="form-field">
+            <textarea name="note" placeholder="Descreva revisões, garantias, estado de pneus, laudo cautelar e diferenciais deste veículo..." rows="3">${escapeAttr(vehicle?.note || "")}</textarea>
+          </label>
+        </section>
+
+        <!-- Ações do Modal -->
+        <div class="modal-actions" style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button class="ghost-button" data-modal-close="true" type="button">Cancelar</button>
+          <button class="primary-button" id="saveVehicleBtn" type="submit">${submitLabel}</button>
+        </div>
+      </form>
+    </section>
+  `;
+
+  modalLayer.classList.add("show");
+  modalLayer.setAttribute("aria-hidden", "false");
+
+  // DOM Refs dentro do modal
+  const form = modalLayer.querySelector("#vehicleExpandedForm");
+  const dropzone = modalLayer.querySelector("#photoDropzone");
+  const fileInput = modalLayer.querySelector("#vehiclePhotoInput");
+  const galleryGrid = modalLayer.querySelector("#photoGalleryGrid");
+  const chipGrid = modalLayer.querySelector("#chipGrid");
+  const customChipInput = modalLayer.querySelector("#customChipInput");
+  const addCustomChipBtn = modalLayer.querySelector("#addCustomChipBtn");
+
+  const brandInput = modalLayer.querySelector("#vehBrand");
+  const modelInput = modalLayer.querySelector("#vehModel");
+  const versionInput = modalLayer.querySelector("#vehVersion");
+  const modYearInput = modalLayer.querySelector("#vehModYear");
+  const nameInput = modalLayer.querySelector("#vehName");
+
+  // Auto-sugestão de título
+  let userEditedTitle = Boolean(vehicle?.name);
+  nameInput.addEventListener("input", () => {
+    userEditedTitle = true;
+  });
+
+  function updateSuggestedTitle() {
+    if (userEditedTitle) return;
+    const parts = [
+      brandInput.value.trim(),
+      modelInput.value.trim(),
+      versionInput.value.trim(),
+      modYearInput.value.trim(),
+    ].filter(Boolean);
+    if (parts.length > 0) {
+      nameInput.value = parts.join(" ");
+    }
+  }
+
+  brandInput.addEventListener("input", updateSuggestedTitle);
+  modelInput.addEventListener("input", updateSuggestedTitle);
+  versionInput.addEventListener("input", updateSuggestedTitle);
+  modYearInput.addEventListener("input", updateSuggestedTitle);
+
+  // Renderizador da Galeria de Fotos
+  function renderGallery() {
+    if (picturesList.length === 0) {
+      galleryGrid.innerHTML = `<p style="grid-column: 1 / -1; color: var(--muted); font-size: 13px; text-align: center; padding: 8px 0;">Nenhuma foto cadastrada ainda.</p>`;
+      return;
+    }
+
+    galleryGrid.innerHTML = picturesList.map((pic, idx) => {
+      const isCover = (pic.remote_image_url === coverUrl) || (!coverUrl && idx === 0);
+      if (isCover && !coverUrl) coverUrl = pic.remote_image_url;
+
+      return `
+        <div class="photo-gallery-item ${isCover ? 'is-cover' : ''}" data-index="${idx}">
+          <img src="${pic.remote_image_url}" alt="Foto ${idx + 1}" />
+          ${isCover ? `<span class="photo-cover-badge">★ Capa</span>` : ""}
+          ${pic.is_uploading ? `
+            <div class="photo-uploading-overlay">
+              <div class="upload-spinner"></div>
+              <span>Enviando...</span>
+            </div>
+          ` : `
+            <div class="photo-actions">
+              <div style="display: flex; gap: 3px;">
+                ${idx > 0 ? `<button type="button" class="photo-action-btn move-left" title="Mover para a esquerda" data-idx="${idx}">◀</button>` : ""}
+                ${idx < picturesList.length - 1 ? `<button type="button" class="photo-action-btn move-right" title="Mover para a direita" data-idx="${idx}">▶</button>` : ""}
+              </div>
+              <div style="display: flex; gap: 3px;">
+                ${!isCover ? `<button type="button" class="photo-action-btn set-cover" title="Definir como foto de capa" data-idx="${idx}">Capa</button>` : ""}
+                <button type="button" class="photo-action-btn delete" title="Remover foto" data-idx="${idx}">×</button>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }).join("");
+
+    // Eventos dos botões da galeria
+    galleryGrid.querySelectorAll(".set-cover").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        if (picturesList[idx]) {
+          coverUrl = picturesList[idx].remote_image_url;
+          renderGallery();
+        }
+      });
+    });
+
+    galleryGrid.querySelectorAll(".move-left").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        if (idx > 0) {
+          const item = picturesList.splice(idx, 1)[0];
+          picturesList.splice(idx - 1, 0, item);
+          renderGallery();
+        }
+      });
+    });
+
+    galleryGrid.querySelectorAll(".move-right").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        if (idx < picturesList.length - 1) {
+          const item = picturesList.splice(idx, 1)[0];
+          picturesList.splice(idx + 1, 0, item);
+          renderGallery();
+        }
+      });
+    });
+
+    galleryGrid.querySelectorAll(".delete").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        const removed = picturesList.splice(idx, 1)[0];
+        if (removed && removed.remote_image_url === coverUrl) {
+          coverUrl = picturesList[0]?.remote_image_url || "";
+        }
+        renderGallery();
+      });
     });
   }
 
-  openModal(vehicle ? "Editar veículo" : "Cadastrar veículo", fields, vehicle ? "Salvar veículo" : "Publicar veículo", async (data) => {
-    const storeName = role === "lojista" ? myStoreName() : data.store_name;
-    const store = stores.find((s) => s.name === storeName);
-    const payload = {
-      name: data.name,
-      price: data.price,
-      mileage: data.mileage,
-      transmission: data.transmission,
-      fuel: data.fuel,
-      status: data.status,
-      image_path: vehicle?.image_path || "assets/car-city.jpg",
-      ...(role === "lojista" ? {} : { store_id: store?.id }),
-    };
-    if (vehicle) {
-      await api(`/api/vehicles/${vehicle.id}`, { method: "PATCH", body: JSON.stringify(payload) });
-      showToast("Veículo atualizado");
-    } else {
-      await api("/api/vehicles", { method: "POST", body: JSON.stringify(payload) });
-      showToast("Veículo publicado no estoque");
+  // Upload handler via FormData
+  async function handleFilesUpload(files) {
+    const validFiles = [];
+    for (const f of files) {
+      if (!f.type.startsWith("image/")) {
+        showToast(`Arquivo ignorado (não é imagem): ${f.name}`);
+        continue;
+      }
+      if (f.size > 15 * 1024 * 1024) {
+        showToast(`Imagem excede 15MB: ${f.name}`);
+        continue;
+      }
+      validFiles.push(f);
     }
-    await refreshAndRender();
-    showView("vehicles");
+    if (validFiles.length === 0) return;
+
+    // Adiciona previews temporários na galeria
+    const tempEntries = validFiles.map(f => {
+      const tempUrl = URL.createObjectURL(f);
+      const entry = { remote_image_url: tempUrl, is_uploading: true, file: f };
+      picturesList.push(entry);
+      return entry;
+    });
+    renderGallery();
+
+    const formData = new FormData();
+    for (const f of validFiles) {
+      formData.append("files", f);
+    }
+
+    try {
+      const res = await api("/api/vehicles/upload-photos", {
+        method: "POST",
+        body: formData,
+      });
+
+      const uploaded = res.photos || res.uploaded || [];
+      if (uploaded.length > 0) {
+        // Substitui os itens temporários pelas URLs permanentes da CDN
+        tempEntries.forEach((entry, i) => {
+          if (uploaded[i]) {
+            entry.remote_image_url = uploaded[i].remote_image_url;
+            entry.is_uploading = false;
+          }
+        });
+        if (!coverUrl && picturesList[0]) {
+          coverUrl = picturesList[0].remote_image_url;
+        }
+        showToast(`${uploaded.length} foto(s) enviada(s) para a CDN!`);
+      }
+    } catch (err) {
+      // Remove entradas temporárias com erro
+      tempEntries.forEach(entry => {
+        const idx = picturesList.indexOf(entry);
+        if (idx !== -1) picturesList.splice(idx, 1);
+      });
+      showToast(`Falha no upload de fotos: ${err.message}`);
+    } finally {
+      renderGallery();
+    }
+  }
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length > 0) {
+      handleFilesUpload([...fileInput.files]);
+      fileInput.value = "";
+    }
+  });
+
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+  });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer?.files?.length) {
+      handleFilesUpload([...e.dataTransfer.files]);
+    }
+  });
+
+  renderGallery();
+
+  // Renderizador de Chips de Opcionais
+  function renderChips() {
+    const allChips = Array.from(new Set([...DEFAULT_OPTIONS, ...selectedItems]));
+    chipGrid.innerHTML = allChips.map(item => {
+      const active = selectedItems.has(item);
+      return `
+        <button type="button" class="chip ${active ? 'active' : ''}" data-chip="${escapeAttr(item)}">
+          ${active ? "✓ " : "+ "}${escapeHtml(item)}
+        </button>
+      `;
+    }).join("");
+
+    chipGrid.querySelectorAll(".chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = btn.dataset.chip;
+        if (selectedItems.has(item)) {
+          selectedItems.delete(item);
+        } else {
+          selectedItems.add(item);
+        }
+        renderChips();
+      });
+    });
+  }
+
+  function addCustomChip() {
+    const val = customChipInput.value.trim();
+    if (val) {
+      selectedItems.add(val);
+      customChipInput.value = "";
+      renderChips();
+    }
+  }
+
+  addCustomChipBtn.addEventListener("click", addCustomChip);
+  customChipInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomChip();
+    }
+  });
+
+  renderChips();
+
+  // Submit Handler
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const stillUploading = picturesList.some(p => p.is_uploading);
+    if (stillUploading) {
+      showToast("Aguarde a finalização do upload das fotos antes de salvar.");
+      return;
+    }
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    const activePics = picturesList.filter(p => !p.is_uploading && p.remote_image_url);
+    const finalCover = coverUrl || (activePics[0]?.remote_image_url || "");
+
+    const payload = {
+      name: (data.name || "").trim(),
+      brand: (data.brand || "").trim(),
+      model: (data.model || "").trim(),
+      version: (data.version || "").trim(),
+      category: data.category || "Sedan",
+      doors: data.doors ? Number(data.doors) : 4,
+      color: (data.color || "").trim(),
+      plate: (data.plate || "").trim().toUpperCase(),
+      unit_id: (data.unit_id || "").trim(),
+      fabrication_year: data.fabrication_year ? Number(data.fabrication_year) : null,
+      model_year: data.model_year ? Number(data.model_year) : null,
+      km: data.km ? Number(String(data.km).replace(/\D/g, "")) : null,
+      price: (data.price || "").trim(),
+      transmission: data.transmission || "Automático",
+      exchange: data.transmission || "Automático",
+      fuel: data.fuel || "Flex",
+      fuel_text: data.fuel || "Flex",
+      status: data.status || "Publicado",
+      featured: form.querySelector("[name='featured']").checked,
+      new_vehicle: form.querySelector("[name='new_vehicle']").checked,
+      shielded: form.querySelector("[name='shielded']").checked,
+      in_transit: form.querySelector("[name='in_transit']").checked,
+      sold: form.querySelector("[name='sold']").checked,
+      active: form.querySelector("[name='active']").checked,
+      item_list: Array.from(selectedItems),
+      note: (data.note || "").trim(),
+      pictures: activePics.map(p => ({ remote_image_url: p.remote_image_url })),
+      image_path: finalCover || "assets/car-city.jpg",
+      main_image: finalCover || "assets/car-city.jpg",
+    };
+
+    if (role !== "lojista") {
+      payload.store_id = Number(data.store_id);
+    }
+
+    const submitBtn = form.querySelector("button[type='submit']");
+    const originalText = submitBtn ? submitBtn.textContent : "Salvar veículo";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Salvando veículo...";
+    }
+
+    try {
+      if (vehicle) {
+        await api(`/api/vehicles/${vehicle.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        showToast("Veículo atualizado com sucesso!");
+      } else {
+        await api("/api/vehicles", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        showToast("Veículo publicado no estoque com sucesso!");
+      }
+      closeModal();
+      await refreshAndRender();
+      showView("vehicles");
+    } catch (err) {
+      showToast(err.message || "Erro ao salvar veículo");
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    }
   });
 }
 
 function openStoreModal(store = null) {
   const isMaster = currentRole() === "master";
+  const planOptions = isMaster ? ["Enterprise", "Pro", "Start"] : ["Start", "Pro"];
+  const defaultPlan = isMaster ? "Enterprise" : "Start";
   const fields = [
     { label: isMaster ? "Nome do tenant" : "Nome da loja", name: "name", value: store?.name, placeholder: "Ex: Prime Motors", required: true },
-    { label: "Plano", name: "plan", value: store?.plan || "Pro", type: "select", options: ["Start", "Pro", "Enterprise"], required: true },
+    { label: "Plano", name: "plan", value: store?.plan || defaultPlan, type: "select", options: planOptions, required: true },
     { label: "Status", name: "status", value: store?.status || "Ativo", type: "select", options: ["Ativo", "Atenção", "Pausado"], required: true },
     { label: "Instruções do SDR (Prompt IA)", name: "sdr_prompt", value: store?.sdr_prompt, type: "textarea", placeholder: "Regras específicas de atendimento e tom de voz" },
   ];
-  openModal(store ? "Editar lojista" : isMaster ? "Adicionar tenant" : "Adicionar lojista", fields, store ? "Salvar" : "Adicionar", async (data) => {
+  openModal(store ? (isMaster ? "Editar tenant" : "Editar lojista") : (isMaster ? "Adicionar tenant" : "Adicionar lojista"), fields, store ? "Salvar" : "Adicionar", async (data) => {
     if (store) {
       await api(`/api/stores/${store.id}`, { method: "PATCH", body: JSON.stringify(data) });
       showToast("Cadastro atualizado");
     } else {
-      const monthlyRevenue = data.plan === "Enterprise" ? 18400 : data.plan === "Pro" ? 1290 : 890;
+      const monthlyRevenue = data.plan === "Enterprise" ? 18400 : data.plan === "Pro" ? 1500 : 0;
       await api("/api/stores", {
         method: "POST",
-        body: JSON.stringify({ ...data, type: "Lojista", monthly_revenue: monthlyRevenue }),
+        body: JSON.stringify({ ...data, type: isMaster ? "Auto Shopping" : "Lojista", monthly_revenue: monthlyRevenue }),
       });
       showToast(isMaster ? "Tenant adicionado" : "Lojista convidado");
     }
     await refreshAndRender();
     showView("stores");
   });
+}
+
+function openProfileModal() {
+  if (!currentUser) return;
+  const role = currentRole();
+  const initials = (currentUser.name || "U")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0].toUpperCase())
+    .join("");
+
+  const roleLabel = role === "master" ? "Master Ecossistema" : role === "shopping" ? "Gestor Shopping" : "Lojista";
+  const storeLabel = role === "lojista" ? myStoreName() : "Auto Shopping Formula";
+
+  modalLayer.innerHTML = `
+    <div class="modal-backdrop" data-modal-close="true"></div>
+    <section class="modal-card profile-modal" role="dialog" aria-modal="true" aria-label="Meu Perfil">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Formula OS</span>
+          <h3>Meu Perfil & Segurança</h3>
+        </div>
+        <button class="icon-close" data-modal-close="true" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <div style="padding: 20px;">
+        <!-- Header do perfil com avatar e dados da conta -->
+        <div class="profile-header-card">
+          <div class="profile-avatar">${escapeHtml(initials)}</div>
+          <div class="profile-meta">
+            <h4 id="profileDisplayName">${escapeHtml(currentUser.name)}</h4>
+            <p>${escapeHtml(currentUser.email)}</p>
+            <div class="profile-badges">
+              <span class="profile-badge role-${escapeAttr(role)}">${escapeHtml(roleLabel)}</span>
+              <span class="profile-badge badge-store">${escapeHtml(storeLabel)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 1: Atualizar Nome -->
+        <div class="profile-section" style="border-top: 0; padding-top: 0; margin-top: 0;">
+          <div class="profile-section-title">
+            <span>👤</span>
+            <span>Dados Pessoais</span>
+          </div>
+          <form id="profileNameForm" style="display: flex; gap: 10px; align-items: flex-end;">
+            <label class="form-field" style="flex: 1;">
+              <span>Nome de exibição</span>
+              <input id="profileNameInput" type="text" value="${escapeAttr(currentUser.name)}" minlength="2" required placeholder="Seu nome completo" />
+            </label>
+            <button class="primary-button" type="submit" id="saveProfileNameBtn" style="min-height: 42px; white-space: nowrap;">Salvar Nome</button>
+          </form>
+        </div>
+
+        <!-- Seção 2: Alterar Senha -->
+        <div class="profile-section">
+          <div class="profile-section-title">
+            <span>🔒</span>
+            <span>Alterar Senha</span>
+          </div>
+          <form id="profilePasswordForm" style="display: grid; gap: 12px;">
+            <label class="form-field">
+              <span>Senha atual</span>
+              <div class="password-input-wrap">
+                <input id="profileCurrentPassword" type="password" required autocomplete="current-password" placeholder="Digite sua senha atual" />
+                <button type="button" class="password-toggle-btn" data-target="profileCurrentPassword" title="Mostrar/ocultar senha">👁️</button>
+              </div>
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <label class="form-field">
+                <span>Nova senha</span>
+                <div class="password-input-wrap">
+                  <input id="profileNewPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+                  <button type="button" class="password-toggle-btn" data-target="profileNewPassword" title="Mostrar/ocultar senha">👁️</button>
+                </div>
+              </label>
+              <label class="form-field">
+                <span>Confirmar nova senha</span>
+                <div class="password-input-wrap">
+                  <input id="profileConfirmPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="Repita a nova senha" />
+                  <button type="button" class="password-toggle-btn" data-target="profileConfirmPassword" title="Mostrar/ocultar senha">👁️</button>
+                </div>
+              </label>
+            </div>
+            <div id="passwordError" style="color: #ef4444; font-size: 13px; display: none; margin-top: 2px;"></div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+              <button class="primary-button" type="submit" id="savePasswordBtn" style="min-height: 40px;">Atualizar Senha</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Seção 3: Logout / Sessão -->
+        <div class="profile-danger-zone">
+          <div>
+            <strong style="display: block; font-size: 14px; color: #991b1b;">Encerrar Sessão</strong>
+            <span style="font-size: 12px; color: #b91c1c;">Desconectar este dispositivo do portal</span>
+          </div>
+          <button class="danger-button" id="profileLogoutBtn" type="button">Sair da Conta</button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  modalLayer.classList.add("show");
+  modalLayer.setAttribute("aria-hidden", "false");
+
+  // Toggle visibilidade de senha
+  modalLayer.querySelectorAll(".password-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.dataset.target;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "🙈";
+      } else {
+        input.type = "password";
+        btn.textContent = "👁️";
+      }
+    });
+  });
+
+  // Salvar Nome
+  const nameForm = modalLayer.querySelector("#profileNameForm");
+  nameForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newName = document.getElementById("profileNameInput").value.trim();
+    if (newName.length < 2) {
+      showToast("O nome deve ter no mínimo 2 caracteres");
+      return;
+    }
+    const saveBtn = document.getElementById("saveProfileNameBtn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Salvando...";
+    try {
+      const res = await api("/api/me", {
+        method: "PATCH",
+        body: JSON.stringify({ name: newName }),
+      });
+      currentUser.name = res.user.name;
+      applyRole();
+      document.getElementById("profileDisplayName").textContent = currentUser.name;
+      const newInitials = (currentUser.name || "U")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0].toUpperCase())
+        .join("");
+      const avatarEl = modalLayer.querySelector(".profile-avatar");
+      if (avatarEl) avatarEl.textContent = newInitials;
+      showToast("Nome atualizado com sucesso!");
+    } catch (err) {
+      showToast(err.message || "Erro ao atualizar nome");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Salvar Nome";
+    }
+  });
+
+  // Salvar Senha
+  const pwdForm = modalLayer.querySelector("#profilePasswordForm");
+  const pwdError = modalLayer.querySelector("#passwordError");
+  pwdForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    pwdError.style.display = "none";
+    pwdError.textContent = "";
+
+    const current_password = document.getElementById("profileCurrentPassword").value;
+    const new_password = document.getElementById("profileNewPassword").value;
+    const confirm_password = document.getElementById("profileConfirmPassword").value;
+
+    if (new_password.length < 6) {
+      pwdError.textContent = "A nova senha deve ter no mínimo 6 caracteres.";
+      pwdError.style.display = "block";
+      return;
+    }
+    if (new_password !== confirm_password) {
+      pwdError.textContent = "A confirmação de nova senha não confere.";
+      pwdError.style.display = "block";
+      return;
+    }
+    if (new_password === current_password) {
+      pwdError.textContent = "A nova senha deve ser diferente da atual.";
+      pwdError.style.display = "block";
+      return;
+    }
+
+    const savePwdBtn = document.getElementById("savePasswordBtn");
+    savePwdBtn.disabled = true;
+    savePwdBtn.textContent = "Atualizando...";
+
+    try {
+      await api("/api/me/change-password", {
+        method: "POST",
+        body: JSON.stringify({ current_password, new_password, confirm_password }),
+      });
+      pwdForm.reset();
+      showToast("Senha alterada com sucesso!");
+    } catch (err) {
+      pwdError.textContent = err.message || "Falha ao alterar senha.";
+      pwdError.style.display = "block";
+    } finally {
+      savePwdBtn.disabled = false;
+      savePwdBtn.textContent = "Atualizar Senha";
+    }
+  });
+
+  // Logout
+  const logoutBtn = modalLayer.querySelector("#profileLogoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      closeModal();
+      logout();
+    });
+  }
 }
 
 // ---------- Ações ----------
@@ -1127,6 +1933,65 @@ async function logout() {
   stores = []; vehicles = []; leads = []; conversations = []; currentConversationId = null;
   loginLayer.classList.add("show");
   sessionButton.textContent = "Entrar";
+  sessionButton.title = "Entrar no portal";
+  sessionButton.style.cursor = "pointer";
+  sessionButton.style.pointerEvents = "auto";
+  if (navProfileBtn) {
+    navProfileBtn.style.display = "none";
+    navProfileBtn.hidden = true;
+  }
+  if (navLogoutBtn) {
+    navLogoutBtn.style.display = "none";
+    navLogoutBtn.hidden = true;
+  }
+  const badge = $("#notificationBadge");
+  if (badge) {
+    badge.style.display = "none";
+    badge.textContent = "0";
+  }
+  showToast("Sessão encerrada com sucesso");
+}
+
+function updateNotificationBadge() {
+  const badge = $("#notificationBadge");
+  if (!badge) return 0;
+  if (!currentUser) {
+    badge.style.display = "none";
+    badge.textContent = "0";
+    return 0;
+  }
+  const role = currentRole();
+  let count = 0;
+  if (role === "lojista" || role === "vendedor") {
+    // Alertas direcionados exclusivamente à loja do usuário logado:
+    const storeId = currentUser.store_id;
+    const storeName = myStoreName();
+    const pendingConvs = conversations.filter((c) => {
+      const match = (storeId && c.store_id === storeId) || (c.store && c.store === storeName);
+      return match && (c.status === "Humano" || c.status === "Handoff humano" || c.status === "Em atendimento");
+    }).length;
+    const pendingLeads = leads.filter((l) => {
+      const match = (storeId && l.store_id === storeId) || (l.store && l.store === storeName);
+      return match && (l.stage === "Humano" || l.original_stage === "Humano");
+    }).length;
+    count = Math.max(pendingConvs, pendingLeads);
+  } else if (role === "shopping") {
+    const attentionStores = stores.filter((s) => s.status === "Atenção").length;
+    const humanConvs = conversations.filter((c) => c.status === "Humano" || c.status === "Handoff humano").length;
+    count = attentionStores + humanConvs;
+  } else {
+    const attentionStores = stores.filter((s) => s.status === "Atenção").length;
+    count = attentionStores;
+  }
+
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = "grid";
+  } else {
+    badge.textContent = "0";
+    badge.style.display = "none";
+  }
+  return count;
 }
 
 // ---------- Utils ----------
@@ -1151,27 +2016,6 @@ function showToast(message) {
 // ---------- Event wiring ----------
 $$("[data-view]").forEach((btn) => btn.addEventListener("click", () => showView(btn.dataset.view)));
 
-$$("[data-role]").forEach((btn) =>
-  btn.addEventListener("click", () => {
-    // sidebar role switch: re-login como o usuário demo correspondente
-    const demoEmail = {
-      master: "master@collab.com",
-      shopping: "gestor@asformula.com",
-      lojista: "betania@betania.com",
-    }[btn.dataset.role];
-    if (!demoEmail) return;
-    loginWithCredentials(demoEmail, "demo123").catch((e) => showToast(e.message));
-  })
-);
-
-$$("[data-login-role]").forEach((btn) =>
-  btn.addEventListener("click", () => {
-    $("#loginEmail").value = btn.dataset.email;
-    $("#loginPassword").value = "demo123";
-    $("#loginForm").requestSubmit();
-  })
-);
-
 $("#loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const error = $("#loginError");
@@ -1184,7 +2028,11 @@ $("#loginForm").addEventListener("submit", async (event) => {
   }
 });
 
-sessionButton.addEventListener("click", () => logout());
+sessionButton.addEventListener("click", () => {
+  if (!currentUser) loginLayer.classList.add("show");
+});
+if (navLogoutBtn) navLogoutBtn.addEventListener("click", () => logout());
+if (navProfileBtn) navProfileBtn.addEventListener("click", () => openProfileModal());
 
 storeFilter.addEventListener("change", renderKanban);
 if (sellerFilter) sellerFilter.addEventListener("change", renderKanban);
@@ -1237,9 +2085,17 @@ storeTable.addEventListener("click", (event) => {
 });
 
 $("#notificationButton").addEventListener("click", () => {
-  const role = currentRole();
-  const count = role === "lojista" ? 3 : role === "shopping" ? 8 : 12;
-  showToast(`${count} eventos pedem atenção neste acesso`);
+  const count = updateNotificationBadge();
+  if (count === 0) {
+    showToast("Tudo em dia! Nenhum alerta pendente para seu acesso.");
+  } else {
+    const role = currentRole();
+    if (role === "lojista" || role === "vendedor") {
+      showToast(`${count} atendimento(s) ou lead(s) pendente(s) na sua loja`);
+    } else {
+      showToast(`${count} alerta(s) de lojas ou atendimentos no ecossistema`);
+    }
+  }
 });
 
 $("#globalSearch").addEventListener("input", (event) => {

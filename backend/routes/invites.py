@@ -71,10 +71,18 @@ def _load_active_invite(conn, token: str) -> dict:
         raise HTTPException(404, "Convite inválido")
     if row["used_at"]:
         raise HTTPException(410, "Convite já utilizado")
-    try:
-        exp = datetime.fromisoformat(row["expires_at"])
-    except ValueError as exc:
-        raise HTTPException(410, "Convite com expiração inválida") from exc
+    exp_val = row["expires_at"]
+    if isinstance(exp_val, datetime):
+        exp = exp_val if exp_val.tzinfo else exp_val.replace(tzinfo=timezone.utc)
+    elif isinstance(exp_val, str):
+        try:
+            exp = datetime.fromisoformat(exp_val.replace("Z", "+00:00"))
+            if not exp.tzinfo:
+                exp = exp.replace(tzinfo=timezone.utc)
+        except ValueError as exc:
+            raise HTTPException(410, "Convite com expiração inválida") from exc
+    else:
+        raise HTTPException(410, "Convite com expiração inválida")
     if exp < datetime.now(timezone.utc):
         raise HTTPException(410, "Convite expirado")
     return dict(row)

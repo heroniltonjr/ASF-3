@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Portal Auto Shopping Formula</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=1.7" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#2563eb" />
     <link rel="apple-touch-icon" href="/assets/icon-192.png" />
@@ -17,15 +17,6 @@
           <div>
             <strong>Formula OS</strong>
             <span>Portal comercial</span>
-          </div>
-        </div>
-
-        <div class="role-panel">
-          <span class="eyebrow">Acesso</span>
-          <div class="role-switch" role="tablist" aria-label="Selecionar acesso">
-            <button class="active" data-role="master" type="button">Master</button>
-            <button data-role="shopping" type="button">Gestor</button>
-            <button data-role="lojista" type="button">Lojista</button>
           </div>
         </div>
 
@@ -51,12 +42,28 @@
             <span class="nav-label">Lojistas</span>
           </button>
           <button data-view="team" data-nav-default="Equipe" type="button">
-            <span class="nav-icon" style="background-image:url('data:image/svg+xml;utf8,<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%2352596b\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2\"></path><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><path d=\"M23 21v-2a4 4 0 0 0-3-3.87\"></path><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"></path></svg>')"></span>
+            <span class="nav-icon team-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </span>
             <span class="nav-label">Equipe</span>
           </button>
           <button data-view="billing" data-nav-default="Custos e cobrança" type="button">
             <span class="nav-icon cost-icon"></span>
             <span class="nav-label">Custos e cobrança</span>
+          </button>
+          <div class="nav-divider" style="margin: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.08);"></div>
+          <button id="navProfileBtn" type="button" title="Meu Perfil e configurações" hidden style="display: none;">
+            <span class="nav-icon user-nav-icon" style="display: flex; align-items: center; justify-content: center; font-size: 14px;">👤</span>
+            <span class="nav-label">Meu Perfil</span>
+          </button>
+          <button id="navLogoutBtn" class="nav-logout" type="button" title="Encerrar sessão no portal" hidden style="display: none;">
+            <span class="nav-icon logout-nav-icon" style="display: flex; align-items: center; justify-content: center; font-size: 14px;">🚪</span>
+            <span class="nav-label">Sair da conta</span>
           </button>
         </nav>
 
@@ -76,14 +83,14 @@
             <h1 id="pageTitle">Comando comercial do ecossistema</h1>
           </div>
           <div class="topbar-actions">
-            <button class="session-chip" id="sessionButton" type="button">Entrar</button>
+            <div class="session-chip session-store-indicator" id="sessionButton" title="Loja atual">Carregando...</div>
             <label class="search">
               <span></span>
               <input id="globalSearch" type="search" placeholder="Buscar lead, carro ou lojista" />
             </label>
             <button class="icon-button" id="notificationButton" type="button" aria-label="Notificações">
               <span class="bell-icon"></span>
-              <i>8</i>
+              <i id="notificationBadge" style="display: none;">0</i>
             </button>
           </div>
         </header>
@@ -268,7 +275,7 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <div class="modal-layer" id="modalLayer" aria-hidden="true"></div>
-    <section class="login-layer show" id="loginLayer" aria-label="Entrar no portal">
+    <section class="login-layer" id="loginLayer" aria-label="Entrar no portal">
       <div class="login-card">
         <div class="brand">
           <div class="brand-mark">F</div>
@@ -277,7 +284,7 @@
             <span>Entrar no portal</span>
           </div>
         </div>
-        <p>Entre com seu e-mail e senha. Senha demo: <code>demo123</code>.</p>
+        <p>Entre com seu e-mail e senha para acessar o painel administrativo.</p>
         <form class="login-form" id="loginForm">
           <label class="form-field">
             <span>E-mail</span>
@@ -290,23 +297,8 @@
           <p class="login-error" id="loginError" hidden></p>
           <button class="primary-button" type="submit">Entrar</button>
         </form>
-        <p class="eyebrow" style="margin-top:1.5rem">Acessos demo</p>
-        <div class="login-options">
-          <button data-login-role="master" data-email="master@collab.com" type="button">
-            <strong>Master</strong>
-            <span>COLLAB / Arara Azul</span>
-          </button>
-          <button data-login-role="shopping" data-email="gestor@asformula.com" type="button">
-            <strong>Gestor</strong>
-            <span>Dono do Auto Shopping</span>
-          </button>
-          <button data-login-role="lojista" data-email="betania@betania.com" type="button">
-            <strong>Lojista</strong>
-            <span>Betania Automoveis</span>
-          </button>
-        </div>
       </div>
     </section>
-    <script src="app.js"></script>
+    <script src="app.js?v=1.7"></script>
   </body>
 </html>

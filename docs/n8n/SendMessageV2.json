@@ -1,0 +1,192 @@
+{
+  "name": "SendMessageV2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "autoformula-send-message-v2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -432,
+        -128
+      ],
+      "id": "22f4648c-2cc2-45b3-8871-1676ca4bfc18",
+      "name": "SendMessage",
+      "webhookId": "187fa7d7-1445-4e6d-932a-db2807b19747"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        640,
+        -128
+      ],
+      "id": "89385f29-fb8d-4fce-bf1a-eb3e9f9716a2",
+      "name": "MensagemEnviada"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.stores\nSET\n  total_leads      = COALESCE(total_leads, 0) + 1,\n  leads_this_month = COALESCE(leads_this_month, 0) + 1,\n  updated_at       = NOW()\nWHERE ctid = (\n    SELECT ctid\n    FROM public.stores\n    WHERE store_number = $1\n    ORDER BY \n      COALESCE(leads_this_month, 0) ASC, -- 1º critério: quem tem menos leads no mês\n      updated_at ASC                     -- 2º critério (desempate): quem foi atualizado há mais tempo\n    LIMIT 1\n)\nRETURNING\n  store_number,\n  total_leads,\n  leads_this_month,\n  updated_at;",
+        "options": {
+          "queryReplacement": "={{ $('SendMessage').item.json.body.store_number }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -224,
+        -128
+      ],
+      "id": "4c27d72b-f3f1-4662-8340-15bf18c1ac9f",
+      "name": "update_leads_store",
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.messages_sent (\n  store_name,\n  store_number,\n  store_focal,\n  store_lead_number,\n  message_sent\n)\nSELECT\n  s.store_name,\n  p.store_number,\n  s.store_focal,\n  p.store_lead_number,\n  p.message\nFROM public.stores s,\n     jsonb_to_record($1::jsonb) AS p(\n       store_number      text,\n       store_lead_number text,\n       message           text\n     )\nWHERE s.store_number = p.store_number\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({\n  store_number: $('SendMessage').item.json.body.store_number,\n  store_lead_number: $json.total_leads, // se for o mesmo\n  message: $('SendMessage').item.json.body.message\n}) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -16,
+        -128
+      ],
+      "id": "54f025af-ff95-4a86-878d-3682c2020bb0",
+      "name": "update_messages_sent",
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "phone": "={{ $('SendMessage').item.json.body.store_number }}",
+        "text": "={{ $('SendMessage').item.json.body.message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-zapi.zapi",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -128
+      ],
+      "id": "ccb27258-4d18-48bb-920c-377589541ec0",
+      "name": "MessageStore",
+      "credentials": {
+        "zapiApi": {
+          "id": "rLNrLOpjnoJkagWX",
+          "name": "Z-API_AraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "phone": "5565992805791",
+        "text": "={{ $('SendMessage').item.json.body.message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-zapi.zapi",
+      "typeVersion": 1,
+      "position": [
+        432,
+        -128
+      ],
+      "id": "d029435f-def6-475d-9652-3119779d1534",
+      "name": "MessageThySelf",
+      "credentials": {
+        "zapiApi": {
+          "id": "rLNrLOpjnoJkagWX",
+          "name": "Z-API_AraraAzul"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "SendMessage": {
+      "main": [
+        [
+          {
+            "node": "update_leads_store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_leads_store": {
+      "main": [
+        [
+          {
+            "node": "update_messages_sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_messages_sent": {
+      "main": [
+        [
+          {
+            "node": "MessageStore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MessageStore": {
+      "main": [
+        [
+          {
+            "node": "MessageThySelf",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MessageThySelf": {
+      "main": [
+        [
+          {
+            "node": "MensagemEnviada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c3f4e773-a8a2-46ab-9fb6-1320aaed537d",
+  "meta": {
+    "instanceId": "c3654042945384c4a54173c01471c8b89a69bd29ba1cd23f39817429dee1a884"
+  },
+  "id": "dYsXMfQ92Cu0pkBK",
+  "tags": []
+}

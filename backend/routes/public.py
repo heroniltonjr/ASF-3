@@ -111,20 +111,38 @@ def _pictures(row: dict) -> list[str]:
 def _vehicle_to_public(row: dict) -> dict:
     """Normaliza um veículo do Supabase para o formato que o portal.js espera."""
     store = _clean(row.get("store"))
+    pics = _pictures(row)
     return {
         "id": _vehicle_id(row.get("identifier")),
+        "identifier": row.get("identifier"),
         "name": _display_name(row),
+        "brand": _clean(row.get("brand")),
+        "model": _clean(row.get("model")),
+        "version": _clean(row.get("version")),
+        "category": _clean(row.get("category")),
+        "fabrication_year": row.get("fabrication_year"),
+        "model_year": row.get("model_year"),
+        "year": row.get("model_year") or row.get("fabrication_year"),
         "price": _format_price(row.get("price")),
         "price_int": _price_int(row.get("price")),
+        "km": row.get("km"),
         "mileage": _format_km(row.get("km")),
-        "transmission": _clean(row.get("exchange")),
-        "fuel": _clean(row.get("fuel_text")),
-        "image": row.get("main_image") or "assets/car-placeholder.svg",
+        "transmission": _clean(row.get("exchange")) or _clean(row.get("transmission")),
+        "fuel": _clean(row.get("fuel_text")) or _clean(row.get("fuel")),
+        "color": _clean(row.get("color")),
+        "doors": row.get("doors"),
+        "image": row.get("main_image") or row.get("image_path") or "assets/car-placeholder.svg",
+        "images": pics,
+        "pictures": pics,
+        "item_list": row.get("item_list") if isinstance(row.get("item_list"), list) else [],
+        "featured": bool(row.get("featured")),
+        "shielded": bool(row.get("shielded")),
+        "new_vehicle": bool(row.get("new_vehicle")),
         # Identidade da loja = nome (texto). A tabela `stores` do Supabase é
         # bloqueada por RLS para a chave anon, então derivamos tudo de `store`.
         "store_id": store,
         "store_name": store,
-        "status": "Publicado",
+        "status": row.get("status") or "Publicado",
     }
 
 
@@ -230,10 +248,15 @@ def get_public_vehicle(vehicle_id: int):
 
     row = rows[0]
     veh = _vehicle_to_public(row)
-    veh["images"] = _pictures(row)  # galeria (renderização é da Fase 3)
-    veh["year"] = row.get("model_year")
+    veh["images"] = _pictures(row)
+    veh["pictures"] = row.get("pictures") or _pictures(row)
+    veh["year"] = row.get("model_year") or row.get("fabrication_year")
     veh["color"] = _clean(row.get("color"))
     veh["description"] = _clean(row.get("note"))
+    veh["note"] = _clean(row.get("note"))
+    veh["plate"] = _clean(row.get("plate"))
+    veh["doors"] = row.get("doors")
+    veh["item_list"] = row.get("item_list") if isinstance(row.get("item_list"), list) else []
 
     # Dados da loja (logo/cidade/WhatsApp próprio) — Fase 4.
     meta = store_meta.lookup(_clean(row.get("store"))) or {}

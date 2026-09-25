@@ -1,0 +1,296 @@
+{
+  "name": "QuickSearchV3",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        816,
+        0
+      ],
+      "id": "0b0acefd-5f91-41fd-87fb-e334499238f5",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM vehicles v\nWHERE v.active\n  -- $1 = brand\n  AND (\n    $1::text = '_ALL_'\n    OR v.brand ILIKE '%' || $1::text || '%'\n  )\n\n  -- $2 e $3 = year_from / year_to\n  AND v.fabrication_year BETWEEN $2::int AND $3::int\n\n  -- $4 = model\n  AND (\n    $4::text = '_ALL_'\n    OR v.model ILIKE '%' || $4::text || '%'\n  )\n\n  -- $5 = category\n  AND (\n    $5::text = '_ALL_'\n    OR v.category ILIKE '%' || $5::text || '%'\n  )\n\n  -- $6 e $7 = price_min / price_max\n  AND v.price BETWEEN $6::int AND $7::int\n\nORDER BY\n  v.price ASC,\n  v.fabrication_year DESC,\n  v.brand,\n  v.model;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [\n  // $1 - brand: se vazio/nulo -> '_ALL_'\n  $json.body.brand && $json.body.brand.trim() !== ''\n    ? $json.body.brand\n    : '_ALL_',\n\n  // $2 - year_from: se 0, vazio ou nulo -> 1949\n  $json.body.year_from && Number($json.body.year_from) > 0\n    ? Number($json.body.year_from)\n    : 1949,\n\n  // $3 - year_to: se 0, vazio ou nulo -> ano atual\n  $json.body.year_to && Number($json.body.year_to) > 0\n    ? Number($json.body.year_to)\n    : $now.year,\n\n  // $4 - model: se vazio/nulo -> '_ALL_'\n  $json.body.model && $json.body.model.trim() !== ''\n    ? $json.body.model\n    : '_ALL_',\n\n  // $5 - category: se vazio/nulo -> '_ALL_'\n  $json.body.category && $json.body.category.trim() !== ''\n    ? $json.body.category\n    : '_ALL_',\n\n  // $6 - price_min: se 0, vazio ou nulo -> 20000\n  $json.body.price_min && Number($json.body.price_min) > 0\n    ? Number($json.body.price_min)\n    : 20000,\n\n  // $7 - price_max: se 0, vazio ou nulo -> 300000\n  $json.body.price_max && Number($json.body.price_max) > 0\n    ? Number($json.body.price_max)\n    : 300000\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        400,
+        0
+      ],
+      "id": "92a7244d-33ec-49fa-9a53-4108e536271d",
+      "name": "Quick-search",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9629a0d4-5e0a-47db-a9f2-03de3ad9d890",
+              "name": "identifier",
+              "value": "={{ $json.identifier }}",
+              "type": "string"
+            },
+            {
+              "id": "19da0320-a150-4b74-b49b-3c042429c67b",
+              "name": "brand",
+              "value": "={{ $json.brand }}",
+              "type": "string"
+            },
+            {
+              "id": "d390d0dc-bee2-46ed-854e-89cd0bf008bd",
+              "name": "name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "a97c04e2-2414-42ed-8639-d75511ea925e",
+              "name": "version",
+              "value": "={{ $json.version }}",
+              "type": "string"
+            },
+            {
+              "id": "d87d6fce-596a-4ba8-bbff-2ab564c87e6c",
+              "name": "model",
+              "value": "={{ $json.model }}",
+              "type": "string"
+            },
+            {
+              "id": "da3bb573-db4c-4fdd-8fa4-5e0855d7b5e9",
+              "name": "store",
+              "value": "={{ $json.store }}",
+              "type": "string"
+            },
+            {
+              "id": "c3b7f1ca-224d-4e5a-991d-58ab7e37f9e8",
+              "name": "model_year",
+              "value": "={{ $json.model_year }}",
+              "type": "number"
+            },
+            {
+              "id": "5ee5b996-008f-4e46-a2f8-fe62f2a1e7bb",
+              "name": "km",
+              "value": "={{ $json.km }}",
+              "type": "number"
+            },
+            {
+              "id": "0a72d862-85c0-4154-9b77-990007a6f1b9",
+              "name": "price",
+              "value": "={{ $json.price }}",
+              "type": "string"
+            },
+            {
+              "id": "1c8c5d25-9a85-4c5b-bac2-c3df8488f3dd",
+              "name": "exchange",
+              "value": "={{ $json.exchange }}",
+              "type": "string"
+            },
+            {
+              "id": "67d85da2-f4a0-4394-892c-fb2d774c249e",
+              "name": "fuel_text",
+              "value": "={{ $json.fuel_text }}",
+              "type": "string"
+            },
+            {
+              "id": "3350488e-e660-40ad-aeaa-d97819399335",
+              "name": "color",
+              "value": "={{ $json.color }}",
+              "type": "string"
+            },
+            {
+              "id": "597ea041-b515-4d9d-84c5-01a97adfba26",
+              "name": "doors",
+              "value": "={{ $json.doors }}",
+              "type": "number"
+            },
+            {
+              "id": "9c4fca56-b651-4c98-ab16-54cb25f1aa04",
+              "name": "kind",
+              "value": "={{ $json.kind }}",
+              "type": "string"
+            },
+            {
+              "id": "506af2da-e1eb-4eed-b1ae-553f2f9ebbea",
+              "name": "item_list",
+              "value": "={{ $json.item_list }}",
+              "type": "array"
+            },
+            {
+              "id": "590601d0-88b2-45cd-94d9-6e68b2308149",
+              "name": "plate",
+              "value": "={{ $json.plate }}",
+              "type": "string"
+            },
+            {
+              "id": "7c92a028-5cd4-4baf-bd88-757ecb0d6d67",
+              "name": "shielded",
+              "value": "={{ $json.shielded }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        608,
+        0
+      ],
+      "id": "ac2ad41d-55cf-4c0f-8f56-bab64c7d2102",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a65abfef-b00d-4323-acb8-8c7465e1bb0c",
+              "name": "body.brand",
+              "value": "={{ ($json.body.brand || '').toString().replace(/\\r?\\n/g, '') || null }}",
+              "type": "string"
+            },
+            {
+              "id": "e5e5ad5e-9be6-45e6-99f1-386d54d5cdc9",
+              "name": "body.year_from",
+              "value": "={{ ($json.body.year_from || '').toString().replace(/\\r?\\n/g, '') || null }}",
+              "type": "string"
+            },
+            {
+              "id": "2b173f2b-15bb-4a1b-8ae0-dc51560a832c",
+              "name": "body.year_to",
+              "value": "={{ ($json.body.year_to || '').toString().replace(/\\r?\\n/g, '') || null }}",
+              "type": "string"
+            },
+            {
+              "id": "74663fb5-8751-40c3-a32e-1915af17f114",
+              "name": "body.model",
+              "value": "={{ ($json.body.model || '').toString().replace(/\\r?\\n/g, '') || null }}",
+              "type": "string"
+            },
+            {
+              "id": "21dd1e65-514d-46f6-abd0-76cd6e5ade8d",
+              "name": "body.category",
+              "value": "={{ ($json.body.category || '').toString().replace(/\\r?\\n/g, '') || null }}",
+              "type": "string"
+            },
+            {
+              "id": "1b373abe-3d07-4c71-926f-89b2fd4c6363",
+              "name": "body.price_min",
+              "value": "={{ ($json.body.price_min  || '').toString().replace(/\\r?\\n/g, '') || null }}",
+              "type": "string"
+            },
+            {
+              "id": "5b48a72f-df2f-4461-a821-425deaf7d920",
+              "name": "body.price_max",
+              "value": "={{ ($json.body.price_max || '').toString().replace(/\\r?\\n/g, '') || null }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "3482066a-e895-4394-9aed-9d49570c821d",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "autoformula-quick-search-v3",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "6e2b4fce-2a84-48a0-b8aa-582382fdfe08",
+      "name": "QuickSearchV3",
+      "webhookId": "49c50963-a2f1-4b60-b989-636bba20b3e0"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Quick-search": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Quick-search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QuickSearchV3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "27975650-4a9e-4480-86c1-41d8e92ad7d4",
+  "meta": {
+    "instanceId": "c3654042945384c4a54173c01471c8b89a69bd29ba1cd23f39817429dee1a884"
+  },
+  "id": "atpzKS9Fr4VK03Aw",
+  "tags": []
+}

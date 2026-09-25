@@ -35,12 +35,16 @@ class Settings:
     openrouter_model: str = os.getenv("OPENROUTER_MODEL", "openai/gpt-5-mini")
     openrouter_base_url: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
+    # Transcrição de Áudio (OpenAI Whisper)
+    openai_api_key: str = (os.getenv("OPENAI_API_KEY") or "").strip()
+    stt_model: str = os.getenv("STT_MODEL", "whisper-1").strip()
+
     # Supabase (projeto "Locks") — fonte de dados da vitrine pública.
     # A chave anon é pública por design (RLS "read active vehicles" cobre a leitura).
     # .strip() protege contra quebra de linha/espaço acidental ao colar no .env
     # (httpx rejeita URL/headers com caracteres de controle).
-    supabase_url: str = os.getenv("SUPABASE_URL", "").strip()
-    supabase_anon_key: str = os.getenv("SUPABASE_ANON_KEY", "").strip()
+    supabase_url: str = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").strip()
+    supabase_anon_key: str = (os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") or "").strip()
 
     meta_verify_token: str = os.getenv("META_VERIFY_TOKEN", "")
     meta_app_secret: str = os.getenv("META_APP_SECRET", "")
@@ -52,6 +56,14 @@ class Settings:
     # Diretório de uploads de mídia (fotos/áudios do multiatendimento).
     # Em produção aponte para um volume persistente: /data/uploads
     uploads_dir: str = os.getenv("UPLOADS_DIR", str(ROOT / "uploads"))
+
+    # Cloudflare R2 Storage (CDN Veículos)
+    r2_endpoint_url: str = os.getenv("R2_ENDPOINT_URL", "https://4fb6af1e0321d6274a1fa0252cd8cf64.r2.cloudflarestorage.com").strip()
+    r2_bucket_name: str = os.getenv("R2_BUCKET_NAME", "webdisco").strip()
+    r2_access_key_id: str = (os.getenv("R2_ACCESS_KEY_ID") or os.getenv("AWS_ACCESS_KEY_ID") or "").strip()
+    r2_secret_access_key: str = (os.getenv("R2_SECRET_ACCESS_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY") or "").strip()
+    r2_public_domain: str = os.getenv("R2_PUBLIC_DOMAIN", "https://cdn.autoshoppingformula.com.br").strip().rstrip("/")
+    photos_storage_dir: str = os.getenv("PHOTOS_STORAGE_DIR", "/opt/formulaos_photos").strip()
 
 
 settings = Settings()

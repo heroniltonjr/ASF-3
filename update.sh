@@ -22,7 +22,8 @@ log "Puxando código novo do GitHub..."
 _ssh bash <<'REMOTE'
 cd /opt/formula-os
 git fetch origin
-git reset --hard origin/main
+git pull
+# git reset --hard origin/main
 echo "  → $(git log -1 --oneline)"
 REMOTE
 

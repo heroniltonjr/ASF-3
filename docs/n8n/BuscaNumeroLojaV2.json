@@ -1,0 +1,96 @@
+{
+  "name": "BuscaNumeroLojaV2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "autoformula-busca-numero-loja-v2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -208,
+        -64
+      ],
+      "id": "e72ab822-4468-4925-b283-ae51114f0359",
+      "name": "BuscaNumeroLoja",
+      "webhookId": "49c50963-a2f1-4b60-b989-636bba20b3e0"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH matched AS (\n  SELECT *\n  FROM stores s\n  WHERE store_name  ILIKE '%' || $1::text || '%'\n     OR store_focal ILIKE '%' || $1::text || '%'\n)\nSELECT *\nFROM matched\n\nUNION ALL\n\nSELECT *\nFROM stores s\nWHERE s.store_name = 'AraraAzul'\n  AND NOT EXISTS (SELECT 1 FROM matched);",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ $json.body.store }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        16,
+        -64
+      ],
+      "id": "9026926c-7782-4732-b686-1258b2ef7782",
+      "name": "BuscaNumero",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        224,
+        -64
+      ],
+      "id": "37474ca0-97b8-4e1b-889e-5e34a1124cfb",
+      "name": "DevolveNumero"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "BuscaNumeroLoja": {
+      "main": [
+        [
+          {
+            "node": "BuscaNumero",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BuscaNumero": {
+      "main": [
+        [
+          {
+            "node": "DevolveNumero",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ba03884a-9b4c-43fb-87fb-9dd0684c9ef4",
+  "meta": {
+    "instanceId": "c3654042945384c4a54173c01471c8b89a69bd29ba1cd23f39817429dee1a884"
+  },
+  "id": "IaQcOkzhN1IYqCq1",
+  "tags": []
+}

@@ -86,9 +86,10 @@ def get_user_by_token(token: str) -> Optional[dict]:
     with db.tx() as conn:
         row = conn.execute(
             """
-            SELECT u.id, u.email, u.name, u.role, u.tenant_id, u.store_id, s.expires_at
+            SELECT u.id, u.email, u.name, u.role, u.tenant_id, u.store_id, st.plan AS store_plan, s.expires_at
             FROM auth_sessions s
             JOIN users u ON u.id = s.user_id
+            LEFT JOIN stores st ON st.id = u.store_id
             WHERE s.token = ?
             """,
             (token,),
@@ -107,6 +108,7 @@ def get_user_by_token(token: str) -> Optional[dict]:
         "role": row["role"],
         "tenant_id": row["tenant_id"],
         "store_id": row["store_id"],
+        "store_plan": row["store_plan"] if "store_plan" in row.keys() and row["store_plan"] else "Start",
     }
     _SESSION_CACHE[token] = (user, now + _SESSION_CACHE_TTL)
     return user

@@ -49,6 +49,25 @@ class ZApiProvider:
     def _instance_and_token(self) -> tuple[str, str]:
         return self._required("instance_id"), self._required("instance_token")
 
+    async def check_status(self) -> dict:
+        """Verifica o status de conexão da instância Z-API."""
+        base = self._base_url()
+        instance, token = self._instance_and_token()
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{base}/instances/{instance}/token/{token}/status",
+                headers=self._headers(),
+            )
+        if r.status_code >= 400:
+            return {"connected": False, "status": "ERROR", "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+        data = r.json() if r.content else {}
+        connected = bool(data.get("connected") or data.get("status") == "CONNECTED")
+        return {
+            "connected": connected,
+            "status": data.get("status", "CONNECTED" if connected else "DISCONNECTED"),
+            "phone": data.get("phone"),
+        }
+
     async def send_text(self, to: str, body: str) -> OutboundResult:
         to = _format_br_number(to)
         base = self._base_url()

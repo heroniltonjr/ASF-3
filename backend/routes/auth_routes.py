@@ -19,12 +19,22 @@ def login(payload: dict, response: Response):
 
     with db.tx() as conn:
         row = conn.execute(
-            "SELECT id, email, name, role, tenant_id, store_id, password_hash FROM users WHERE email = ?",
+            """
+            SELECT u.id, u.email, u.name, u.role, u.tenant_id, u.store_id, u.password_hash, st.plan AS store_plan
+            FROM users u
+            LEFT JOIN stores st ON st.id = u.store_id
+            WHERE u.email = ?
+            """,
             (email,),
         ).fetchone()
         if not row and email.endswith(".com.br"):
             row = conn.execute(
-                "SELECT id, email, name, role, tenant_id, store_id, password_hash FROM users WHERE email = ?",
+                """
+                SELECT u.id, u.email, u.name, u.role, u.tenant_id, u.store_id, u.password_hash, st.plan AS store_plan
+                FROM users u
+                LEFT JOIN stores st ON st.id = u.store_id
+                WHERE u.email = ?
+                """,
                 (email[:-3],),  # tenta sem '.br' (ex: gestor@asformula.com)
             ).fetchone()
     if not row or not auth.verify_password(password, row["password_hash"]):
@@ -44,6 +54,7 @@ def login(payload: dict, response: Response):
         "user": {
             "id": row["id"], "email": row["email"], "name": row["name"],
             "role": row["role"], "tenant_id": row["tenant_id"], "store_id": row["store_id"],
+            "store_plan": row["store_plan"] if "store_plan" in row.keys() and row["store_plan"] else "Start",
         }
     }
 

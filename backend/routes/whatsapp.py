@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 _MGMT = require_roles("master", "shopping", "lojista", "gestor", "vendedor")
 _ADMIN = require_roles("master", "shopping")
+_FEIRAO_ADMIN = require_roles("master", "shopping", "gestor")
 
 
 # --- CRUD de provider por loja (API autenticada) ---------------------------
@@ -51,6 +52,12 @@ def get_provider(store_id: int, user: dict = Depends(_MGMT)):
 @router.put("/api/stores/{store_id}/whatsapp")
 def upsert_provider(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
     _scope_check(user, store_id)
+    with db.tx() as conn:
+        st = conn.execute("SELECT plan FROM stores WHERE id = ?", (store_id,)).fetchone()
+    store_plan = (st["plan"] if st and "plan" in st.keys() and st["plan"] else "Start") or "Start"
+    if user["role"] not in ("master", "shopping") and store_plan not in ("Pro", "Enterprise"):
+        raise HTTPException(403, "Vinculação de WhatsApp disponível apenas para lojas assinantes do Plano Pro")
+
     kind = payload.get("kind")
     if kind not in ("meta", "evolution", "zapi"):
         raise HTTPException(400, "kind deve ser 'meta', 'evolution' ou 'zapi'")
@@ -60,29 +67,81 @@ def upsert_provider(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
         raise HTTPException(400, "config deve ser objeto")
     config_json = json.dumps(config, ensure_ascii=False)
 
+    status = payload.get("status")
+
     with db.tx() as conn:
         existing = conn.execute(
-            "SELECT id FROM whatsapp_providers WHERE store_id = ?",
+            "SELECT id, status FROM whatsapp_providers WHERE store_id = ?",
             (store_id,),
         ).fetchone()
         if existing:
+            new_status = status or existing["status"] or "pending"
             conn.execute(
                 """
                 UPDATE whatsapp_providers
-                SET kind = ?, display_number = ?, config_json = ?, updated_at = CURRENT_TIMESTAMP
+                SET kind = ?, display_number = ?, config_json = ?, status = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE store_id = ?
                 """,
-                (kind, display_number, config_json, store_id),
+                (kind, display_number, config_json, new_status, store_id),
             )
         else:
+            new_status = status or "pending"
             conn.execute(
                 """
                 INSERT INTO whatsapp_providers (store_id, kind, display_number, status, config_json)
-                VALUES (?, ?, ?, 'pending', ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (store_id, kind, display_number, config_json),
+                (store_id, kind, display_number, new_status, config_json),
             )
-    return {"ok": True}
+    return {"ok": True, "status": new_status}
+
+
+@router.post("/api/stores/{store_id}/whatsapp/test")
+async def test_provider_connection(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
+    _scope_check(user, store_id)
+    with db.tx() as conn:
+        st = conn.execute("SELECT plan FROM stores WHERE id = ?", (store_id,)).fetchone()
+    store_plan = (st["plan"] if st and "plan" in st.keys() and st["plan"] else "Start") or "Start"
+    if user["role"] not in ("master", "shopping") and store_plan not in ("Pro", "Enterprise"):
+        raise HTTPException(403, "Teste de conexão disponível apenas para lojas assinantes do Plano Pro")
+
+    kind = payload.get("kind", "zapi")
+    if kind != "zapi":
+        raise HTTPException(400, "Teste de conexão disponível inicialmente apenas para Z-API")
+
+    config = payload.get("config") or {}
+    instance_id = config.get("instance_id")
+    instance_token = config.get("instance_token")
+    if not instance_id or not instance_token:
+        raise HTTPException(400, "instance_id e instance_token são obrigatórios para testar a Z-API")
+
+    from ..whatsapp.base import ProviderConfig
+    from ..whatsapp.zapi import ZApiProvider
+
+    cfg = ProviderConfig(
+        kind="zapi",
+        store_id=store_id,
+        display_number=payload.get("display_number"),
+        config=config,
+    )
+    provider = ZApiProvider(cfg)
+    try:
+        res = await provider.check_status()
+        is_connected = bool(res.get("connected"))
+        new_status = "connected" if is_connected else "disconnected"
+        with db.tx() as conn:
+            conn.execute(
+                "UPDATE whatsapp_providers SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE store_id = ?",
+                (new_status, store_id)
+            )
+        return {"ok": True, "status": new_status, **res}
+    except Exception as exc:
+        with db.tx() as conn:
+            conn.execute(
+                "UPDATE whatsapp_providers SET status = 'disconnected', updated_at = CURRENT_TIMESTAMP WHERE store_id = ?",
+                (store_id,)
+            )
+        return {"ok": False, "connected": False, "status": "disconnected", "error": str(exc)}
 
 
 @router.delete("/api/stores/{store_id}/whatsapp", status_code=204)
@@ -102,7 +161,7 @@ def get_sdr_mode(store_id: int, user: dict = Depends(_MGMT)):
 
 
 @router.put("/api/stores/{store_id}/sdr-mode")
-def update_sdr_mode(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
+def update_sdr_mode(store_id: int, payload: dict, user: dict = Depends(_FEIRAO_ADMIN)):
     _scope_check(user, store_id)
     mode = payload.get("operation_mode") or payload.get("mode")
     if mode not in ("normal", "feirao"):

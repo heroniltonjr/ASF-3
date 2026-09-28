@@ -46,9 +46,37 @@ const ROLE_LABELS = {
       vehicles: "Estoque central",
       stores: "Lojistas assinantes",
       team: "Equipe do Shopping",
-      billing: "Monetização",
     },
-    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores", "billing", "team"],
+    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores", "team"],
+    commands: [
+      ["Fila humana", "Atendentes assumem conversas quando o SDR identifica negociação, troca ou dúvida sensível.", "Abrir inbox"],
+      ["Performance por lojista", "Veja quem gera mais leads, quem responde melhor e quem está deixando oportunidade esfriar.", "Comparar lojas"],
+      ["Estoque vivo", "O cadastro dos lojistas alimenta o site, o agente e o CRM em uma única base.", "Ver veículos"],
+    ],
+    decisions: [
+      ["Fila humana crescendo", "Conversas pedem atendente para negociação de troca."],
+      ["Loja com baixa atualização", "Algumas lojas estão há dias sem renovar estoque."],
+      ["Modelo em alta", "Honda City gerou leads qualificados na semana."],
+    ],
+  },
+  gestor: {
+    label: "Gestor",
+    eyebrow: "Camada Auto Shopping",
+    title: "Gestão do shopping, lojistas e atendimento",
+    heroKicker: "Auto Shopping Formula",
+    heroTitle: "A sala de comando do shopping: estoque, lojistas, CRM e atendimento humano.",
+    heroText:
+      "O gestor acompanha todos os leads do SDR, performance das lojas, fila de atendimento, veículos publicados e gargalos da operação.",
+    search: "Buscar lead, carro ou lojista",
+    nav: {
+      overview: "Panorama",
+      crm: "Governança de leads",
+      inbox: "Auditoria de atendimento",
+      vehicles: "Estoque central",
+      stores: "Lojistas assinantes",
+      team: "Equipe do Shopping",
+    },
+    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores", "team"],
     commands: [
       ["Fila humana", "Atendentes assumem conversas quando o SDR identifica negociação, troca ou dúvida sensível.", "Abrir inbox"],
       ["Performance por lojista", "Veja quem gera mais leads, quem responde melhor e quem está deixando oportunidade esfriar.", "Comparar lojas"],
@@ -171,7 +199,13 @@ function normalizeConversation(c) {
   };
 }
 
-function currentRole() { return currentUser?.role || "master"; }
+function currentRole() {
+  const r = currentUser?.role;
+  if (r && ROLE_LABELS[r]) return r;
+  if (r === "gestor") return "gestor";
+  if (r === "vendedor") return "lojista";
+  return "master";
+}
 
 function myStoreName() {
   if (currentUser?.store_id) {

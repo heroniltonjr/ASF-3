@@ -38,10 +38,11 @@ def list_conversations(user: dict = Depends(_ALL)):
     with db.tx() as conn:
         rows = conn.execute(
             f"""
-            SELECT c.*, s.name AS store_name, u.name AS owner_name
+            SELECT c.*, s.name AS store_name, u.name AS owner_name, l.origin_id
             FROM conversations c
             JOIN stores s ON s.id = c.store_id
             LEFT JOIN users u ON u.id = c.owner_user_id
+            LEFT JOIN leads l ON l.id = c.lead_id
             {where}
             ORDER BY c.updated_at DESC
             """,
@@ -73,6 +74,7 @@ def list_conversations(user: dict = Depends(_ALL)):
         conversations_list = []
         for r in rows:
             c_dict = _row_to_conversation(r)
+            c_dict["origin_id"] = r["origin_id"] if "origin_id" in r.keys() else 1
             c_dict["_tags"] = lead_tags_map.get(r["lead_id"], [])
             conversations_list.append(c_dict)
 
@@ -83,7 +85,13 @@ def list_conversations(user: dict = Depends(_ALL)):
 def get_conversation(cid: int, user: dict = Depends(_ALL)):
     with db.tx() as conn:
         row = conn.execute(
-            "SELECT c.*, s.name AS store_name FROM conversations c JOIN stores s ON s.id = c.store_id WHERE c.id = ?",
+            """
+            SELECT c.*, s.name AS store_name, l.origin_id
+            FROM conversations c
+            JOIN stores s ON s.id = c.store_id
+            LEFT JOIN leads l ON l.id = c.lead_id
+            WHERE c.id = ?
+            """,
             (cid,),
         ).fetchone()
         if not row:

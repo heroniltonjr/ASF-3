@@ -638,9 +638,21 @@
           <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="toggle-audio" checked> Som de notificação</label>
         </div>
 
+        <div id="whatsapp-disconnected-alert" style="display:none; background:#fef3c7; border-bottom:1px solid #fde68a; padding:10px 16px; font-size:13px; color:#92400e; align-items:center; justify-content:space-between; gap:12px; z-index:10;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">⚠️</span>
+            <span><strong>WhatsApp da loja desconectado.</strong> As mensagens não chegarão ao cliente até vincular em Configurações &gt; WhatsApp.</span>
+          </div>
+          <button id="btn-quick-connect-wa" type="button" style="background:#d97706; color:#fff; border:none; padding:5px 12px; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap; flex-shrink:0;">
+            ⚡ Conectar WhatsApp
+          </button>
+        </div>
+
         <div class="messages-area" id="messages-area">
           <div class="empty-state">Selecione uma conversa</div>
         </div>
+
+        <div id="start-plan-notice" style="display:none; padding:16px; background:#fffbeb; border-top:1px solid #fef3c7; text-align:center;"></div>
 
         <div class="input-bar">
           <div id="img-preview-bar" class="img-preview-bar" style="display:none">
@@ -706,6 +718,51 @@
     </div>
   </aside>
 
+  <!-- Modal Vinculação WhatsApp (Z-API) -->
+  <div id="modal-whatsapp" class="login-overlay" style="display:none; align-items:center; justify-content:center; z-index:9999;">
+    <div class="login-card" style="max-width:440px; width:92%; padding:24px; text-align:left; background:var(--surface); border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.15);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="font-size:16px; font-weight:700; color:var(--text); margin:0;">Configuração WhatsApp (Z-API)</h3>
+        <button id="close-modal-whatsapp" type="button" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-soft);">✕</button>
+      </div>
+
+      <div id="whatsapp-start-upgrade" style="display:none; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:16px; text-align:center;">
+        <span style="font-size:32px;">⭐</span>
+        <h4 style="font-size:15px; font-weight:700; color:#92400e; margin:8px 0 4px;">Exclusivo do Plano Pro</h4>
+        <p style="font-size:13px; color:#b45309; margin:0 0 12px; line-height:1.4;">
+          A vinculação direta de WhatsApp próprio com IA e painel multiatendente é um recurso exclusivo dos planos <strong>Pro</strong> e <strong>Enterprise</strong>.
+        </p>
+        <button type="button" onclick="toast('Solicitação de upgrade enviada ao consultor!')" style="background:#d97706; color:#fff; border:none; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer;">Fazer Upgrade de Plano</button>
+      </div>
+
+      <div id="whatsapp-pro-form" style="display:none;">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12px; font-weight:600; color:var(--text-soft); display:block; margin-bottom:4px;">Instance ID</label>
+          <input type="text" id="zapi-instance-id" placeholder="Ex: 3B4C5..." style="width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; outline:none; background:var(--bg);" />
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12px; font-weight:600; color:var(--text-soft); display:block; margin-bottom:4px;">Instance Token</label>
+          <input type="password" id="zapi-instance-token" placeholder="Token da instância Z-API" style="width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; outline:none; background:var(--bg);" />
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12px; font-weight:600; color:var(--text-soft); display:block; margin-bottom:4px;">Client Token (Opcional)</label>
+          <input type="password" id="zapi-client-token" placeholder="Client Token da conta Z-API" style="width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; outline:none; background:var(--bg);" />
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="font-size:12px; font-weight:600; color:var(--text-soft); display:block; margin-bottom:4px;">Número de Exibição (WhatsApp)</label>
+          <input type="text" id="zapi-display-number" placeholder="Ex: 5531999998888" style="width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; outline:none; background:var(--bg);" />
+        </div>
+
+        <div id="whatsapp-test-feedback" style="display:none; font-size:12px; padding:8px 12px; border-radius:6px; margin-bottom:14px;"></div>
+
+        <div style="display:flex; gap:8px;">
+          <button id="btn-test-whatsapp" type="button" style="flex:1; background:#f3f4f6; color:#374151; border:1px solid #d1d5db; padding:9px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">🔍 Testar Conexão</button>
+          <button id="btn-save-whatsapp" type="button" style="flex:1; background:var(--brand); color:#fff; border:none; padding:9px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">💾 Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
   <script>
@@ -722,6 +779,7 @@
   let statusFilter = 'all'; // all | unread
   let searchQ = '';
   let sseSource = null;
+  let storeProviderStatus = null; // 'connected' | 'disconnected' | 'pending' | 'none'
 
   // --- Utils ---------------------------------------------------------------
   async function api(path, opts = {}) {
@@ -765,6 +823,39 @@
     return AVATAR_COLORS[h % AVATAR_COLORS.length];
   }
 
+  // --- WhatsApp Connection Status -----------------------------------------
+  async function checkStoreWhatsAppStatus() {
+    if (!currentUser || !currentUser.store_id) return;
+    const isPro = ['Pro', 'Enterprise'].includes(currentUser.store_plan) || ['master', 'shopping', 'gestor'].includes(currentUser.role);
+    if (!isPro) return;
+
+    try {
+      const data = await api(`/api/stores/${currentUser.store_id}/whatsapp`);
+      const p = data.provider;
+      storeProviderStatus = (p && p.status === 'connected') ? 'connected' : (p ? (p.status || 'disconnected') : 'none');
+      renderWhatsAppStatusAlert();
+    } catch(e) {
+      console.error('Erro ao checar status do WhatsApp:', e);
+    }
+  }
+
+  function renderWhatsAppStatusAlert() {
+    const alertEl = document.getElementById('whatsapp-disconnected-alert');
+    if (!alertEl) return;
+
+    // Se for loja do Plano Start, nunca exibe essa tarja (Start já tem o card wa.me)
+    if (currentUser?.store_plan === 'Start' && !['master', 'shopping', 'gestor'].includes(currentUser?.role)) {
+      alertEl.style.display = 'none';
+      return;
+    }
+
+    if (storeProviderStatus && storeProviderStatus !== 'connected') {
+      alertEl.style.display = 'flex';
+    } else {
+      alertEl.style.display = 'none';
+    }
+  }
+
   // --- Auth ----------------------------------------------------------------
   async function boot() {
     try {
@@ -792,6 +883,7 @@
     await loadTags();
     await loadConversations();
     connectSSE();
+    checkStoreWhatsAppStatus();
     
     const params = new URLSearchParams(window.location.search);
     const chatId = params.get('chat_id');
@@ -932,6 +1024,10 @@
       } else if (c.owner_name) {
         ownerBadge = `<span class="status-badge" style="background:#f3f4f6; color:#4b5563; border: 1px solid #e5e7eb;">👤 ${c.owner_name.split(' ')[0]}</span>`;
       }
+      const isRepasse = (c.origin_id === 1 && currentUser?.store_id !== 1);
+      const repasseBadge = isRepasse
+        ? `<span class="status-badge" style="background:#fef3c7; color:#92400e; border: 1px solid #fde68a;">🏷️ Repasse Autoshopping</span>`
+        : '';
 
       return `
         <div class="conv-item ${unread > 0 ? 'unread' : ''} ${activeConvId === c.id ? 'active-conv' : ''}"
@@ -943,6 +1039,7 @@
             <div class="conv-meta">
               ${c.status ? `<span class="status-badge ${statusClass}">${c.status}</span>` : ''}
               ${ownerBadge}
+              ${repasseBadge}
               ${tags}
             </div>
           </div>
@@ -977,8 +1074,41 @@
 
     document.getElementById('ch-name').textContent = conv.lead_name || 'Lead';
     const ownerTxt = conv.owner_name ? ` · 👤 ${conv.owner_name.split(' ')[0]}` : '';
+    const isRepasse = (conv.origin_id === 1 && currentUser?.store_id !== 1);
+    const repasseTxt = isRepasse ? ' · 🏷️ Repasse Autoshopping' : '';
     document.getElementById('ch-sub').textContent =
-      (conv.store_name ? conv.store_name + ' · ' : '') + (conv.status || '') + ownerTxt;
+      (conv.store_name ? conv.store_name + ' · ' : '') + (conv.status || '') + ownerTxt + repasseTxt;
+
+    // Adaptação por Plano: Start vs Pro
+    const isStartPlan = (currentUser?.store_plan === 'Start') && !['master', 'shopping', 'gestor'].includes(currentUser?.role);
+    const inputBar = document.querySelector('.input-bar');
+    const startNotice = document.getElementById('start-plan-notice');
+    if (isStartPlan) {
+      if (inputBar) inputBar.style.display = 'none';
+      if (startNotice) {
+        startNotice.style.display = 'block';
+        const cleanPhone = (conv.customer_phone || '').replace(/\D/g, '');
+        const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Olá ${conv.lead_name || ''}, tudo bem? Sou da loja ${conv.store_name || ''}.`)}` : '#';
+        startNotice.innerHTML = `
+          <div style="max-width:440px; margin:0 auto; display:flex; flex-direction:column; align-items:center; gap:8px;">
+            <span style="font-size:26px;">📱</span>
+            <div style="font-weight:700; font-size:14px; color:#92400e;">Atendimento via WhatsApp (Plano Start)</div>
+            <p style="font-size:12px; color:#b45309; margin:0; line-height:1.4;">
+              No Plano Start, o contato com o lead é realizado diretamente pelo WhatsApp no seu aparelho telefônico ou WhatsApp Web.
+            </p>
+            ${cleanPhone ? `
+              <a href="${waUrl}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; display:inline-flex; align-items:center; gap:8px; background:#25D366; color:#fff; padding:9px 18px; border-radius:8px; font-weight:700; font-size:13px; text-decoration:none; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+                💬 Abrir Conversa no WhatsApp
+              </a>
+            ` : ''}
+          </div>
+        `;
+      }
+    } else {
+      if (inputBar) inputBar.style.display = '';
+      if (startNotice) startNotice.style.display = 'none';
+    }
+    renderWhatsAppStatusAlert();
 
     // Mostra botão Assumir/Devolver conforme ownership
     const claimBtn = document.getElementById('claim-btn');
@@ -1398,6 +1528,13 @@
       ${conv.store_name ? `<div class="drawer-field"><label>Loja</label><p>${conv.store_name}</p></div>` : ''}
 
       <div class="drawer-field">
+        <label>Origem do Lead</label>
+        <p>${(conv.origin_id === 1 && currentUser?.store_id !== 1)
+          ? '<span class="status-badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">🏷️ Repasse Autoshopping</span>'
+          : (conv.origin_id === 1 ? 'Central Autoshopping' : 'Loja Direta')}</p>
+      </div>
+
+      <div class="drawer-field">
         <label>Ações Rápidas</label>
         <button id="btn-nova-negociacao" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); cursor:pointer; color:#16a34a; font-weight:600; margin-top:4px;">💰 Nova Negociação</button>
       </div>
@@ -1796,18 +1933,144 @@
       } catch(e) { toast('Erro: ' + e.message); }
     });
 
-    // WhatsApp config
-    document.getElementById('sys-whatsapp').addEventListener('click', async () => {
+    // WhatsApp config & modal Z-API
+    const modalWa = document.getElementById('modal-whatsapp');
+    document.getElementById('close-modal-whatsapp')?.addEventListener('click', () => {
+      modalWa.style.display = 'none';
+    });
+
+    document.getElementById('sys-whatsapp')?.addEventListener('click', async () => {
       if (!currentUser.store_id) { toast('Sem loja associada'); return; }
-      try {
-        const data = await api(`/api/stores/${currentUser.store_id}/whatsapp`);
-        const p = data.provider;
-        if (p) {
-          toast(`WhatsApp: ${p.kind.toUpperCase()} · ${p.display_number || 'sem número'} · Status: ${p.status}`);
-        } else {
-          toast('Nenhum provider WhatsApp configurado');
+      
+      const isStart = (currentUser.store_plan === 'Start') && !['master', 'shopping', 'gestor'].includes(currentUser.role);
+      const upgradeBox = document.getElementById('whatsapp-start-upgrade');
+      const formBox = document.getElementById('whatsapp-pro-form');
+      const fb = document.getElementById('whatsapp-test-feedback');
+      if (fb) fb.style.display = 'none';
+
+      modalWa.style.display = 'flex';
+
+      if (isStart) {
+        upgradeBox.style.display = 'block';
+        formBox.style.display = 'none';
+      } else {
+        upgradeBox.style.display = 'none';
+        formBox.style.display = 'block';
+        try {
+          const data = await api(`/api/stores/${currentUser.store_id}/whatsapp`);
+          const p = data.provider;
+          if (p && p.config) {
+            document.getElementById('zapi-instance-id').value = p.config.instance_id || '';
+            document.getElementById('zapi-display-number').value = p.display_number || '';
+            // Segredos vêm mascarados pelo backend; usuário só preenche se for alterar
+            document.getElementById('zapi-instance-token').value = '';
+            document.getElementById('zapi-client-token').value = '';
+          }
+        } catch(e) {
+          console.error(e);
         }
-      } catch(e) { toast('Erro: ' + e.message); }
+      }
+    });
+
+    // Testar conexão Z-API
+    document.getElementById('btn-test-whatsapp')?.addEventListener('click', async () => {
+      const fb = document.getElementById('whatsapp-test-feedback');
+      const btn = document.getElementById('btn-test-whatsapp');
+      const instanceId = document.getElementById('zapi-instance-id').value.trim();
+      const instanceToken = document.getElementById('zapi-instance-token').value.trim();
+      const clientToken = document.getElementById('zapi-client-token').value.trim();
+      const displayNumber = document.getElementById('zapi-display-number').value.trim();
+
+      if (!instanceId || !instanceToken) {
+        toast('Preencha Instance ID e Instance Token para testar');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Testando...';
+      fb.style.display = 'block';
+      fb.style.background = '#f3f4f6';
+      fb.style.color = '#374151';
+      fb.textContent = 'Verificando status na Z-API...';
+
+      try {
+        const res = await api(`/api/stores/${currentUser.store_id}/whatsapp/test`, {
+          method: 'POST',
+          body: JSON.stringify({
+            kind: 'zapi',
+            display_number: displayNumber,
+            config: {
+              instance_id: instanceId,
+              instance_token: instanceToken,
+              client_token: clientToken
+            }
+          })
+        });
+        if (res.connected) {
+          storeProviderStatus = 'connected';
+          renderWhatsAppStatusAlert();
+          fb.style.background = '#dcfce7';
+          fb.style.color = '#166534';
+          fb.textContent = `✅ Instância conectada com sucesso! (${res.phone || 'Online'})`;
+        } else {
+          storeProviderStatus = 'disconnected';
+          renderWhatsAppStatusAlert();
+          fb.style.background = '#fee2e2';
+          fb.style.color = '#991b1b';
+          fb.textContent = `⚠️ Instância desconectada ou QR Code pendente.`;
+        }
+      } catch(e) {
+        storeProviderStatus = 'disconnected';
+        renderWhatsAppStatusAlert();
+        fb.style.background = '#fee2e2';
+        fb.style.color = '#991b1b';
+        fb.textContent = `❌ Erro no teste: ${e.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔍 Testar Conexão';
+      }
+    });
+
+    // Botão de conexão rápida na tarja de alerta
+    document.getElementById('btn-quick-connect-wa')?.addEventListener('click', () => {
+      document.getElementById('sys-whatsapp')?.click();
+    });
+
+    // Salvar configuração WhatsApp
+    document.getElementById('btn-save-whatsapp')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-save-whatsapp');
+      const instanceId = document.getElementById('zapi-instance-id').value.trim();
+      const instanceToken = document.getElementById('zapi-instance-token').value.trim();
+      const clientToken = document.getElementById('zapi-client-token').value.trim();
+      const displayNumber = document.getElementById('zapi-display-number').value.trim();
+
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      try {
+        const payload = {
+          kind: 'zapi',
+          display_number: displayNumber,
+          config: {
+            instance_id: instanceId
+          }
+        };
+        if (instanceToken) payload.config.instance_token = instanceToken;
+        if (clientToken) payload.config.client_token = clientToken;
+
+        const saveRes = await api(`/api/stores/${currentUser.store_id}/whatsapp`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+        toast('Configurações do WhatsApp salvas com sucesso! ✅');
+        modalWa.style.display = 'none';
+        storeProviderStatus = saveRes.status || 'connected';
+        renderWhatsAppStatusAlert();
+      } catch(e) {
+        toast('Erro ao salvar: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Salvar';
+      }
     });
 
     // Notificações Push
@@ -1861,13 +2124,22 @@
 
     // Alternar modo do Agente Rafael (Normal vs Feirão)
     const btnSdrMode = document.getElementById('btn-sdr-mode');
+    const isFeiraoAdmin = ['master', 'shopping', 'gestor'].includes(currentUser?.role);
     if (btnSdrMode) {
+      if (!isFeiraoAdmin) {
+        btnSdrMode.style.cursor = 'default';
+        btnSdrMode.title = 'Apenas administradores podem alterar o modo feirão';
+      }
       if (currentUser && currentUser.store_id) {
         api(`/api/stores/${currentUser.store_id}/sdr-mode`).then(data => {
           updateSdrModeUI(data.operation_mode);
         }).catch(e => console.error(e));
       }
       btnSdrMode.addEventListener('click', async () => {
+        if (!isFeiraoAdmin) {
+          toast('Apenas administradores podem alterar o modo feirão');
+          return;
+        }
         const storeId = currentUser?.store_id || 1;
         const currentMode = document.getElementById('sdr-mode-text').dataset.mode || 'normal';
         const newMode = currentMode === 'normal' ? 'feirao' : 'normal';

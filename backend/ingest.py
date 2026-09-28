@@ -10,6 +10,7 @@ from . import db, sdr, stt
 from . import supabase_client as sb
 from .events import bus
 from .settings import settings
+from .store_meta import whatsapp_for
 from .whatsapp import InboundMessage, Provider, ProviderError, load_provider_for_store
 
 from urllib.parse import quote
@@ -99,7 +100,7 @@ def _find_or_create_conversation(conn, store_id: int, phone: str, lead_name: Opt
     return dict(out)
 
 
-def _ensure_lead(conn, store_id: int, phone: str, name: Optional[str] = None) -> int:
+def _ensure_lead(conn, store_id: int, phone: str, name: Optional[str] = None, origin_id: Optional[int] = None) -> int:
     """Retorna lead_id existente para esse telefone/loja, ou cria um novo."""
     existing = conn.execute(
         "SELECT id FROM leads WHERE store_id = ? AND phone = ?",
@@ -108,12 +109,14 @@ def _ensure_lead(conn, store_id: int, phone: str, name: Optional[str] = None) ->
     if existing:
         return existing["id"]
 
+    effective_origin = origin_id if origin_id is not None else (1 if store_id == 1 else store_id)
+
     cur = conn.execute(
         """
-        INSERT INTO leads (store_id, name, car_interest, stage, score, source, phone)
-        VALUES (?, ?, 'A definir', 'Novo', 50, 'WhatsApp', ?)
+        INSERT INTO leads (store_id, name, car_interest, stage, score, source, phone, origin_id)
+        VALUES (?, ?, 'A definir', 'Novo', 50, 'WhatsApp', ?, ?)
         """,
-        (store_id, name or f"WhatsApp {phone}", phone),
+        (store_id, name or f"WhatsApp {phone}", phone, effective_origin),
     )
     return cur.lastrowid
 
@@ -545,6 +548,148 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
             "conversation_id": conv["id"],
             "status": "Humano"
         })
+
+        # Repasse de Leads: Exclusivo para o SDR Central (store_id == 1)
+        if store_id == 1 and conv.get("lead_id"):
+            try:
+                target_store = None
+                with db.tx() as conn:
+                    # 1. Determina a loja de destino
+                    if operation_mode != "feirao":
+                        lead_row = conn.execute("SELECT car_interest FROM leads WHERE id = ?", (conv["lead_id"],)).fetchone()
+                        car_interest = lead_row["car_interest"] if lead_row and "car_interest" in lead_row.keys() else None
+                        if car_interest and car_interest not in ("A definir", ""):
+                            veh = conn.execute(
+                                "SELECT store_id FROM vehicles WHERE LOWER(name) LIKE ? AND status = 'Publicado' AND store_id != 1 LIMIT 1",
+                                (f"%{car_interest.lower()}%",)
+                            ).fetchone()
+                            if veh and veh["store_id"]:
+                                target_row = conn.execute("SELECT * FROM stores WHERE id = ? AND COALESCE(is_active, 1) = 1", (veh["store_id"],)).fetchone()
+                                if target_row:
+                                    target_store = dict(target_row)
+
+                    if not target_store:
+                        target_store = select_store_round_robin(conn)
+                        if target_store and target_store.get("id") == 1:
+                            alt_row = conn.execute(
+                                "SELECT * FROM stores WHERE id != 1 AND COALESCE(is_active, 1) = 1 ORDER BY COALESCE(leads_this_month, 0) ASC LIMIT 1"
+                            ).fetchone()
+                            target_store = dict(alt_row) if alt_row else None
+
+                    if target_store and target_store["id"] != 1:
+                        target_id = target_store["id"]
+                        target_plan = target_store.get("plan") or "Start"
+                        orig_lead = conn.execute("SELECT * FROM leads WHERE id = ?", (conv["lead_id"],)).fetchone()
+                        if orig_lead:
+                            # 2. Cria cópia do Lead com origin_id = 1 e store_id = target_id
+                            cur_lead = conn.execute(
+                                """
+                                INSERT INTO leads (
+                                    store_id, name, car_interest, stage, score, budget, source, phone,
+                                    city, trade_in_car, payment_preference, searched_history_json, origin_id
+                                )
+                                VALUES (?, ?, ?, 'Qualificado', ?, ?, 'Repasse Autoshopping', ?, ?, ?, ?, ?, 1)
+                                """,
+                                (
+                                    target_id,
+                                    orig_lead["name"],
+                                    orig_lead["car_interest"],
+                                    orig_lead["score"] or 50,
+                                    orig_lead["budget"],
+                                    orig_lead["phone"],
+                                    orig_lead["city"],
+                                    orig_lead["trade_in_car"],
+                                    orig_lead["payment_preference"],
+                                    orig_lead["searched_history_json"],
+                                )
+                            )
+                            copied_lead_id = cur_lead.lastrowid
+
+                            # 3. Cria conversa no painel da loja com status Humano
+                            preview_text = f"Repasse Autoshopping ({target_plan})"
+                            cur_conv = conn.execute(
+                                """
+                                INSERT INTO conversations (
+                                    store_id, lead_id, lead_name, intent, status, details_json, customer_phone, last_preview
+                                )
+                                VALUES (?, ?, ?, ?, 'Humano', '{}', ?, ?)
+                                """,
+                                (
+                                    target_id,
+                                    copied_lead_id,
+                                    orig_lead["name"],
+                                    orig_lead["car_interest"],
+                                    cust_phone,
+                                    preview_text,
+                                )
+                            )
+                            copied_conv_id = cur_conv.lastrowid
+
+                            # Atualiza contadores da loja destino
+                            conn.execute(
+                                """
+                                UPDATE stores
+                                SET total_leads = COALESCE(total_leads, 0) + 1,
+                                    leads_this_month = COALESCE(leads_this_month, 0) + 1,
+                                    updated_at = CURRENT_TIMESTAMP
+                                WHERE id = ?
+                                """,
+                                (target_id,)
+                            )
+
+                            summary_msg = (
+                                f"🚗 *Novo Lead Qualificado pelo Auto Shopping!*\n\n"
+                                f"👤 *Cliente:* {orig_lead['name']}\n"
+                                f"📱 *WhatsApp:* {cust_phone}\n"
+                                f"🚘 *Interesse:* {orig_lead['car_interest'] or 'A consultar'}\n"
+                                f"📍 *Cidade:* {orig_lead['city'] or 'Não informada'}\n"
+                                f"🔄 *Troca:* {orig_lead['trade_in_car'] or 'Não informada'}\n"
+                                f"💰 *Pagamento:* {orig_lead['payment_preference'] or 'Não informada'}\n\n"
+                                f"Acesse o WhatsApp do cliente para prosseguir com o atendimento!"
+                            )
+
+                            conn.execute(
+                                """
+                                INSERT INTO messages (conversation_id, sender, body, customer_name, customer_phone)
+                                VALUES (?, 'agent', ?, ?, ?)
+                                """,
+                                (
+                                    copied_conv_id,
+                                    summary_msg,
+                                    orig_lead["name"],
+                                    cust_phone,
+                                )
+                            )
+
+                            store_phone = target_store.get("store_number") or target_store.get("whatsapp") or whatsapp_for(target_store.get("name"))
+
+                            # 4. Bifurcação por Plano
+                            if target_plan in ("Pro", "Enterprise"):
+                                await bus.publish({
+                                    "type": "conversation.created",
+                                    "store_id": target_id,
+                                    "conversation_id": copied_conv_id,
+                                    "sender": "agent",
+                                    "body": f"Novo Lead repassado pelo Autoshopping: {orig_lead['name']}",
+                                    "customer_name": orig_lead["name"],
+                                    "customer_phone": cust_phone,
+                                })
+                            else:
+                                if store_phone and provider:
+                                    try:
+                                        await provider.send_text(store_phone, summary_msg)
+                                    except Exception as send_err:
+                                        logger.warning("Falha ao enviar WhatsApp de repasse para loja %s: %s", target_store["name"], send_err)
+
+                                record_message_sent(
+                                    conn,
+                                    store_name=target_store["name"],
+                                    store_number=store_phone or "",
+                                    store_focal=target_store.get("store_focal") or target_store["name"],
+                                    message=summary_msg,
+                                )
+            except Exception as repasse_err:
+                logger.exception("Falha ao executar repasse do lead qualificado: %s", repasse_err)
 
     # billing do consumo IA
     if tenant_id and (usage.get("total_tokens") or usage.get("cost_usd")):

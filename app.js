@@ -45,9 +45,8 @@ const ROLE_LABELS = {
       inbox: "Auditoria de atendimento",
       vehicles: "Estoque central",
       stores: "Lojistas assinantes",
-      team: "Equipe do Shopping",
     },
-    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores", "team"],
+    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores"],
     commands: [
       ["Fila humana", "Atendentes assumem conversas quando o SDR identifica negociação, troca ou dúvida sensível.", "Abrir inbox"],
       ["Performance por lojista", "Veja quem gera mais leads, quem responde melhor e quem está deixando oportunidade esfriar.", "Comparar lojas"],
@@ -74,9 +73,8 @@ const ROLE_LABELS = {
       inbox: "Auditoria de atendimento",
       vehicles: "Estoque central",
       stores: "Lojistas assinantes",
-      team: "Equipe do Shopping",
     },
-    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores", "team"],
+    allowedViews: ["overview", "crm", "inbox", "vehicles", "stores"],
     commands: [
       ["Fila humana", "Atendentes assumem conversas quando o SDR identifica negociação, troca ou dúvida sensível.", "Abrir inbox"],
       ["Performance por lojista", "Veja quem gera mais leads, quem responde melhor e quem está deixando oportunidade esfriar.", "Comparar lojas"],

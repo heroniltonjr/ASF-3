@@ -152,23 +152,49 @@ def _unavailable(exc: sb.SupabaseError) -> HTTPException:
 
 
 def _active_stores() -> list[dict]:
-    """Deriva a lista de lojas a partir do texto `store` dos veículos ativos."""
+    """Retorna apenas lojas do tipo 'Lojista' com status 'Ativo', com contagem de estoque e metadados."""
+    with db.tx() as conn:
+        db_rows = conn.execute(
+            "SELECT id, name, type, plan, status FROM stores WHERE type = 'Lojista' AND status = 'Ativo'"
+        ).fetchall()
+
+    if not db_rows:
+        return []
+
     rows, _ = sb.select(
         sb.VEHICLES,
         params=[("select", "store"), ("active", "eq.true"), ("sold", "eq.false"),
                 ("limit", "10000")],
     )
-    counts: dict[str, int] = {}
+    counts_by_name: dict[str, int] = {}
+    counts_by_norm: dict[str, int] = {}
+    raw_store_names: dict[str, str] = {}
     for row in rows:
-        name = _clean(row.get("store"))
-        if name:
-            counts[name] = counts.get(name, 0) + 1
+        st = _clean(row.get("store"))
+        if st:
+            lower = st.lower()
+            counts_by_name[lower] = counts_by_name.get(lower, 0) + 1
+            raw_store_names[lower] = st
+
+            n = store_meta.norm(st)
+            counts_by_norm[n] = counts_by_norm.get(n, 0) + 1
+            if n not in raw_store_names:
+                raw_store_names[n] = st
+
     stores = []
-    for name, n in counts.items():
+    for r in db_rows:
+        row_dict = dict(r)
+        name = row_dict["name"]
+        norm_name = store_meta.norm(name)
+        active_count = counts_by_name.get(name.lower(), counts_by_norm.get(norm_name, 0))
+        store_id = raw_store_names.get(name.lower(), raw_store_names.get(norm_name, name))
         meta = store_meta.lookup(name) or {}
         stores.append({
-            "id": name, "name": name, "type": "Lojista", "plan": "Parceiro",
-            "active_vehicles": n,
+            "id": store_id,
+            "name": name,
+            "type": row_dict.get("type", "Lojista"),
+            "plan": row_dict.get("plan") or "Parceiro",
+            "active_vehicles": active_count,
             "logo": meta.get("logo"),
             "city": meta.get("city"),
             "address": meta.get("address"),

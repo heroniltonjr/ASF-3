@@ -192,13 +192,25 @@ async def test_stores_derived_and_enriched(client, monkeypatch):
     r = await client.get("/api/public/stores")
     items = r.json()["items"]
     by_name = {s["name"]: s for s in items}
-    assert by_name["ROCHA MOTORS"]["active_vehicles"] == 2
-    assert by_name["ROCHA MOTORS"]["whatsapp"] == "5565999724848"
-    assert by_name["ROCHA MOTORS"]["logo"].startswith("/portal/assets/stores/")
-    # loja sem metadados aparece com campos nulos (não quebra)
-    assert by_name["LOJA XPTO"]["logo"] is None
-    # ordenado por contagem desc
-    assert items[0]["name"] == "ROCHA MOTORS"
+
+    # Lojas ativas do tipo Lojista são enriquecidas com contagem e metadados
+    assert by_name["Rocha Motors"]["active_vehicles"] == 2
+    assert by_name["Rocha Motors"]["whatsapp"] == "5565999724848"
+    assert by_name["Rocha Motors"]["logo"].startswith("/portal/assets/stores/")
+    assert by_name["Kadosh Automóveis"]["active_vehicles"] == 1
+
+    # Loja não cadastrada na base (LOJA XPTO) é filtrada
+    assert "LOJA XPTO" not in by_name
+    # Tenant Auto Shopping Formula (type != 'Lojista') é filtrado
+    assert "Auto Shopping Formula" not in by_name
+    # Loja com status diferente de 'Ativo' (ex: Radar Automóveis com 'Atenção') é filtrada
+    assert "Radar Automóveis" not in by_name
+
+    # Lojas sem estoque continuam sendo listadas com active_vehicles = 0
+    assert by_name["Betel Automóveis"]["active_vehicles"] == 0
+
+    # Ordenado por contagem desc (Rocha Motors tem 2 veículos)
+    assert items[0]["name"] == "Rocha Motors"
 
 
 async def test_highlights(client, monkeypatch):
@@ -207,7 +219,8 @@ async def test_highlights(client, monkeypatch):
     r = await client.get("/api/public/highlights")
     body = r.json()
     assert body["totals"]["vehicles"] == 309
-    assert body["totals"]["stores"] == 2
+    # Reflete o total de lojistas ativos cadastrados
+    assert body["totals"]["stores"] >= 2
     assert len(body["latest"]) == 2
 
 

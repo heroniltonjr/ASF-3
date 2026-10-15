@@ -515,6 +515,10 @@ async function initLojasPage() {
   if (!container) return;
   try {
     const data = await fetchJSON('/api/public/stores');
+    const eyebrow = document.querySelector('.hero-eyebrow');
+    if (eyebrow && data.items && data.items.length) {
+      eyebrow.textContent = `${data.items.length} parceiras`;
+    }
     container.innerHTML = data.items.map(storeCardHTML).join('');
   } catch (err) {
     console.error(err);

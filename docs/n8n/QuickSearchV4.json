@@ -1,0 +1,342 @@
+{
+  "name": "QuickSearchV4",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "autoformula-quick-search-v4",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f0b6441d-3c05-4062-b88b-b79f0ea58a07",
+      "name": "QuickSearchV4",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "7000d326-17e2-4d00-9d0b-3e9620c02292"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "n-search",
+              "name": "search_text",
+              "type": "string",
+              "value": "={{ [$json.body?.query, $json.body?.brand, $json.body?.model, $json.body?.category].map(v => (v ?? \"\").toString().replace(/\\r?\\n/g, \" \").trim()).filter(v => v && v !== \"null\" && v !== \"_ALL_\").join(\" \") }}"
+            },
+            {
+              "id": "n-yf",
+              "name": "year_from",
+              "type": "number",
+              "value": "={{ Number($json.body?.year_from) > 0 ? Number($json.body.year_from) : 1949 }}"
+            },
+            {
+              "id": "n-yt",
+              "name": "year_to",
+              "type": "number",
+              "value": "={{ Number($json.body?.year_to) > 0 ? Number($json.body.year_to) : $now.year }}"
+            },
+            {
+              "id": "n-pmin",
+              "name": "price_min",
+              "type": "number",
+              "value": "={{ Number($json.body?.price_min) > 0 ? Number($json.body.price_min) : 20000 }}"
+            },
+            {
+              "id": "n-pmax",
+              "name": "price_max",
+              "type": "number",
+              "value": "={{ Number($json.body?.price_max) > 0 ? Number($json.body.price_max) : 300000 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2c9fff7-4824-49cf-9741-8332ae0f8789",
+      "name": "Normalizar entrada",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.search_text }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1ffb0698-0a77-4e5b-854c-62b1e7759054",
+      "name": "Tem texto de busca?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"text-embedding-3-small\", input: $json.search_text }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "42c457a9-323b-4448-ae0e-cea6cf3758dc",
+      "name": "Embedding da busca (OpenAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        -96
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "U5QFhNEMMri9h40s",
+          "name": "OpenAi account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e-txt",
+              "name": "search_text",
+              "type": "string",
+              "value": "={{ $(\"Normalizar entrada\").item.json.search_text }}"
+            },
+            {
+              "id": "e-emb",
+              "name": "embedding",
+              "type": "string",
+              "value": "={{ $json.data?.[0]?.embedding ? \"[\" + $json.data[0].embedding.join(\",\") + \"]\" : \"\" }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4b3d975e-c161-40ca-8b45-312f5cbf745c",
+      "name": "Parâmetros com embedding",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select * from search_vehicles(nullif($1::text, ''), nullif($2::text, '')::vector, $3::int, $4::int, $5::numeric, $6::numeric, 15);",
+        "options": {
+          "queryReplacement": "={{ [ $json.search_text, $json.embedding, $(\"Normalizar entrada\").first().json.year_from, $(\"Normalizar entrada\").first().json.year_to, $(\"Normalizar entrada\").first().json.price_min, $(\"Normalizar entrada\").first().json.price_max ] }}"
+        }
+      },
+      "id": "01651fa7-12bc-4a8d-87ac-5fa00a43fcbe",
+      "name": "Busca híbrida (search_vehicles)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1104,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s-txt",
+              "name": "search_text",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "id": "s-emb",
+              "name": "embedding",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d8b533a7-8908-4a37-9103-2fbd0e804d23",
+      "name": "Parâmetros sem texto",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "561814cb-6e17-490b-9d08-139448cee5eb",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1328,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## QuickSearchV4 — busca híbrida\nMesmo contrato do V3 (brand, model, category, year_from, year_to, price_min, price_max) + campo opcional query (texto livre). Marca/modelo/categoria viram busca tolerante (trigramas + vetorial) em vez de ILIKE. Retorna match_type: exato | similar | filtro.",
+        "color": 5
+      },
+      "id": "f38e2a1e-88f6-4782-ac64-2369177da016",
+      "name": "Sticky Note 21952c58",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "QuickSearchV4": {
+      "main": [
+        [
+          {
+            "node": "Normalizar entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar entrada": {
+      "main": [
+        [
+          {
+            "node": "Tem texto de busca?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem texto de busca?": {
+      "main": [
+        [
+          {
+            "node": "Embedding da busca (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parâmetros sem texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embedding da busca (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Parâmetros com embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parâmetros com embedding": {
+      "main": [
+        [
+          {
+            "node": "Busca híbrida (search_vehicles)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busca híbrida (search_vehicles)": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parâmetros sem texto": {
+      "main": [
+        [
+          {
+            "node": "Busca híbrida (search_vehicles)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "56b3d2ae-ff72-4c22-81e8-06460af15362",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "c3654042945384c4a54173c01471c8b89a69bd29ba1cd23f39817429dee1a884"
+  },
+  "nodeGroups": [],
+  "id": "BGoP0yIvZbR9ghDV",
+  "tags": []
+}

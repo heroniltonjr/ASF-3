@@ -1,6 +1,8 @@
 """Orquestra o ingest de mensagens WhatsApp e a resposta do SDR."""
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import json
 import logging
 import re
@@ -9,6 +11,8 @@ from typing import Optional
 from . import db, sdr, stt
 from . import supabase_client as sb
 from .events import bus
+from .schemas.search import SearchRequest
+from .services.hybrid_search import search_vehicles
 from .settings import settings
 from .store_meta import whatsapp_for
 from .whatsapp import InboundMessage, Provider, ProviderError, load_provider_for_store
@@ -16,6 +20,20 @@ from .whatsapp import InboundMessage, Provider, ProviderError, load_provider_for
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
+
+
+def _run_coroutine_sync(coro):
+    """Executa corrotina assíncrona com segurança dentro ou fora de event loops ativos."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+    else:
+        return asyncio.run(coro)
 
 # Preços-base do WhatsApp (BRL/mensagem). Tunáveis no futuro por env/tenant.
 WHATSAPP_IN_BRL = 0.05
@@ -222,90 +240,37 @@ def record_message_sent(conn, store_name: str, store_number: str, store_focal: s
 
 
 def search_vehicles_advanced(conn, store_id: int, incoming_text: str = "", is_feirao: bool = False) -> str:
-    """Realiza uma busca direcionada por intenção no Supabase (ou no SQLite local) em tempo real.
+    """Realiza busca híbrida de veículos por intenção e semântica no estoque (Story 4.3).
 
-    Traz apenas os 3 a 5 veículos mais relevantes que casam com o pedido do cliente.
-    Se não houver o modelo exato, busca alternativas similares na mesma faixa.
+    Traz os veículos mais relevantes que casam com o pedido do cliente.
+    Em modo feirão busca em todo o shopping; em modo normal restringe à loja.
+    Se não encontrar correspondência direta, apresenta alternativas do estoque.
     """
-    txt = (incoming_text or "").lower()
-    keywords = ["corolla", "civic", "sentra", "cruze", "compass", "renegade", "creta", "tracker", "kicks", "t-cross", "nivus", "hr-v", "fit", "hb20", "onix", "argo", "gol", "palio", "hilux", "s10", "ranger", "toro", "suv", "sedan", "hatch", "picape", "pickup"]
-    found_kw = [kw for kw in keywords if kw in txt]
+    effective_store_ids = None if is_feirao else [store_id]
+    query_text = (incoming_text or "").strip() or None
 
-    # 1. Tenta consulta via Supabase PostgREST se configurado
-    if sb.is_configured():
-        try:
-            params = [
-                ("select", "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image,pictures"),
-                ("order", "price.asc"),
-                ("limit", "5")
-            ]
-            if found_kw:
-                or_conds = ",".join([f"name.ilike.*{kw}*,model.ilike.*{kw}*" for kw in found_kw])
-                params.append(("or", f"({or_conds})"))
+    try:
+        req = SearchRequest(query=query_text, store_ids=effective_store_ids, limit=5)
+        hits = _run_coroutine_sync(search_vehicles(req=req, store_ids=effective_store_ids))
 
-            rows, _ = sb.select(sb.VEHICLES, params=params)
+        # Se não encontrou veículos com o texto solicitado, busca alternativas gerais do estoque
+        if not hits and query_text:
+            fallback_req = SearchRequest(store_ids=effective_store_ids, limit=5)
+            hits = _run_coroutine_sync(search_vehicles(req=fallback_req, store_ids=effective_store_ids))
 
-            # Fallback no Supabase: se não achou com filtro exato, busca veículos gerais em oferta
-            if not rows and found_kw:
-                params_fallback = [
-                    ("select", "identifier,name,brand,model,km,price,exchange,fuel_text,store,main_image,pictures"),
-                    ("order", "price.asc"),
-                    ("limit", "5")
-                ]
-                rows, _ = sb.select(sb.VEHICLES, params=params_fallback)
-
-            if rows:
-                formatted_lines = []
-                for r in rows:
-                    pics = _extract_pictures(r.get("main_image"), r.get("pictures"))
-                    pics_str = ", ".join(pics) if pics else "Sem foto"
-                    formatted_lines.append(f"- {r.get('name') or r.get('model')} | R$ {r.get('price')} | {r.get('km') or 'N/A'} | {r.get('exchange') or ''} | Fotos: {pics_str} | Loja: {r.get('store') or 'Shopping'}")
-                return "\n".join(formatted_lines)
-        except Exception as exc:
-            logger.warning("Falha na consulta ao Supabase, caindo para SQLite: %s", exc)
-
-    # 2. Fallback SQLite local (desenvolvimento / testes / offline)
-    query_parts = ["v.status = 'Publicado'"]
-    params = []
-
-    if found_kw:
-        kw_conditions = []
-        for kw in found_kw:
-            kw_conditions.append("LOWER(v.name) LIKE ?")
-            params.append(f"%{kw}%")
-        query_parts.append(f"({' OR '.join(kw_conditions)})")
-
-    where_clause = " AND ".join(query_parts)
-
-    rows = conn.execute(
-        f"SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, v.image_path, s.name as store_name "
-        f"FROM vehicles v JOIN stores s ON s.id = v.store_id "
-        f"WHERE {where_clause} ORDER BY v.price ASC LIMIT 5",
-        params
-    ).fetchall()
-
-    if not rows and found_kw:
-        # Fallback SQLite sem o filtro de palavra-chave (traz opções gerais do estoque)
-        rows = conn.execute(
-            "SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, v.image_path, s.name as store_name "
-            "FROM vehicles v JOIN stores s ON s.id = v.store_id "
-            "WHERE v.status = 'Publicado' ORDER BY v.price ASC LIMIT 5"
-        ).fetchall()
-
-    if not rows:
-        rows = conn.execute(
-            "SELECT v.name, v.price, v.mileage, v.transmission, v.fuel, v.image_path, s.name as store_name "
-            "FROM vehicles v JOIN stores s ON s.id = v.store_id "
-            "WHERE v.status = 'Publicado' ORDER BY v.price ASC LIMIT 5"
-        ).fetchall()
-
-    if rows:
-        formatted_lines = []
-        for r in rows:
-            pics = _extract_pictures(r['image_path'], r['pictures_json'] if 'pictures_json' in r.keys() else None)
-            pics_str = ", ".join(pics) if pics else "Sem foto"
-            formatted_lines.append(f"- {r['name']} | R$ {r['price']} | {r['mileage'] or 'N/A'} | {r['transmission'] or ''} | {r['fuel'] or ''} | Fotos: {pics_str} | Loja: {r['store_name']}")
-        return "\n".join(formatted_lines)
+        if hits:
+            formatted_lines = []
+            for hit in hits:
+                pics = _extract_pictures(hit.main_image)
+                pics_str = ", ".join(pics) if pics else "Sem foto"
+                tag = f"[{hit.match_type.upper()}] " if hit.match_type != "filtro" else ""
+                formatted_lines.append(
+                    f"- {tag}{hit.name or hit.model} | R$ {hit.price} | {hit.km or 'N/A'} | "
+                    f"{hit.exchange or ''} | {hit.fuel_text or ''} | Fotos: {pics_str} | Loja: {hit.store or 'Shopping'}"
+                )
+            return "\n".join(formatted_lines)
+    except Exception as exc:
+        logger.warning("Falha na busca híbrida de veículos, caindo para fallback: %s", exc)
 
     return "Nenhum veículo disponível no momento."
 

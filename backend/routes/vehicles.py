@@ -1,12 +1,13 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from PIL import Image
 import io
 
 from .. import db
 from ..deps import STORE_SCOPED_ROLES, require_roles
 from ..services import media_service
+from ..services.embeddings_worker import trigger_embeddings_sync
 
 router = APIRouter()
 _ALL = require_roles("master", "shopping", "lojista", "gestor", "vendedor")
@@ -284,7 +285,11 @@ def _sync_vehicle_data(data: dict, conn: Any = None) -> None:
 
 
 @router.post("/vehicles", status_code=201)
-def create_vehicle(payload: dict, user: dict = Depends(_ALL)):
+def create_vehicle(
+    payload: dict,
+    background_tasks: BackgroundTasks = None,
+    user: dict = Depends(_ALL),
+):
     if user["role"] in STORE_SCOPED_ROLES:
         payload["store_id"] = user["store_id"]
 
@@ -327,7 +332,10 @@ def create_vehicle(payload: dict, user: dict = Depends(_ALL)):
                 (cur.lastrowid,),
             ).fetchone()
 
-        return {"vehicle": _format_vehicle_row(dict(row))}
+            out_row = _format_vehicle_row(dict(row))
+        if background_tasks is not None:
+            trigger_embeddings_sync(background_tasks)
+        return {"vehicle": out_row}
     except HTTPException:
         raise
     except Exception as exc:
@@ -336,7 +344,12 @@ def create_vehicle(payload: dict, user: dict = Depends(_ALL)):
 
 
 @router.patch("/vehicles/{vid}")
-def update_vehicle(vid: int, payload: dict, user: dict = Depends(_ALL)):
+def update_vehicle(
+    vid: int,
+    payload: dict,
+    background_tasks: BackgroundTasks = None,
+    user: dict = Depends(_ALL),
+):
     if user["role"] in STORE_SCOPED_ROLES:
         payload.pop("store_id", None)
         payload.pop("store", None)
@@ -371,7 +384,10 @@ def update_vehicle(vid: int, payload: dict, user: dict = Depends(_ALL)):
                 (vid,),
             ).fetchone()
 
-        return {"vehicle": _format_vehicle_row(dict(out))}
+            out_row = _format_vehicle_row(dict(out))
+        if background_tasks is not None:
+            trigger_embeddings_sync(background_tasks)
+        return {"vehicle": out_row}
     except HTTPException:
         raise
     except Exception as exc:

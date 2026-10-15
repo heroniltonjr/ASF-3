@@ -23,7 +23,7 @@ TABLES = [
     'tenants', 'stores', 'users', 'vehicles', 'leads', 'conversations',
     'messages', 'billing_events', 'auth_sessions', 'invites', 'lgpd_audit',
     'tags', 'lead_tags', 'lead_notes', 'whatsapp_providers', 'whatsapp_events',
-    'push_subscriptions', 'messages_sent', 'customer_purchases'
+    'push_subscriptions', 'messages_sent', 'customer_purchases', 'vehicle_embeddings'
 ]
 
 
@@ -116,6 +116,13 @@ class SQLToPostgresCursorWrapper:
                 pass
         return self
 
+    def executemany(self, query: str, seq_of_vars: Any) -> SQLToPostgresCursorWrapper:
+        adapted_query = rewrite_sql(query)
+        for vars in seq_of_vars:
+            adapted_vars = _adapt_postgres_vars(adapted_query, vars)
+            self._cur.execute(adapted_query, adapted_vars)
+        return self
+
     @property
     def lastrowid(self) -> Any:
         return self._lastrowid
@@ -168,6 +175,11 @@ class SQLToPostgresConnectionWrapper:
     def execute(self, sql: str, params: Any = None) -> SQLToPostgresCursorWrapper:
         cur = self.cursor()
         cur.execute(sql, params)
+        return cur
+
+    def executemany(self, sql: str, seq_of_vars: Any) -> SQLToPostgresCursorWrapper:
+        cur = self.cursor()
+        cur.executemany(sql, seq_of_vars)
         return cur
 
     def commit(self) -> None:

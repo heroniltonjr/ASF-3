@@ -1,0 +1,153 @@
+{
+  "name": "AtualizaDatabase",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Código para nó \"Code\" do n8n\n// Converte o cURL PHP original em JavaScript com tratamento de erros\n\nconst options = {\n  method: 'POST',\n  url: 'https://www.autoshoppingformula.com.br/apis/get-token-import',\n  headers: {\n    'Content-Type': 'application/json',\n  },\n  body: {\n    login: 'agentesdr',\n    password: 'nPrYqH7rCsUH328',\n    client_id: 'trinix_veiculo',\n    token_opc: 1,\n  },\n  json: true, // garante que o corpo seja enviado e recebido como JSON\n};\n\nasync function run() {\n  try {\n    const response = await this.helpers.request(options);\n\n    // Retorna o resultado como um objeto n8n\n    return [\n      {\n        success: true,\n        data: response,\n      },\n    ];\n  } catch (error) {\n    // Captura e retorna o erro detalhado\n    return [\n      {\n        success: false,\n        error: error.message || 'Erro desconhecido',\n        stack: error.stack || null,\n      },\n    ];\n  }\n}\n\nreturn run();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        192
+      ],
+      "id": "1a089476-bc70-48d0-87ca-34a98dbb4de8",
+      "name": "Get Token",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.autoshoppingformula.com.br/get-veiculos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Get Token\"].json.data.access_token}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n   \"get_opc\": 1\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -96,
+        192
+      ],
+      "id": "ee60c387-49df-43c1-9724-65d67ef62ec1",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with payload as (\n  -- aceita tanto um array de veículos quanto um único objeto\n  select case jsonb_typeof($1::jsonb)\n           when 'array'  then $1::jsonb\n           when 'object' then jsonb_build_array($1::jsonb)\n           else '[]'::jsonb\n         end as body\n),\nrows as (\n  select\n    v->>'identifier'                               as identifier,\n    v->>'unit_id'                                  as unit_id,\n    v->>'name'                                     as name,\n    v->>'brand'                                    as brand,\n    v->>'model'                                    as model,\n    v->>'version'                                  as version,\n    nullif(v->>'model_year','')::int               as model_year,\n    nullif(v->>'fabrication_year','')::int         as fabrication_year,\n    nullif(v->>'km','')::int                       as km,\n    nullif(replace(v->>'price',',','.'),'')::numeric(12,2) as price,\n    v->>'exchange'                                 as exchange,\n    v->>'fuel_text'                                as fuel_text,\n    v->>'color'                                    as color,\n    nullif(v->>'doors','')::int                    as doors,\n    v->>'kind'                                     as kind,\n    v->>'note'                                     as note,\n    -- arrays sempre presentes (evita erro quando vier null)\n    (select coalesce(array_agg(x::text), '{}')\n       from jsonb_array_elements_text(coalesce(v->'item_list','[]'::jsonb)) x) as item_list,\n    coalesce(v->'pictures_attributes','[]'::jsonb) as pictures,\n    v->>'remote_profile_image_url'                 as main_image,\n    v->>'store'                                    as store,\n    v->>'plate'                                    as plate,\n    v->>'category'                                 as category,\n    coalesce((v->>'sold')::int,0)        = 1       as sold,\n    coalesce((v->>'in_transit')::int,0)  = 1       as in_transit,\n    coalesce((v->>'new_vehicle')::int,0) = 1       as new_vehicle,\n    coalesce((v->>'featured')::int,0)    = 1       as featured,\n    coalesce((v->>'shielded')::int,0)    = 1       as shielded,\n\n    -- *** SANITIZAÇÃO DE DATA ***\n    case\n      when coalesce(v->>'synced_at','') = '' then null\n      when v->>'synced_at' = '0000-00-00 00:00:00' then null\n      when (v->>'synced_at') ~ '^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$'\n        then (v->>'synced_at')::timestamp\n      else null\n    end::timestamptz                               as synced_at,\n\n    v                                              as raw\n  from payload, jsonb_array_elements(payload.body) v\n),\nins as (\n  insert into vehicles as t (\n    identifier, unit_id, name, brand, model, version, model_year, fabrication_year, km, price,\n    exchange, fuel_text, color, doors, kind, note, item_list, pictures, main_image, store,\n    plate, category, sold, in_transit, new_vehicle, featured, shielded, synced_at, batch_id, active, raw\n  )\n  select\n    r.identifier, r.unit_id, r.name, r.brand, r.model, r.version, r.model_year, r.fabrication_year, r.km, r.price,\n    r.exchange, r.fuel_text, r.color, r.doors, r.kind, r.note, r.item_list, r.pictures, r.main_image, r.store,\n    r.plate, r.category, r.sold, r.in_transit, r.new_vehicle, r.featured, r.shielded, r.synced_at,\n    now(), true, r.raw\n  from rows r\n  on conflict (identifier) do update\n  set unit_id          = excluded.unit_id,\n      name             = excluded.name,\n      brand            = excluded.brand,\n      model            = excluded.model,\n      version          = excluded.version,\n      model_year       = excluded.model_year,\n      fabrication_year = excluded.fabrication_year,\n      km               = excluded.km,\n      price            = excluded.price,\n      exchange         = excluded.exchange,\n      fuel_text        = excluded.fuel_text,\n      color            = excluded.color,\n      doors            = excluded.doors,\n      kind             = excluded.kind,\n      note             = excluded.note,\n      item_list        = excluded.item_list,\n      pictures         = excluded.pictures,\n      main_image       = excluded.main_image,\n      store            = excluded.store,\n      plate            = excluded.plate,\n      category         = excluded.category,\n      sold             = excluded.sold,\n      in_transit       = excluded.in_transit,\n      new_vehicle      = excluded.new_vehicle,\n      featured         = excluded.featured,\n      shielded         = excluded.shielded,\n      synced_at        = excluded.synced_at,\n      batch_id         = excluded.batch_id,\n      active           = true,\n      raw              = excluded.raw\n  returning 1\n),\nsoft as (\n  update vehicles t\n  set active = false\n  where t.active = true\n    and t.batch_id < (select max(batch_id) from vehicles)\n    and not exists (select 1 from rows r where r.identifier = t.identifier)\n  returning 1\n)\nselect\n  (select count(*) from rows) as input_rows,\n  (select count(*) from ins)  as upserts,\n  (select count(*) from soft) as deactivated;\n",
+        "options": {
+          "queryReplacement": "={{$json.body.toJsonString()}}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        112,
+        192
+      ],
+      "id": "fce961a8-1bd3-4fe6-8122-d96db8c12dfb",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -512,
+        192
+      ],
+      "id": "f59de93d-0b43-4b00-9021-e9f07893ad01",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get Token": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "469acaba-098f-4a48-95b8-f038d9378ee9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c3654042945384c4a54173c01471c8b89a69bd29ba1cd23f39817429dee1a884"
+  },
+  "nodeGroups": [],
+  "id": "3842zkLKYLayIZA3",
+  "tags": []
+}

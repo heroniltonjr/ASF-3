@@ -24,6 +24,7 @@ from .routes import (
     notes,
     public,
     push,
+    search,
     stores,
     tags,
     vehicles,
@@ -74,6 +75,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router, prefix="/api", tags=["auth"])
     app.include_router(stores.router,      prefix="/api", tags=["stores"])
     app.include_router(vehicles.router,    prefix="/api", tags=["vehicles"])
+    app.include_router(search.router,      prefix="/api", tags=["search"])
     app.include_router(leads.router,       prefix="/api", tags=["leads"])
     app.include_router(conversations.router, prefix="/api", tags=["conversations"])
     # whatsapp router já traz seus próprios prefixos (/api/... e /webhooks/...)

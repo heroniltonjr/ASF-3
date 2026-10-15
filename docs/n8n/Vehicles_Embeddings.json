@@ -1,0 +1,209 @@
+{
+  "name": "Vehicles_Embeddings",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "d8a391a5-f4ce-4d5d-bed6-0f8cc766809f",
+      "name": "A cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select identifier, embedding_text from vehicles where active and embedding is null and coalesce(embedding_text, '') <> '' order by synced_at desc nulls last limit 300;",
+        "options": {}
+      },
+      "id": "9928cac6-c48a-46bc-a481-e8c3311fe887",
+      "name": "Buscar veículos sem embedding",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"text-embedding-3-small\", input: $input.all().map(i => i.json.embedding_text) }) }}",
+        "options": {}
+      },
+      "id": "296fa248-d50f-46f7-914b-7c69ffab5463",
+      "name": "Gerar embeddings (OpenAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        112
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "U5QFhNEMMri9h40s",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $(\"Buscar veículos sem embedding\").all();\nconst data = $input.first().json.data || [];\nreturn data.map(d => ({ json: { identifier: rows[d.index].json.identifier, embedding: \"[\" + d.embedding.join(\",\") + \"]\" } }));"
+      },
+      "id": "6f895f1b-742f-499c-bd1e-49d51e20a21a",
+      "name": "Parear embedding com veículo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update vehicles set embedding = $1::vector, embedded_at = now() where identifier = $2;",
+        "options": {
+          "queryReplacement": "={{ [$json.embedding, $json.identifier] }}"
+        }
+      },
+      "id": "f68e5498-258e-49bf-a837-4f25bcfd8a6c",
+      "name": "Salvar embedding",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        960,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Oy4QlPqWbgYpT5ui",
+          "name": "PostgresAraraAzul"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "4c7ca9cf-8509-49fe-a5a3-4cb24adcf1fb",
+      "name": "Executar manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Embeddings do estoque\nGera embeddings (text-embedding-3-small) para veículos ativos sem embedding. O trigger no Supabase zera o embedding quando o texto do veículo muda, então este fluxo só reprocessa o que mudou.",
+        "height": 224,
+        "width": 880,
+        "color": 4
+      },
+      "id": "caf6ae6e-cfe3-4035-bee9-09bfbe535594",
+      "name": "Sticky Note 3ee08534",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "A cada 15 minutos": {
+      "main": [
+        [
+          {
+            "node": "Buscar veículos sem embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar veículos sem embedding": {
+      "main": [
+        [
+          {
+            "node": "Gerar embeddings (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar embeddings (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Parear embedding com veículo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parear embedding com veículo": {
+      "main": [
+        [
+          {
+            "node": "Salvar embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executar manualmente": {
+      "main": [
+        [
+          {
+            "node": "Buscar veículos sem embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "f016f1e2-575d-489d-b6f8-1e505516539c",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "c3654042945384c4a54173c01471c8b89a69bd29ba1cd23f39817429dee1a884"
+  },
+  "nodeGroups": [],
+  "id": "syFh39aJvi53SBVA",
+  "tags": []
+}

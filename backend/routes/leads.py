@@ -1,10 +1,16 @@
 """CRUD de leads + avanço de estágio. Lojista vê só leads da própria loja."""
 from __future__ import annotations
 
+import csv
+import io
+from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 
 from .. import db
 from ..deps import STORE_SCOPED_ROLES, require_roles
+from .dashboard import get_date_range_from_period
 
 router = APIRouter()
 _ALL = require_roles("master", "shopping", "lojista", "gestor", "vendedor")
@@ -97,6 +103,85 @@ def update_lead(lid: int, payload: dict, user: dict = Depends(_ALL)):
             (lid,),
         ).fetchone()
     return {"lead": dict(out)}
+
+
+@router.get("/leads/export.csv")
+def export_leads_csv(
+    user: dict = Depends(_ALL),
+    period: str = "total",
+    start_date: str = "",
+    end_date: str = "",
+    store_id: Optional[int] = None,
+):
+    """Exporta leads em formato CSV com codificação UTF-8 com BOM e respeito ao RBAC."""
+    where, params = _scope(user)
+    where_clauses = [where.replace("WHERE ", "")] if where else []
+
+    if user["role"] in ("master", "shopping") and store_id is not None:
+        where_clauses.append("l.store_id = ?")
+        params.append(store_id)
+
+    start, end = get_date_range_from_period(period, start_date, end_date)
+    if start:
+        where_clauses.append("l.created_at >= ?")
+        params.append(start)
+    if end:
+        where_clauses.append("l.created_at <= ?")
+        params.append(end)
+
+    where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+    sql = f"""
+        SELECT
+            l.id,
+            l.name,
+            l.phone,
+            l.city,
+            l.car_interest,
+            l.stage,
+            l.payment_preference,
+            s.name AS store_name,
+            u.name AS assigned_user_name,
+            l.created_at
+        FROM leads l
+        JOIN stores s ON s.id = l.store_id
+        LEFT JOIN users u ON u.id = l.assigned_user_id
+        {where_sql}
+        ORDER BY l.created_at DESC
+    """
+
+    with db.tx() as conn:
+        rows = conn.execute(sql, params).fetchall()
+
+    output = io.StringIO()
+    # UTF-8 BOM para garantir compatibilidade com Excel no Windows
+    output.write("\ufeff")
+    writer = csv.writer(output, delimiter=";")
+    writer.writerow([
+        "ID", "Nome", "Telefone", "Cidade", "Veiculo de Interesse",
+        "Estagio", "Forma de Pagamento", "Loja", "Vendedor", "Data de Criacao"
+    ])
+
+    for r in rows:
+        writer.writerow([
+            r["id"],
+            r["name"] or "",
+            r["phone"] or "",
+            r["city"] or "",
+            r["car_interest"] or "",
+            r["stage"] or "",
+            r["payment_preference"] or "",
+            r["store_name"] or "",
+            r["assigned_user_name"] or "",
+            r["created_at"] or ""
+        ])
+
+    csv_content = output.getvalue()
+    filename = f"leads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"'
+    }
+    return Response(content=csv_content, media_type="text/csv; charset=utf-8", headers=headers)
 
 
 @router.get("/leads/{lid}")

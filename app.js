@@ -127,6 +127,9 @@ let conversations = [];
 let currentConversationId = null;
 let funnelData = { metrics: {}, total_leads: 0 };
 let teamData = [];
+let currentInsightsPeriod = "30days";
+let insightsData = null;
+let chartInstances = {};
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -237,19 +240,21 @@ const navLogoutBtn = $("#navLogoutBtn");
 
 // ---------- Carga / refresh ----------
 async function fetchAll() {
-  const [s, v, l, c, f, t] = await Promise.all([
+  const [s, v, l, c, f, t, ins] = await Promise.all([
     api("/api/stores"),
     api("/api/vehicles"),
     api("/api/leads"),
     api("/api/conversations"),
     api("/api/dashboard/funnel"),
     api("/api/dashboard/team").catch(() => ({ team: [] })),
+    api(`/api/dashboard/insights?period=${currentInsightsPeriod}`).catch(() => null),
   ]);
   stores = (s.stores || []).map(normalizeStore);
   vehicles = (v.vehicles || []).map(normalizeVehicle);
   leads = (l.leads || []).map(normalizeLead);
   funnelData = f || { metrics: {}, total_leads: 0 };
   teamData = t.team || [];
+  insightsData = ins;
   const baseConvs = c.conversations || [];
 
   conversations = baseConvs.map(normalizeConversation);
@@ -395,6 +400,186 @@ function renderOverview() {
   `
     )
     .join("");
+
+  renderInsights(insightsData);
+}
+
+function setupInsightsPeriodListeners() {
+  const group = $("#insightsPeriodGroup");
+  if (!group || group.dataset.bound) return;
+  group.dataset.bound = "true";
+
+  group.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".period-pill");
+    if (!btn) return;
+    const period = btn.dataset.period;
+    if (!period || period === currentInsightsPeriod) return;
+
+    currentInsightsPeriod = period;
+    group.querySelectorAll(".period-pill").forEach((b) => b.classList.toggle("active", b === btn));
+
+    const exportLink = $("#insightsExportCsv");
+    if (exportLink) {
+      exportLink.href = `/api/leads/export.csv?period=${period}`;
+    }
+
+    try {
+      const ins = await api(`/api/dashboard/insights?period=${period}`);
+      insightsData = ins;
+      renderInsights(ins);
+    } catch (err) {
+      console.error("Erro ao carregar insights:", err);
+    }
+  });
+}
+
+function renderInsights(data) {
+  setupInsightsPeriodListeners();
+  if (!data) return;
+
+  const kpiGrid = $("#insightsKpiGrid");
+  if (kpiGrid) {
+    const total = data.total_leads || 0;
+    const topCity = data.by_city && data.by_city[0] ? `${data.by_city[0].city} (${data.by_city[0].count})` : "—";
+    const topPayment = data.by_payment && data.by_payment[0] ? `${data.by_payment[0].payment} (${data.by_payment[0].count})` : "—";
+    const topBrand = data.by_brand && data.by_brand[0] ? `${data.by_brand[0].brand} (${data.by_brand[0].count})` : "—";
+
+    kpiGrid.innerHTML = `
+      <div class="insights-kpi-card">
+        <span class="kpi-label">Volume no Período</span>
+        <span class="kpi-val">${total}</span>
+        <span class="kpi-sub">Leads captados</span>
+      </div>
+      <div class="insights-kpi-card">
+        <span class="kpi-label">Principal Cidade</span>
+        <span class="kpi-val" style="font-size: 16px; margin-top: 4px;">${topCity}</span>
+        <span class="kpi-sub">Maior concentração</span>
+      </div>
+      <div class="insights-kpi-card">
+        <span class="kpi-label">Forma de Pgto Preferida</span>
+        <span class="kpi-val" style="font-size: 16px; margin-top: 4px;">${topPayment}</span>
+        <span class="kpi-sub">Modalidade líder</span>
+      </div>
+      <div class="insights-kpi-card">
+        <span class="kpi-label">Marca Mais Buscada</span>
+        <span class="kpi-val" style="font-size: 16px; margin-top: 4px;">${topBrand}</span>
+        <span class="kpi-sub">Maior procura</span>
+      </div>
+    `;
+  }
+
+  if (typeof Chart === "undefined") return;
+
+  // 1. Gráfico de Formas de Pagamento (Rosca)
+  const payCanvas = document.getElementById("paymentChart");
+  if (payCanvas) {
+    if (chartInstances.payment) chartInstances.payment.destroy();
+    const labels = (data.by_payment || []).map(p => p.payment);
+    const values = (data.by_payment || []).map(p => p.count);
+    const colors = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#64748b"];
+
+    chartInstances.payment = new Chart(payCanvas, {
+      type: "doughnut",
+      data: {
+        labels: labels.length ? labels : ["Sem dados"],
+        datasets: [{
+          data: values.length ? values : [0],
+          backgroundColor: colors.slice(0, Math.max(labels.length, 1)),
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: "#94a3b8", font: { size: 11, weight: "bold" } }
+          }
+        },
+        cutout: "65%"
+      }
+    });
+  }
+
+  // 2. Gráfico de Cidades (Barras Horizontais)
+  const cityCanvas = document.getElementById("cityChart");
+  if (cityCanvas) {
+    if (chartInstances.city) chartInstances.city.destroy();
+    const topCities = (data.by_city || []).slice(0, 5);
+    const labels = topCities.map(c => c.city);
+    const values = topCities.map(c => c.count);
+
+    chartInstances.city = new Chart(cityCanvas, {
+      type: "bar",
+      data: {
+        labels: labels.length ? labels : ["Sem dados"],
+        datasets: [{
+          label: "Leads",
+          data: values.length ? values : [0],
+          backgroundColor: "#3b82f6",
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: {
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+            ticks: { color: "#94a3b8", stepSize: 1 }
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: "#e2e8f0", font: { size: 11, weight: "bold" } }
+          }
+        }
+      }
+    });
+  }
+
+  // 3. Gráfico de Marcas (Barras Verticais)
+  const brandCanvas = document.getElementById("brandChart");
+  if (brandCanvas) {
+    if (chartInstances.brand) chartInstances.brand.destroy();
+    const topBrands = (data.by_brand || []).slice(0, 5);
+    const labels = topBrands.map(b => b.brand);
+    const values = topBrands.map(b => b.count);
+
+    chartInstances.brand = new Chart(brandCanvas, {
+      type: "bar",
+      data: {
+        labels: labels.length ? labels : ["Sem dados"],
+        datasets: [{
+          label: "Buscas",
+          data: values.length ? values : [0],
+          backgroundColor: "#10b981",
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+            ticks: { color: "#94a3b8", stepSize: 1 }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: "#e2e8f0", font: { size: 11, weight: "bold" } }
+          }
+        }
+      }
+    });
+  }
 }
 
 function computeMetrics() {
@@ -511,6 +696,14 @@ function renderKanban() {
       </section>
     `;
   }).join("");
+
+  kanban.querySelectorAll(".lead-card").forEach((card) => {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button") || e.target.closest("a")) return;
+      const leadId = Number(card.dataset.leadId);
+      if (leadId) openLeadDrawer(leadId);
+    });
+  });
 }
 
 function renderLeadCard(lead) {
@@ -520,7 +713,7 @@ function renderLeadCard(lead) {
   const conv = conversations.find(c => c.lead_id === lead.id);
   const displayName = lead.name || (conv ? conv.lead_name : lead.customer_phone) || 'Sem Nome';
   return `
-    <article class="lead-card" style="border-left: 4px solid var(--brand); padding: 12px;">
+    <article class="lead-card" data-lead-id="${lead.id}" style="border-left: 4px solid var(--brand); padding: 12px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <strong style="font-size:13px; color:var(--text-soft); font-weight:600;">${displayName}</strong>
         ${lead.assigned_user_id ? `<span style="font-size:10px; background:#fef2f2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-weight:700; white-space:nowrap; margin-left:4px;">👤 ${(teamData.find(t => t.id === lead.assigned_user_id)?.name || "Vend.").split(" ")[0]}</span>` : ""}
@@ -540,6 +733,163 @@ function renderLeadCard(lead) {
     </article>
   `;
 }
+
+// ---------- Lead Drawer (Story 5.3) ----------
+let currentDrawerLeadId = null;
+
+function setupLeadDrawerListeners() {
+  const closeBtn = $("#closeDrawerBtn");
+  const backdrop = $("#leadDrawerBackdrop");
+  const stageSelect = $("#drawerStageSelect");
+  const noteForm = $("#drawerAddNoteForm");
+
+  if (closeBtn && !closeBtn.dataset.bound) {
+    closeBtn.dataset.bound = "true";
+    closeBtn.addEventListener("click", closeLeadDrawer);
+  }
+  if (backdrop && !backdrop.dataset.bound) {
+    backdrop.dataset.bound = "true";
+    backdrop.addEventListener("click", closeLeadDrawer);
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $("#leadDrawer")?.classList.contains("open")) {
+      closeLeadDrawer();
+    }
+  });
+
+  if (stageSelect && !stageSelect.dataset.bound) {
+    stageSelect.dataset.bound = "true";
+    stageSelect.addEventListener("change", async () => {
+      if (!currentDrawerLeadId) return;
+      const newStage = stageSelect.value;
+      try {
+        await api(`/api/leads/${currentDrawerLeadId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ stage: newStage }),
+        });
+        const lead = leads.find((l) => l.id === currentDrawerLeadId);
+        if (lead) {
+          lead.stage = newStage;
+          lead.original_stage = newStage;
+        }
+        renderKanban();
+        showToast(`Estágio atualizado para ${newStage}`);
+      } catch (err) {
+        showToast(err.message || "Erro ao atualizar estágio");
+      }
+    });
+  }
+
+  if (noteForm && !noteForm.dataset.bound) {
+    noteForm.dataset.bound = "true";
+    noteForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentDrawerLeadId) return;
+      const input = $("#drawerNoteInput");
+      const content = (input.value || "").trim();
+      if (!content) return;
+      try {
+        await api(`/api/leads/${currentDrawerLeadId}/notes`, {
+          method: "POST",
+          body: JSON.stringify({ body: content }),
+        });
+        input.value = "";
+        loadLeadNotes(currentDrawerLeadId);
+        showToast("Anotação adicionada!");
+      } catch (err) {
+        showToast(err.message || "Erro ao salvar anotação");
+      }
+    });
+  }
+}
+
+async function loadLeadNotes(leadId) {
+  const container = $("#drawerNotesList");
+  if (!container) return;
+  container.innerHTML = `<p style="font-size:12px; color:var(--text-muted, #94a3b8);">Carregando anotações...</p>`;
+  try {
+    const res = await api(`/api/leads/${leadId}/notes`);
+    const notes = res.notes || [];
+    if (!notes.length) {
+      container.innerHTML = `<p style="font-size:12px; color:var(--text-muted, #94a3b8);">Nenhuma anotação registrada ainda.</p>`;
+      return;
+    }
+    container.innerHTML = notes
+      .map(
+        (n) => `
+      <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); padding: 10px 12px; border-radius: 8px; font-size: 13px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+          <strong style="color: #60a5fa; font-size: 12px;">${n.author_name} (${n.author_role})</strong>
+          <span style="color: var(--text-muted, #94a3b8); font-size: 11px;">${new Date(n.created_at).toLocaleString('pt-BR')}</span>
+        </div>
+        <p style="margin: 0; color: #e2e8f0; line-height: 1.4;">${n.body}</p>
+      </div>
+    `
+      )
+      .join("");
+  } catch (err) {
+    container.innerHTML = `<p style="font-size:12px; color:#ef4444;">Erro ao carregar anotações.</p>`;
+  }
+}
+
+function openLeadDrawer(leadId) {
+  currentDrawerLeadId = leadId;
+  setupLeadDrawerListeners();
+
+  const lead = leads.find((l) => l.id === leadId);
+  if (!lead) return;
+
+  const drawer = $("#leadDrawer");
+  const backdrop = $("#leadDrawerBackdrop");
+  if (!drawer || !backdrop) return;
+
+  $("#drawerLeadStore").textContent = lead.store_name || lead.store || "Auto Shopping Formula";
+  $("#drawerLeadName").textContent = lead.name || "Sem Nome";
+
+  const phoneEl = $("#drawerLeadPhone");
+  const cleanPhone = (lead.phone || "").replace(/\D/g, "");
+  if (cleanPhone) {
+    phoneEl.textContent = lead.phone;
+    phoneEl.href = `tel:${cleanPhone}`;
+  } else {
+    phoneEl.textContent = "Não informado";
+    phoneEl.removeAttribute("href");
+  }
+
+  const waBtn = $("#drawerWhatsappBtn");
+  if (cleanPhone) {
+    const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    const text = encodeURIComponent(`Olá ${lead.name || ""}, tudo bem? Sou da ${lead.store || "loja"} no Auto Shopping Fórmula.`);
+    waBtn.href = `https://wa.me/${formattedPhone}?text=${text}`;
+    waBtn.style.display = "inline-flex";
+  } else {
+    waBtn.style.display = "none";
+  }
+
+  $("#drawerLeadCity").textContent = lead.city || "Não informada";
+  $("#drawerLeadCar").textContent = lead.car || lead.car_interest || "Não informado";
+  $("#drawerLeadPayment").textContent = lead.payment_preference ? lead.payment_preference.toUpperCase() : "Não informada";
+  $("#drawerLeadScore").textContent = `Score ${lead.score ?? 50}`;
+  $("#drawerLeadDate").textContent = lead.created_at ? new Date(lead.created_at).toLocaleDateString('pt-BR') : "—";
+
+  const stageSelect = $("#drawerStageSelect");
+  if (stageSelect) {
+    stageSelect.value = lead.original_stage || lead.stage;
+  }
+
+  loadLeadNotes(leadId);
+
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+}
+
+function closeLeadDrawer() {
+  const drawer = $("#leadDrawer");
+  const backdrop = $("#leadDrawerBackdrop");
+  if (drawer) drawer.classList.remove("open");
+  if (backdrop) backdrop.classList.remove("open");
+}
+
 
 function renderConversations() {
   const items = allowedConversations();

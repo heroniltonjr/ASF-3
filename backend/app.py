@@ -66,7 +66,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(HTTPException)
     async def _http_exc(_request: Request, exc: HTTPException):
-        return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
+        return JSONResponse(status_code=exc.status_code, content={"error": exc.detail}, headers=exc.headers)
 
     @app.exception_handler(RequestValidationError)
     async def _validation_exc(_request: Request, exc: RequestValidationError):

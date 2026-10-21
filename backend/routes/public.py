@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from typing import Optional
 from urllib.parse import quote
@@ -19,6 +20,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from .. import db, store_meta
 from .. import supabase_client as sb
 from ..events import bus
+from ..rate_limit import limiter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -426,3 +428,77 @@ async def create_public_lead(payload: dict, request: Request):
 
     logger.info("Lead público criado: %s (lead=%s conv=%s store=%s)", name, lead_id, conv_id, store_id)
     return {"lead_id": lead_id, "conversation_id": conv_id, "store_id": store_id}
+
+
+@router.post("/api/webhooks/leads", status_code=201)
+async def webhook_create_lead(request: Request):
+    """Webhook de ingestão externa de leads com validação, autenticação por segredo e rate limiting."""
+    # 1. Rate limiting por IP
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+
+    allowed, retry_after = limiter.check(client_ip)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas requisições. Tente novamente mais tarde.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    # 2. Validação do segredo de autenticação
+    expected_secret = os.getenv("LEAD_WEBHOOK_SECRET")
+    if expected_secret:
+        provided_secret = request.headers.get("x-webhook-secret")
+        if not provided_secret or provided_secret != expected_secret:
+            raise HTTPException(status_code=401, detail="Webhook secret inválido ou não fornecido")
+
+    # 3. Validação do payload
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON inválido")
+
+    name = (payload.get("name") or "").strip()
+    phone = (payload.get("phone") or "").strip()
+    car_interest = (payload.get("car_interest") or "").strip()
+
+    if not name or not phone or not car_interest:
+        raise HTTPException(
+            status_code=400,
+            detail="Campos obrigatórios: name, phone, car_interest",
+        )
+
+    city = (payload.get("city") or "").strip()
+    payment_preference = (payload.get("payment_preference") or "").strip()
+    source = (payload.get("source") or "webhook_externo").strip()
+    notes = (payload.get("notes") or "").strip()
+    store_id = payload.get("store_id")
+
+    with db.tx() as conn:
+        resolved_store_id = 1
+        if store_id:
+            store_row = conn.execute("SELECT id FROM stores WHERE id = ?", (store_id,)).fetchone()
+            if store_row:
+                resolved_store_id = store_row["id"]
+
+        cur = conn.execute(
+            """
+            INSERT INTO leads (store_id, name, car_interest, stage, score, phone, city, payment_preference, source, origin_id)
+            VALUES (?, ?, ?, 'Novo', 50, ?, ?, ?, ?, ?)
+            """,
+            (resolved_store_id, name, car_interest, phone, city, payment_preference, source, resolved_store_id),
+        )
+        lead_id = cur.lastrowid
+
+        if notes:
+            conn.execute(
+                "INSERT INTO lead_notes (store_id, lead_id, user_id, body) VALUES (?, ?, 1, ?)",
+                (resolved_store_id, lead_id, notes),
+            )
+
+    logger.info("Lead via webhook recebido: id=%s store=%s name=%s", lead_id, resolved_store_id, name)
+    return {"ok": True, "lead_id": lead_id, "store_id": resolved_store_id}
+

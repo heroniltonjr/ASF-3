@@ -97,7 +97,11 @@ async def embed_query(text: str | None, timeout: float = QUERY_EMBEDDING_TIMEOUT
 def _sqlite_search_fallback(conn: Any, req: SearchRequest, search_text: str | None) -> list[VehicleHit]:
     """Fallback flexível para execução em ambientes SQLite locais / testes."""
     def _execute_query(with_search: bool) -> list[VehicleHit]:
-        where_clauses = ["(v.active = 1 OR v.status = 'Publicado' OR v.active IS NULL)"]
+        where_clauses = [
+            "(v.active = 1 OR v.status = 'Publicado' OR v.active IS NULL)",
+            "(s.status IS NULL OR s.status != 'Inativo')",
+            "(s.is_active IS NULL OR s.is_active = 1)",
+        ]
         params: list[Any] = []
 
         if with_search and search_text:

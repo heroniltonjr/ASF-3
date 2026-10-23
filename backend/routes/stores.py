@@ -86,7 +86,7 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
     return {"store": dict(row)}
 
 
-_PATCHABLE = {"name", "type", "plan", "status", "response_time", "monthly_cost", "monthly_revenue", "sdr_prompt", "sdr_auto_reactivate_minutes"}
+_PATCHABLE = {"name", "type", "plan", "status", "is_active", "response_time", "monthly_cost", "monthly_revenue", "sdr_prompt", "sdr_auto_reactivate_minutes"}
 
 
 @router.patch("/stores/{store_id}")
@@ -96,7 +96,7 @@ def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
         raise HTTPException(400, "Nada a atualizar")
 
     with db.tx() as conn:
-        current = conn.execute("SELECT id, type, plan, monthly_revenue FROM stores WHERE id = ?", (store_id,)).fetchone()
+        current = conn.execute("SELECT id, type, plan, monthly_revenue, status, is_active FROM stores WHERE id = ?", (store_id,)).fetchone()
         if not current:
             raise HTTPException(404, "Loja não encontrada")
 
@@ -114,6 +114,13 @@ def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
 
         cols = ", ".join(f"{k} = ?" for k in updates)
         conn.execute(f"UPDATE stores SET {cols} WHERE id = ?", [*updates.values(), store_id])
+
+        # Cascata de status para os veículos da loja
+        if updates.get("status") == "Inativo" or updates.get("is_active") == 0:
+            conn.execute("UPDATE vehicles SET active = 0, status = 'Rascunho' WHERE store_id = ?", (store_id,))
+        elif updates.get("status") == "Ativo" and updates.get("is_active", 1) == 1:
+            conn.execute("UPDATE vehicles SET active = 1, status = 'Publicado' WHERE store_id = ? AND (sold = 0 OR sold IS NULL)", (store_id,))
+
         row = conn.execute("SELECT * FROM stores WHERE id = ?", (store_id,)).fetchone()
     return {"store": dict(row)}
 

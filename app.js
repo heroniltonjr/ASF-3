@@ -1027,13 +1027,17 @@ function renderStores() {
       .map(
         (s) => `
       <div class="store-row ${s.status === "Inativo" ? "is-inactive" : ""}">
-        <strong>${s.name}</strong>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <strong>${s.name}</strong>
+          ${s.phone ? `<span style="font-size: 11px; opacity: 0.85; color: ${s.status === 'Inativo' ? '#ef4444' : 'var(--text-soft)'};">📱 ${s.phone}${s.focal_name ? ` • ${s.focal_name}` : ''}</span>` : ''}
+        </div>
         <span>${s.plan}</span>
         <span>${leadsByStore[s.id] || 0}</span>
         <span>${vehiclesByStore[s.id] || 0}</span>
         <span>${s.response}</span>
         <span class="store-status ${s.status === "Atenção" ? "warn" : s.status === "Inativo" ? "inactive" : ""}">${s.status}</span>
         <span class="row-actions">
+          <button class="mini-button" data-store-action="edit" data-store-id="${s.id}" type="button">Editar</button>
           <button class="mini-button ${s.status === "Ativo" ? "warning" : "success"}" data-store-action="toggle" data-store-id="${s.id}" type="button">${s.status === "Ativo" ? "Desativar" : "Ativar"}</button>
           <button class="mini-button danger" data-store-action="delete" data-store-id="${s.id}" type="button">Excluir</button>
         </span>
@@ -1871,6 +1875,8 @@ function openStoreModal(store = null) {
   const defaultPlan = isMaster ? "Enterprise" : "Start";
   const fields = [
     { label: isMaster ? "Nome do tenant" : "Nome da loja", name: "name", value: store?.name, placeholder: "Ex: Prime Motors", required: true },
+    { label: "WhatsApp / Telefone comercial", name: "phone", value: store?.phone, placeholder: "Ex: 5565999999999" },
+    { label: "Contato / Responsável focal", name: "focal_name", value: store?.focal_name, placeholder: "Ex: João Silva" },
     { label: "Plano", name: "plan", value: store?.plan || defaultPlan, type: "select", options: planOptions, required: true },
     { label: "Status", name: "status", value: store?.status || "Ativo", type: "select", options: ["Ativo", "Atenção", "Inativo"], required: true },
     { label: "Instruções do SDR (Prompt IA)", name: "sdr_prompt", value: store?.sdr_prompt, type: "textarea", placeholder: "Regras específicas de atendimento e tom de voz" },
@@ -2462,6 +2468,7 @@ storeTable.addEventListener("click", (event) => {
   const button = event.target.closest("[data-store-action]");
   if (!button) return;
   const id = Number(button.dataset.storeId);
+  if (button.dataset.storeAction === "edit") openStoreModal(stores.find((x) => x.id === id));
   if (button.dataset.storeAction === "toggle") toggleStore(id);
   if (button.dataset.storeAction === "delete") deleteStore(id);
 });

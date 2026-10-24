@@ -45,5 +45,19 @@ def lookup(store_name: Optional[str]) -> Optional[dict]:
 
 
 def whatsapp_for(store_name: Optional[str]) -> Optional[str]:
+    """Retorna o número de WhatsApp da loja buscando preferencialmente do banco de dados (stores.phone)."""
+    if store_name:
+        try:
+            from . import db
+            with db.tx() as conn:
+                s_norm = store_name.strip().lower()
+                row = conn.execute(
+                    "SELECT phone FROM stores WHERE lower(name) LIKE ? OR lower(name) = ? LIMIT 1",
+                    (f"%{s_norm}%", s_norm),
+                ).fetchone()
+                if row and row["phone"]:
+                    return row["phone"]
+        except Exception:
+            pass
     meta = lookup(store_name)
     return meta.get("whatsapp") if meta else None

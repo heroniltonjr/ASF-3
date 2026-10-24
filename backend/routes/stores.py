@@ -74,6 +74,8 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
         "type": store_type,
         "plan": plan,
         "status": payload.get("status") or "Ativo",
+        "phone": (payload.get("phone") or "").strip() or None,
+        "focal_name": (payload.get("focal_name") or "").strip() or None,
         "response_time": payload.get("response_time"),
         "monthly_cost": payload.get("monthly_cost") or 0,
         "monthly_revenue": monthly_revenue,
@@ -86,7 +88,10 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
     return {"store": dict(row)}
 
 
-_PATCHABLE = {"name", "type", "plan", "status", "is_active", "response_time", "monthly_cost", "monthly_revenue", "sdr_prompt", "sdr_auto_reactivate_minutes"}
+_PATCHABLE = {
+    "name", "type", "plan", "status", "phone", "focal_name", "is_active",
+    "response_time", "monthly_cost", "monthly_revenue", "sdr_prompt", "sdr_auto_reactivate_minutes"
+}
 
 
 @router.patch("/stores/{store_id}")

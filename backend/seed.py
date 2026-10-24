@@ -45,6 +45,32 @@ STORES = [
     ("Tex Veículos",          "Lojista",       "Start",      "Ativo",   "2m 29s",  455,     0),
 ]
 
+STORE_CONTACTS = {
+    "Auto Shopping Formula": ("556592156577", "Central Shopping"),
+    "Betania Automoveis":    ("556536941311", "BETANIA"),
+    "GX Auto":               ("5565996041002", "GX"),
+    "Radar Automóveis":      ("5565984311111", "RADAR"),
+    "JW Veiculos":           ("5565999566929", "JW"),
+    "Trinity Veículos":      ("5565992357917", "TRINITY"),
+    "Betel Automóveis":      ("5565984686849", "BETEL"),
+    "Dani Multimarcas":      ("5565984461776", "DANI"),
+    "EV Automóveis":         ("5565996889485", "E.V"),
+    "Evidence Multimarcas":  ("5565996175373", "EVIDENCE"),
+    "Gilson Automóveis":     ("5565992444957", "GILSON"),
+    "Global Automóveis":     ("5565999016007", "Global"),
+    "GR Car":                ("5565992603043", "GR"),
+    "Kadosh Automóveis":     ("5565999000735", "KADOSHI"),
+    "Kallicar Multimarcas":  ("5565992011623", "KALLYCAR"),
+    "Luan Multimarcas":      ("5565992013346", "LUAN"),
+    "Meu Automóvel":         ("5565992461225", "MEU AUTOMOVEL"),
+    "Mundial Automóveis":    ("5565999016007", "Mundial"),
+    "Neri Veículos":         ("5565981650164", "NERI"),
+    "Rocha Motors":          ("5565999724848", "ROCHA"),
+    "RS Motors":             ("5565999866099", "RS"),
+    "Seminovos Movida":      ("5565992274323", "Seminovos Movida"),
+    "Tex Veículos":          ("5565992828350", "TEX"),
+}
+
 USERS = [
     # (email, name, role, tenant_name, store_name)
     ("master@collab.com",      "COLLAB / Arara Azul",          "master",   "COLLAB / Arara Azul",    None),
@@ -276,13 +302,14 @@ def run() -> bool:
 
         store_id_by_name: dict[str, int] = {}
         for name, type_, plan, status, response, cost, revenue in STORES:
+            phone, focal = STORE_CONTACTS.get(name, (None, None))
             cur = conn.execute(
                 """
                 INSERT INTO stores
-                    (tenant_id, name, type, plan, status, response_time, monthly_cost, monthly_revenue)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (tenant_id, name, type, plan, status, response_time, monthly_cost, monthly_revenue, phone, focal_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (shopping_tenant_id, name, type_, plan, status, response, cost, revenue),
+                (shopping_tenant_id, name, type_, plan, status, response, cost, revenue, phone, focal),
             )
             store_id_by_name[name] = cur.lastrowid
 

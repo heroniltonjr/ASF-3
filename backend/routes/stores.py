@@ -112,14 +112,32 @@ def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
         if "plan" in updates and "monthly_revenue" not in updates:
             updates["monthly_revenue"] = DEFAULT_PLAN_REVENUE.get(new_plan, 0)
 
+        # Alinha coerência entre status e is_active
+        if updates.get("status") == "Inativo" and "is_active" not in updates:
+            updates["is_active"] = 0
+        elif updates.get("status") == "Ativo" and "is_active" not in updates:
+            updates["is_active"] = 1
+        elif updates.get("is_active") == 0 and "status" not in updates:
+            updates["status"] = "Inativo"
+        elif updates.get("is_active") == 1 and "status" not in updates:
+            updates["status"] = "Ativo"
+
         cols = ", ".join(f"{k} = ?" for k in updates)
         conn.execute(f"UPDATE stores SET {cols} WHERE id = ?", [*updates.values(), store_id])
 
         # Cascata de status para os veículos da loja
         if updates.get("status") == "Inativo" or updates.get("is_active") == 0:
             conn.execute("UPDATE vehicles SET active = 0, status = 'Rascunho' WHERE store_id = ?", (store_id,))
+            try:
+                conn.execute("UPDATE public.stores SET store_active = FALSE WHERE id = ?", (store_id,))
+            except Exception:
+                pass
         elif updates.get("status") == "Ativo" and updates.get("is_active", 1) == 1:
             conn.execute("UPDATE vehicles SET active = 1, status = 'Publicado' WHERE store_id = ? AND (sold = 0 OR sold IS NULL)", (store_id,))
+            try:
+                conn.execute("UPDATE public.stores SET store_active = TRUE WHERE id = ?", (store_id,))
+            except Exception:
+                pass
 
         row = conn.execute("SELECT * FROM stores WHERE id = ?", (store_id,)).fetchone()
     return {"store": dict(row)}

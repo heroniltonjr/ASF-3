@@ -33,6 +33,11 @@ BEGIN
             status = 'Rascunho'
         WHERE store_id = NEW.id
           AND active IS TRUE;
+
+        -- Sincroniza tabela legada stores
+        UPDATE public.stores
+        SET store_active = FALSE
+        WHERE id = NEW.id;
     END IF;
 
     -- Se a loja foi reativada (status 'Ativo' e is_active = 1)
@@ -43,6 +48,11 @@ BEGIN
             status = 'Publicado'
         WHERE store_id = NEW.id
           AND NOT coalesce(sold, FALSE);
+
+        -- Sincroniza tabela legada stores
+        UPDATE public.stores
+        SET store_active = TRUE
+        WHERE id = NEW.id;
     END IF;
 
     RETURN NEW;

@@ -54,7 +54,7 @@ def test_index_html_cache_busting():
     """Valida que index.html aponta para uma versão com cache busting (>= 1.8)."""
     assert INDEX_HTML_PATH.exists()
     content = INDEX_HTML_PATH.read_text(encoding="utf-8")
-    assert re.search(r'src="app\.js\?v=1\.[89]"', content), "index.html deve conter app.js com cache busting"
+    assert re.search(r'src="app\.js\?v=(1\.[89]|[2-9]\.\d+)"', content), "index.html deve conter app.js com cache busting >= 1.8"
 
 
 @pytest.mark.asyncio

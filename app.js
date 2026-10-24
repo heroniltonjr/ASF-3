@@ -1026,15 +1026,15 @@ function renderStores() {
     ${rows
       .map(
         (s) => `
-      <div class="store-row">
+      <div class="store-row ${s.status === "Inativo" ? "is-inactive" : ""}">
         <strong>${s.name}</strong>
         <span>${s.plan}</span>
         <span>${leadsByStore[s.id] || 0}</span>
         <span>${vehiclesByStore[s.id] || 0}</span>
         <span>${s.response}</span>
-        <span class="store-status ${s.status === "Atenção" ? "warn" : ""}">${s.status}</span>
+        <span class="store-status ${s.status === "Atenção" ? "warn" : s.status === "Inativo" ? "inactive" : ""}">${s.status}</span>
         <span class="row-actions">
-          <button class="mini-button" data-store-action="toggle" data-store-id="${s.id}" type="button">${s.status === "Ativo" ? "Pausar" : "Ativar"}</button>
+          <button class="mini-button ${s.status === "Ativo" ? "warning" : "success"}" data-store-action="toggle" data-store-id="${s.id}" type="button">${s.status === "Ativo" ? "Desativar" : "Ativar"}</button>
           <button class="mini-button danger" data-store-action="delete" data-store-id="${s.id}" type="button">Excluir</button>
         </span>
       </div>
@@ -1872,7 +1872,7 @@ function openStoreModal(store = null) {
   const fields = [
     { label: isMaster ? "Nome do tenant" : "Nome da loja", name: "name", value: store?.name, placeholder: "Ex: Prime Motors", required: true },
     { label: "Plano", name: "plan", value: store?.plan || defaultPlan, type: "select", options: planOptions, required: true },
-    { label: "Status", name: "status", value: store?.status || "Ativo", type: "select", options: ["Ativo", "Atenção", "Pausado"], required: true },
+    { label: "Status", name: "status", value: store?.status || "Ativo", type: "select", options: ["Ativo", "Atenção", "Inativo"], required: true },
     { label: "Instruções do SDR (Prompt IA)", name: "sdr_prompt", value: store?.sdr_prompt, type: "textarea", placeholder: "Regras específicas de atendimento e tom de voz" },
   ];
   openModal(store ? (isMaster ? "Editar tenant" : "Editar lojista") : (isMaster ? "Adicionar tenant" : "Adicionar lojista"), fields, store ? "Salvar" : "Adicionar", async (data) => {
@@ -2152,11 +2152,11 @@ async function deleteVehicle(vehicleId) {
 async function toggleStore(storeId) {
   const s = stores.find((x) => x.id === storeId);
   if (!s) return;
-  const next = s.status === "Ativo" ? "Pausado" : "Ativo";
+  const next = s.status === "Ativo" ? "Inativo" : "Ativo";
   try {
     await api(`/api/stores/${storeId}`, { method: "PATCH", body: JSON.stringify({ status: next }) });
     await refreshAndRender();
-    showToast(`${s.name} ${next.toLowerCase()}`);
+    showToast(`${s.name} ${next === "Inativo" ? "desativada" : "ativada"}`);
   } catch (err) {
     showToast(err.message);
   }

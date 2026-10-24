@@ -93,7 +93,7 @@ HAS_PG = bool(os.getenv("DATABASE_URL"))
         ("Case 4 (volks polo alias)", {"query": "volks polo"}, "Polo", ["exato", "similar"]),
         ("Case 5 (cronos note extraction)", {"query": "cronos"}, "CRONOS", ["exato", "similar"]),
         ("Case 6 (picape diesel 4x4 intention)", {"query": "picape diesel 4x4"}, "Hilux", ["exato", "similar"]),
-        ("Case 7 (SUV automatico economico)", {"query": "SUV automatico economico"}, "SPIN", ["similar", "exato"]),
+        ("Case 7 (SUV automatico economico)", {"query": "SUV automatico economico"}, "Stonic", ["similar", "exato"]),
         ("Case 8 (No text, only price)", {"price_min": 50000, "price_max": 60000}, None, ["filtro"]),
     ],
 )

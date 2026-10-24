@@ -53,10 +53,10 @@ def test_app_js_role_labels_team_removed_from_shopping_and_gestor():
 
 
 def test_index_html_cache_busting_v1_9():
-    """Valida que index.html aponta para a versão atualizada app.js?v=1.9."""
+    """Valida que index.html aponta para a versão com cache busting (>= 1.9)."""
     assert INDEX_HTML_PATH.exists()
     content = INDEX_HTML_PATH.read_text(encoding="utf-8")
-    assert 'src="app.js?v=1.9"' in content, "index.html deve conter app.js?v=1.9"
+    assert re.search(r'src="app\.js\?v=(1\.9|[2-9]\.\d+)"', content), "index.html deve conter app.js com cache busting >= 1.9"
 
 
 @pytest.mark.asyncio

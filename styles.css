@@ -1025,6 +1025,38 @@ select {
   color: var(--yellow);
 }
 
+.store-status.inactive {
+  color: #ef4444;
+}
+
+.store-row.is-inactive {
+  color: #ef4444;
+}
+
+.store-row.is-inactive strong,
+.store-row.is-inactive span {
+  color: #ef4444;
+}
+
+.mini-button.warning {
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+.mini-button.warning:hover {
+  background: #fef3c7;
+}
+
+.mini-button.success {
+  border-color: #10b981;
+  color: #047857;
+}
+
+.mini-button.success:hover {
+  background: #d1fae5;
+}
+
+
 .cost-item {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;

@@ -125,19 +125,11 @@ def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
         cols = ", ".join(f"{k} = ?" for k in updates)
         conn.execute(f"UPDATE stores SET {cols} WHERE id = ?", [*updates.values(), store_id])
 
-        # Cascata de status para os veículos da loja
+        # Cascata de status para os veículos da loja (compatível com SQLite e PostgreSQL)
         if updates.get("status") == "Inativo" or updates.get("is_active") == 0:
-            conn.execute("UPDATE vehicles SET active = 0, status = 'Rascunho' WHERE store_id = ?", (store_id,))
-            try:
-                conn.execute("UPDATE public.stores SET store_active = FALSE WHERE id = ?", (store_id,))
-            except Exception:
-                pass
+            conn.execute("UPDATE vehicles SET active = FALSE, status = 'Rascunho' WHERE store_id = ?", (store_id,))
         elif updates.get("status") == "Ativo" and updates.get("is_active", 1) == 1:
-            conn.execute("UPDATE vehicles SET active = 1, status = 'Publicado' WHERE store_id = ? AND (sold = 0 OR sold IS NULL)", (store_id,))
-            try:
-                conn.execute("UPDATE public.stores SET store_active = TRUE WHERE id = ?", (store_id,))
-            except Exception:
-                pass
+            conn.execute("UPDATE vehicles SET active = TRUE, status = 'Publicado' WHERE store_id = ? AND NOT coalesce(sold, FALSE)", (store_id,))
 
         row = conn.execute("SELECT * FROM stores WHERE id = ?", (store_id,)).fetchone()
     return {"store": dict(row)}

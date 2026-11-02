@@ -1849,9 +1849,17 @@ select {
   margin-bottom: 20px;
 }
 
+.profile-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .profile-avatar {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), #e11d48);
   color: #fff;
@@ -1863,6 +1871,33 @@ select {
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
+  cursor: pointer;
+}
+
+.profile-avatar-edit-btn {
+  position: absolute;
+  bottom: -2px;
+  right: -4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  z-index: 2;
+}
+
+.profile-avatar-edit-btn:hover {
+  transform: scale(1.08);
+  background: var(--accent, #e11d48);
+  color: #ffffff;
+  border-color: var(--accent, #e11d48);
 }
 
 .profile-avatar img {

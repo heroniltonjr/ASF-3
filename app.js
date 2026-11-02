@@ -1976,8 +1976,17 @@ function openProfileModal() {
       <div style="padding: 20px;">
         <!-- Header do perfil com avatar e dados da conta -->
         <div class="profile-header-card">
-          <div class="profile-avatar" id="profileAvatarContainer">
-            ${currentUser.avatar_url ? `<img src="${escapeAttr(currentUser.avatar_url)}" alt="${escapeAttr(currentUser.name)}" />` : escapeHtml(initials)}
+          <div class="profile-avatar-wrap">
+            <div class="profile-avatar" id="profileAvatarContainer" title="Clique para alterar foto de perfil">
+              ${currentUser.avatar_url ? `<img src="${escapeAttr(currentUser.avatar_url)}" alt="${escapeAttr(currentUser.name)}" />` : escapeHtml(initials)}
+            </div>
+            <label class="profile-avatar-edit-btn" title="Adicionar ou atualizar foto de perfil" aria-label="Adicionar ou atualizar foto de perfil">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <input type="file" id="profileAvatarFileInput" accept="image/*" style="display: none;" />
+            </label>
           </div>
           <div class="profile-meta" style="flex: 1;">
             <h4 id="profileDisplayName">${escapeHtml(currentUser.name)}</h4>
@@ -1989,13 +1998,14 @@ function openProfileModal() {
           </div>
         </div>
 
-        <!-- Seção 1: Atualizar Dados Pessoais (Nome, E-mail e Foto) -->
+        <!-- Seção 1: Atualizar Dados Pessoais (Nome e E-mail) -->
         <div class="profile-section" style="border-top: 0; padding-top: 0; margin-top: 0;">
           <div class="profile-section-title">
             <span>👤</span>
-            <span>Dados da Conta & Foto</span>
+            <span>Dados da Conta</span>
           </div>
           <form id="profileDataForm" style="display: grid; gap: 12px;">
+            <input id="profileAvatarInput" type="hidden" value="${escapeAttr(currentUser.avatar_url || '')}" />
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <label class="form-field">
                 <span>Nome de exibição</span>
@@ -2006,17 +2016,6 @@ function openProfileModal() {
                 <input id="profileEmailInput" type="email" value="${escapeAttr(currentUser.email)}" required placeholder="seu@email.com" />
               </label>
             </div>
-            
-            <label class="form-field">
-              <span>URL da Foto de Perfil (ou selecione um arquivo abaixo)</span>
-              <div style="display: flex; gap: 8px;">
-                <input id="profileAvatarInput" type="text" value="${escapeAttr(currentUser.avatar_url || '')}" placeholder="https://... ou /uploads/..." style="flex: 1;" />
-                <label class="ghost-button" style="display: inline-flex; align-items: center; cursor: pointer; white-space: nowrap; margin: 0; padding: 0 12px;">
-                  📁 Escolher foto
-                  <input type="file" id="profileAvatarFileInput" accept="image/*" style="display: none;" />
-                </label>
-              </div>
-            </label>
 
             <div style="display: flex; justify-content: flex-end;">
               <button class="primary-button" type="submit" id="saveProfileDataBtn" style="min-height: 40px; white-space: nowrap;">Salvar Alterações</button>
@@ -2097,6 +2096,10 @@ function openProfileModal() {
   const avatarInput = modalLayer.querySelector("#profileAvatarInput");
   const avatarContainer = modalLayer.querySelector("#profileAvatarContainer");
   
+  if (avatarContainer && avatarFileInput) {
+    avatarContainer.addEventListener("click", () => avatarFileInput.click());
+  }
+
   if (avatarFileInput) {
     avatarFileInput.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
@@ -2104,7 +2107,7 @@ function openProfileModal() {
       const formData = new FormData();
       formData.append("file", file);
       try {
-        showToast("Enviando foto...");
+        showToast("Atualizando foto de perfil...");
         const uploadRes = await fetch("/api/media/upload", {
           method: "POST",
           body: formData,
@@ -2116,7 +2119,18 @@ function openProfileModal() {
         const uploaded = await uploadRes.json();
         avatarInput.value = uploaded.url;
         avatarContainer.innerHTML = `<img src="${escapeAttr(uploaded.url)}" alt="Avatar" />`;
-        showToast("Foto carregada! Clique em Salvar Alterações.");
+
+        const res = await api("/api/me", {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: currentUser.name,
+            email: currentUser.email,
+            avatar_url: uploaded.url,
+          }),
+        });
+        currentUser.avatar_url = res.user.avatar_url;
+        applyRole();
+        showToast("Foto de perfil atualizada!");
       } catch (err) {
         showToast(err.message || "Erro no upload da foto");
       }

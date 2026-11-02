@@ -24,7 +24,17 @@ def list_stores(user: dict = Depends(_ALL)):
     where, params = _scope_filter(user)
     with db.tx() as conn:
         rows = conn.execute(f"SELECT * FROM stores {where} ORDER BY name", params).fetchall()
-    return {"stores": [dict(r) for r in rows]}
+        stores_list = []
+        for r in rows:
+            st = dict(r)
+            # Busca o e-mail do usuário gestor da loja (role lojista ou gestor)
+            u_row = conn.execute(
+                "SELECT email FROM users WHERE store_id = ? AND role IN ('lojista', 'gestor') ORDER BY id ASC LIMIT 1",
+                (st["id"],),
+            ).fetchone()
+            st["manager_email"] = u_row["email"] if u_row else None
+            stores_list.append(st)
+    return {"stores": stores_list}
 
 
 @router.get("/stores/{store_id}")
@@ -33,9 +43,15 @@ def get_store(store_id: int, user: dict = Depends(_ALL)):
         raise HTTPException(403, "Sem acesso a esta loja")
     with db.tx() as conn:
         row = conn.execute("SELECT * FROM stores WHERE id = ?", (store_id,)).fetchone()
-    if not row:
-        raise HTTPException(404, "Loja não encontrada")
-    return {"store": dict(row)}
+        if not row:
+            raise HTTPException(404, "Loja não encontrada")
+        st = dict(row)
+        u_row = conn.execute(
+            "SELECT email FROM users WHERE store_id = ? AND role IN ('lojista', 'gestor') ORDER BY id ASC LIMIT 1",
+            (store_id,),
+        ).fetchone()
+        st["manager_email"] = u_row["email"] if u_row else None
+    return {"store": st}
 
 
 DEFAULT_PLAN_REVENUE = {
@@ -55,7 +71,14 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
         raise HTTPException(400, "tenant_id obrigatório")
 
     store_type = payload.get("type") or "Lojista"
-    plan = payload.get("plan") or "Start"
+
+    # Se não for Master, força defaults: Plan = Start e Status = Ativo
+    if user["role"] == "master":
+        plan = payload.get("plan") or ("Enterprise" if store_type == "Auto Shopping" else "Start")
+        status = payload.get("status") or "Ativo"
+    else:
+        plan = "Start"
+        status = "Ativo"
 
     if store_type == "Lojista" and plan == "Enterprise":
         raise HTTPException(400, "O plano Enterprise é exclusivo para Tenants")
@@ -69,13 +92,23 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
         else DEFAULT_PLAN_REVENUE.get(plan, 0)
     )
 
+    # Valida credenciais da loja se informadas
+    email = (payload.get("email") or "").strip().lower()
+    password = (payload.get("password") or "").strip()
+    if email:
+        if "@" not in email:
+            raise HTTPException(400, "E-mail da loja inválido")
+        if password and len(password) < 6:
+            raise HTTPException(400, "A senha da loja deve ter no mínimo 6 caracteres")
+
     fields = {
         "name": name, "tenant_id": tenant_id,
         "type": store_type,
         "plan": plan,
-        "status": payload.get("status") or "Ativo",
+        "status": status,
         "phone": (payload.get("phone") or "").strip() or None,
         "focal_name": (payload.get("focal_name") or "").strip() or None,
+        "logo_url": (payload.get("logo_url") or "").strip() or None,
         "response_time": payload.get("response_time"),
         "monthly_cost": payload.get("monthly_cost") or 0,
         "monthly_revenue": monthly_revenue,
@@ -83,13 +116,31 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
     cols = ", ".join(fields)
     placeholders = ", ".join("?" * len(fields))
     with db.tx() as conn:
+        if email:
+            existing = conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
+            if existing:
+                raise HTTPException(409, "Já existe um usuário com este e-mail")
+
         cur = conn.execute(f"INSERT INTO stores ({cols}) VALUES ({placeholders})", list(fields.values()))
-        row = conn.execute("SELECT * FROM stores WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return {"store": dict(row)}
+        new_store_id = cur.lastrowid
+
+        # Cria usuário lojista vinculado se e-mail fornecido
+        if email:
+            from .. import auth as _auth
+            initial_pass = password or "demo123"
+            conn.execute(
+                "INSERT INTO users (email, password_hash, name, role, tenant_id, store_id) VALUES (?, ?, ?, 'lojista', ?, ?)",
+                (email, _auth.hash_password(initial_pass), name, tenant_id, new_store_id),
+            )
+
+        row = conn.execute("SELECT * FROM stores WHERE id = ?", (new_store_id,)).fetchone()
+        res_store = dict(row)
+        res_store["manager_email"] = email or None
+    return {"store": res_store}
 
 
 _PATCHABLE = {
-    "name", "type", "plan", "status", "phone", "focal_name", "is_active",
+    "name", "type", "plan", "status", "phone", "focal_name", "logo_url", "is_active",
     "response_time", "monthly_cost", "monthly_revenue", "sdr_prompt", "sdr_auto_reactivate_minutes"
 }
 
@@ -97,11 +148,31 @@ _PATCHABLE = {
 @router.patch("/stores/{store_id}")
 def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
     updates = {k: v for k, v in payload.items() if k in _PATCHABLE}
-    if not updates:
+
+    # Restrição por papel: se não for Master, ignora alterações manuais de plan e status
+    is_master = user["role"] == "master"
+    if not is_master:
+        updates.pop("plan", None)
+        # Permite alteração de status/is_active se for a ação de ativar/desativar
+        if "status" in updates and "name" in updates:
+            # Edição geral via popup: não altera status
+            updates.pop("status", None)
+            updates.pop("is_active", None)
+
+    email = (payload.get("email") or "").strip().lower() if "email" in payload else None
+    password = (payload.get("password") or "").strip() if "password" in payload else None
+
+    if email is not None and email != "" and "@" not in email:
+        raise HTTPException(400, "E-mail da loja inválido")
+
+    if password is not None and password != "" and len(password) < 6:
+        raise HTTPException(400, "A senha da loja deve ter no mínimo 6 caracteres")
+
+    if not updates and email is None and password is None:
         raise HTTPException(400, "Nada a atualizar")
 
     with db.tx() as conn:
-        current = conn.execute("SELECT id, type, plan, monthly_revenue, status, is_active FROM stores WHERE id = ?", (store_id,)).fetchone()
+        current = conn.execute("SELECT id, tenant_id, name, type, plan, monthly_revenue, status, is_active FROM stores WHERE id = ?", (store_id,)).fetchone()
         if not current:
             raise HTTPException(404, "Loja não encontrada")
 
@@ -127,17 +198,57 @@ def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
         elif updates.get("is_active") == 1 and "status" not in updates:
             updates["status"] = "Ativo"
 
-        cols = ", ".join(f"{k} = ?" for k in updates)
-        conn.execute(f"UPDATE stores SET {cols} WHERE id = ?", [*updates.values(), store_id])
+        if updates:
+            cols = ", ".join(f"{k} = ?" for k in updates)
+            conn.execute(f"UPDATE stores SET {cols} WHERE id = ?", [*updates.values(), store_id])
 
-        # Cascata de status para os veículos da loja (compatível com SQLite e PostgreSQL)
-        if updates.get("status") == "Inativo" or updates.get("is_active") == 0:
-            conn.execute("UPDATE vehicles SET active = FALSE, status = 'Rascunho' WHERE store_id = ?", (store_id,))
-        elif updates.get("status") == "Ativo" and updates.get("is_active", 1) == 1:
-            conn.execute("UPDATE vehicles SET active = TRUE, status = 'Publicado' WHERE store_id = ? AND NOT coalesce(sold, FALSE)", (store_id,))
+            # Cascata de status para os veículos da loja (compatível com SQLite e PostgreSQL)
+            if updates.get("status") == "Inativo" or updates.get("is_active") == 0:
+                conn.execute("UPDATE vehicles SET active = FALSE, status = 'Rascunho' WHERE store_id = ?", (store_id,))
+            elif updates.get("status") == "Ativo" and updates.get("is_active", 1) == 1:
+                conn.execute("UPDATE vehicles SET active = TRUE, status = 'Publicado' WHERE store_id = ? AND NOT coalesce(sold, FALSE)", (store_id,))
+
+        # Atualiza ou cria usuário gestor da loja (role: lojista)
+        from .. import auth as _auth
+        manager_user = conn.execute(
+            "SELECT id, email FROM users WHERE store_id = ? AND role IN ('lojista', 'gestor') ORDER BY id ASC LIMIT 1",
+            (store_id,),
+        ).fetchone()
+
+        if email or password:
+            if manager_user:
+                u_updates = {}
+                if email and email != manager_user["email"]:
+                    existing = conn.execute("SELECT 1 FROM users WHERE email = ? AND id != ?", (email, manager_user["id"])).fetchone()
+                    if existing:
+                        raise HTTPException(409, "Já existe um usuário com este e-mail")
+                    u_updates["email"] = email
+                if password:
+                    u_updates["password_hash"] = _auth.hash_password(password)
+
+                if u_updates:
+                    u_cols = ", ".join(f"{k} = ?" for k in u_updates)
+                    conn.execute(f"UPDATE users SET {u_cols} WHERE id = ?", [*u_updates.values(), manager_user["id"]])
+                    _auth.invalidate_user_sessions(manager_user["id"])
+            elif email:
+                # Se não havia usuário lojista criado ainda, cria agora
+                existing = conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
+                if existing:
+                    raise HTTPException(409, "Já existe um usuário com este e-mail")
+                initial_pass = password or "demo123"
+                conn.execute(
+                    "INSERT INTO users (email, password_hash, name, role, tenant_id, store_id) VALUES (?, ?, ?, 'lojista', ?, ?)",
+                    (email, _auth.hash_password(initial_pass), current["name"], current["tenant_id"], store_id),
+                )
 
         row = conn.execute("SELECT * FROM stores WHERE id = ?", (store_id,)).fetchone()
-    return {"store": dict(row)}
+        res_store = dict(row)
+        u_row = conn.execute(
+            "SELECT email FROM users WHERE store_id = ? AND role IN ('lojista', 'gestor') ORDER BY id ASC LIMIT 1",
+            (store_id,),
+        ).fetchone()
+        res_store["manager_email"] = u_row["email"] if u_row else None
+    return {"store": res_store}
 
 
 @router.delete("/stores/{store_id}", status_code=204)

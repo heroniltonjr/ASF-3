@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Portal Auto Shopping Formula</title>
-    <link rel="stylesheet" href="styles.css?v=2.1" />
+    <link rel="stylesheet" href="styles.css?v=2.2" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#2563eb" />
     <link rel="apple-touch-icon" href="/assets/icon-192.png" />
@@ -342,12 +342,34 @@
             <input id="loginEmail" name="email" type="email" required placeholder="seu@email.com" autocomplete="username" />
           </label>
           <label class="form-field">
-            <span>Senha</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Senha</span>
+              <a href="#" id="forgotPasswordLink" style="font-size: 12px; color: #60a5fa; text-decoration: none;">Esqueci minha senha</a>
+            </div>
             <input id="loginPassword" name="password" type="password" required placeholder="••••••" autocomplete="current-password" />
           </label>
           <p class="login-error" id="loginError" hidden></p>
           <button class="primary-button" type="submit">Entrar</button>
         </form>
+
+        <!-- Formulário de Recuperação de Senha -->
+        <div id="forgotPasswordContainer" hidden style="margin-top: 15px;">
+          <p style="font-size: 13px; color: var(--text-muted, #94a3b8); margin-bottom: 12px;">
+            Digite o e-mail cadastrado na sua conta. Você receberá uma nova senha de acesso.
+          </p>
+          <form class="login-form" id="forgotPasswordForm">
+            <label class="form-field">
+              <span>E-mail cadastrado</span>
+              <input id="forgotEmailInput" name="email" type="email" required placeholder="seu@email.com" />
+            </label>
+            <p class="login-error" id="forgotError" hidden></p>
+            <p class="login-success" id="forgotSuccess" style="font-size: 13px; color: #10b981; margin: 0 0 10px;" hidden></p>
+            <div style="display: flex; gap: 10px;">
+              <button class="ghost-button" type="button" id="backToLoginBtn" style="flex: 1;">Voltar</button>
+              <button class="primary-button" type="submit" id="sendResetBtn" style="flex: 2;">Enviar nova senha</button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
 
@@ -427,6 +449,6 @@
     </aside>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-    <script src="app.js?v=2.1"></script>
+    <script src="app.js?v=2.3"></script>
   </body>
 </html>

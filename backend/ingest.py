@@ -626,7 +626,7 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
                                 )
                             )
 
-                            store_phone = target_store.get("store_number") or target_store.get("whatsapp") or whatsapp_for(target_store.get("name"))
+                            store_phone = target_store.get("phone") or target_store.get("store_number") or target_store.get("whatsapp") or whatsapp_for(target_store.get("name"))
 
                             # 4. Bifurcação por Plano
                             if target_plan in ("Pro", "Enterprise"):
@@ -650,7 +650,7 @@ async def handle_inbound(provider: Provider, provider_db_id: Optional[int], inbo
                                     conn,
                                     store_name=target_store["name"],
                                     store_number=store_phone or "",
-                                    store_focal=target_store.get("store_focal") or target_store["name"],
+                                    store_focal=target_store.get("focal_name") or target_store.get("store_focal") or target_store["name"],
                                     message=summary_msg,
                                 )
             except Exception as repasse_err:

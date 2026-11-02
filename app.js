@@ -1250,6 +1250,14 @@ function openModal(title, fields, submitLabel, onSubmit) {
 
 function renderField(field) {
   const value = field.value ?? "";
+  if (field.readonly) {
+    return `
+      <label class="form-field">
+        <span>${field.label}</span>
+        <input name="${field.name}" type="text" value="${escapeAttr(value)}" readonly style="background:var(--bg-input-readonly, rgba(255,255,255,0.05)); color:var(--text-muted, #94a3b8); cursor:not-allowed;" />
+      </label>
+    `;
+  }
   if (field.type === "select") {
     return `
       <label class="form-field">
@@ -1872,24 +1880,67 @@ function openVehicleModal(vehicle = null) {
 function openStoreModal(store = null) {
   const isMaster = currentRole() === "master";
   const planOptions = isMaster ? ["Enterprise", "Pro", "Start"] : ["Start", "Pro"];
-  const defaultPlan = isMaster ? "Enterprise" : "Start";
+  const defaultPlan = "Start";
+  const defaultStatus = "Ativo";
   const fields = [
     { label: isMaster ? "Nome do tenant" : "Nome da loja", name: "name", value: store?.name, placeholder: "Ex: Prime Motors", required: true },
     { label: "WhatsApp / Telefone comercial", name: "phone", value: store?.phone, placeholder: "Ex: 5565999999999" },
     { label: "Contato / Responsável focal", name: "focal_name", value: store?.focal_name, placeholder: "Ex: João Silva" },
-    { label: "Plano", name: "plan", value: store?.plan || defaultPlan, type: "select", options: planOptions, required: true },
-    { label: "Status", name: "status", value: store?.status || "Ativo", type: "select", options: ["Ativo", "Atenção", "Inativo"], required: true },
+    {
+      label: "E-mail de acesso da loja",
+      name: "email",
+      type: "email",
+      value: store?.manager_email || "",
+      placeholder: "loja@asformula.com",
+      required: !store,
+    },
+    {
+      label: store ? "Nova senha da loja (opcional)" : "Senha inicial da loja (mín. 6 caracteres)",
+      name: "password",
+      type: "password",
+      placeholder: store ? "Deixe em branco para manter a atual" : "••••••",
+      required: !store,
+    },
+    { label: "URL do Logotipo da loja", name: "logo_url", value: store?.logo_url, placeholder: "https://... ou /assets/stores/loja.jpeg" },
+    {
+      label: "Plano",
+      name: "plan",
+      value: store?.plan || defaultPlan,
+      type: "select",
+      options: planOptions,
+      readonly: !isMaster,
+      required: true,
+    },
+    {
+      label: "Status",
+      name: "status",
+      value: store?.status || defaultStatus,
+      type: "select",
+      options: ["Ativo", "Atenção", "Inativo"],
+      readonly: !isMaster,
+      required: true,
+    },
     { label: "Instruções do SDR (Prompt IA)", name: "sdr_prompt", value: store?.sdr_prompt, type: "textarea", placeholder: "Regras específicas de atendimento e tom de voz" },
   ];
   openModal(store ? (isMaster ? "Editar tenant" : "Editar lojista") : (isMaster ? "Adicionar tenant" : "Adicionar lojista"), fields, store ? "Salvar" : "Adicionar", async (data) => {
+    if (data.password && data.password.trim().length < 6) {
+      throw new Error("A senha da loja deve ter no mínimo 6 caracteres");
+    }
+    const payload = { ...data };
+    if (!payload.password) {
+      delete payload.password;
+    }
+    if (store && !payload.email) {
+      delete payload.email;
+    }
     if (store) {
-      await api(`/api/stores/${store.id}`, { method: "PATCH", body: JSON.stringify(data) });
+      await api(`/api/stores/${store.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       showToast("Cadastro atualizado");
     } else {
-      const monthlyRevenue = data.plan === "Enterprise" ? 18400 : data.plan === "Pro" ? 1500 : 0;
+      const monthlyRevenue = payload.plan === "Enterprise" ? 18400 : payload.plan === "Pro" ? 1500 : 0;
       await api("/api/stores", {
         method: "POST",
-        body: JSON.stringify({ ...data, type: isMaster ? "Auto Shopping" : "Lojista", monthly_revenue: monthlyRevenue }),
+        body: JSON.stringify({ ...payload, type: isMaster ? "Auto Shopping" : "Lojista", monthly_revenue: monthlyRevenue }),
       });
       showToast(isMaster ? "Tenant adicionado" : "Lojista convidado");
     }
@@ -1925,10 +1976,12 @@ function openProfileModal() {
       <div style="padding: 20px;">
         <!-- Header do perfil com avatar e dados da conta -->
         <div class="profile-header-card">
-          <div class="profile-avatar">${escapeHtml(initials)}</div>
-          <div class="profile-meta">
+          <div class="profile-avatar" id="profileAvatarContainer">
+            ${currentUser.avatar_url ? `<img src="${escapeAttr(currentUser.avatar_url)}" alt="${escapeAttr(currentUser.name)}" />` : escapeHtml(initials)}
+          </div>
+          <div class="profile-meta" style="flex: 1;">
             <h4 id="profileDisplayName">${escapeHtml(currentUser.name)}</h4>
-            <p>${escapeHtml(currentUser.email)}</p>
+            <p id="profileDisplayEmail">${escapeHtml(currentUser.email)}</p>
             <div class="profile-badges">
               <span class="profile-badge role-${escapeAttr(role)}">${escapeHtml(roleLabel)}</span>
               <span class="profile-badge badge-store">${escapeHtml(storeLabel)}</span>
@@ -1936,18 +1989,38 @@ function openProfileModal() {
           </div>
         </div>
 
-        <!-- Seção 1: Atualizar Nome -->
+        <!-- Seção 1: Atualizar Dados Pessoais (Nome, E-mail e Foto) -->
         <div class="profile-section" style="border-top: 0; padding-top: 0; margin-top: 0;">
           <div class="profile-section-title">
             <span>👤</span>
-            <span>Dados Pessoais</span>
+            <span>Dados da Conta & Foto</span>
           </div>
-          <form id="profileNameForm" style="display: flex; gap: 10px; align-items: flex-end;">
-            <label class="form-field" style="flex: 1;">
-              <span>Nome de exibição</span>
-              <input id="profileNameInput" type="text" value="${escapeAttr(currentUser.name)}" minlength="2" required placeholder="Seu nome completo" />
+          <form id="profileDataForm" style="display: grid; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <label class="form-field">
+                <span>Nome de exibição</span>
+                <input id="profileNameInput" type="text" value="${escapeAttr(currentUser.name)}" minlength="2" required placeholder="Seu nome completo" />
+              </label>
+              <label class="form-field">
+                <span>E-mail</span>
+                <input id="profileEmailInput" type="email" value="${escapeAttr(currentUser.email)}" required placeholder="seu@email.com" />
+              </label>
+            </div>
+            
+            <label class="form-field">
+              <span>URL da Foto de Perfil (ou selecione um arquivo abaixo)</span>
+              <div style="display: flex; gap: 8px;">
+                <input id="profileAvatarInput" type="text" value="${escapeAttr(currentUser.avatar_url || '')}" placeholder="https://... ou /uploads/..." style="flex: 1;" />
+                <label class="ghost-button" style="display: inline-flex; align-items: center; cursor: pointer; white-space: nowrap; margin: 0; padding: 0 12px;">
+                  📁 Escolher foto
+                  <input type="file" id="profileAvatarFileInput" accept="image/*" style="display: none;" />
+                </label>
+              </div>
             </label>
-            <button class="primary-button" type="submit" id="saveProfileNameBtn" style="min-height: 42px; white-space: nowrap;">Salvar Nome</button>
+
+            <div style="display: flex; justify-content: flex-end;">
+              <button class="primary-button" type="submit" id="saveProfileDataBtn" style="min-height: 40px; white-space: nowrap;">Salvar Alterações</button>
+            </div>
           </form>
         </div>
 
@@ -2019,40 +2092,87 @@ function openProfileModal() {
     });
   });
 
-  // Salvar Nome
-  const nameForm = modalLayer.querySelector("#profileNameForm");
-  nameForm.addEventListener("submit", async (e) => {
+  // Upload de Foto de Perfil
+  const avatarFileInput = modalLayer.querySelector("#profileAvatarFileInput");
+  const avatarInput = modalLayer.querySelector("#profileAvatarInput");
+  const avatarContainer = modalLayer.querySelector("#profileAvatarContainer");
+  
+  if (avatarFileInput) {
+    avatarFileInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        showToast("Enviando foto...");
+        const uploadRes = await fetch("/api/media/upload", {
+          method: "POST",
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.error || "Falha no upload");
+        }
+        const uploaded = await uploadRes.json();
+        avatarInput.value = uploaded.url;
+        avatarContainer.innerHTML = `<img src="${escapeAttr(uploaded.url)}" alt="Avatar" />`;
+        showToast("Foto carregada! Clique em Salvar Alterações.");
+      } catch (err) {
+        showToast(err.message || "Erro no upload da foto");
+      }
+    });
+  }
+
+  // Salvar Dados Pessoais (Nome, E-mail e Avatar)
+  const dataForm = modalLayer.querySelector("#profileDataForm");
+  dataForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const newName = document.getElementById("profileNameInput").value.trim();
+    const newEmail = document.getElementById("profileEmailInput").value.trim();
+    const newAvatar = document.getElementById("profileAvatarInput").value.trim();
+
     if (newName.length < 2) {
       showToast("O nome deve ter no mínimo 2 caracteres");
       return;
     }
-    const saveBtn = document.getElementById("saveProfileNameBtn");
+    if (!newEmail || !newEmail.includes("@")) {
+      showToast("Informe um e-mail válido");
+      return;
+    }
+
+    const saveBtn = document.getElementById("saveProfileDataBtn");
     saveBtn.disabled = true;
     saveBtn.textContent = "Salvando...";
     try {
       const res = await api("/api/me", {
         method: "PATCH",
-        body: JSON.stringify({ name: newName }),
+        body: JSON.stringify({ name: newName, email: newEmail, avatar_url: newAvatar || null }),
       });
       currentUser.name = res.user.name;
+      currentUser.email = res.user.email;
+      currentUser.avatar_url = res.user.avatar_url;
       applyRole();
+
       document.getElementById("profileDisplayName").textContent = currentUser.name;
-      const newInitials = (currentUser.name || "U")
-        .split(" ")
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((p) => p[0].toUpperCase())
-        .join("");
-      const avatarEl = modalLayer.querySelector(".profile-avatar");
-      if (avatarEl) avatarEl.textContent = newInitials;
-      showToast("Nome atualizado com sucesso!");
+      document.getElementById("profileDisplayEmail").textContent = currentUser.email;
+
+      if (currentUser.avatar_url) {
+        avatarContainer.innerHTML = `<img src="${escapeAttr(currentUser.avatar_url)}" alt="${escapeAttr(currentUser.name)}" />`;
+      } else {
+        const newInitials = (currentUser.name || "U")
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((p) => p[0].toUpperCase())
+          .join("");
+        avatarContainer.textContent = newInitials;
+      }
+      showToast("Dados do perfil atualizados com sucesso!");
     } catch (err) {
-      showToast(err.message || "Erro ao atualizar nome");
+      showToast(err.message || "Erro ao atualizar perfil");
     } finally {
       saveBtn.disabled = false;
-      saveBtn.textContent = "Salvar Nome";
+      saveBtn.textContent = "Salvar Alterações";
     }
   });
 
@@ -2415,6 +2535,63 @@ $("#loginForm").addEventListener("submit", async (event) => {
     error.hidden = false;
   }
 });
+
+// Esqueci minha senha — alternância e submissão
+const forgotLink = $("#forgotPasswordLink");
+const backToLoginBtn = $("#backToLoginBtn");
+const forgotContainer = $("#forgotPasswordContainer");
+const loginFormEl = $("#loginForm");
+const forgotForm = $("#forgotPasswordForm");
+
+if (forgotLink && forgotContainer) {
+  forgotLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    loginFormEl.hidden = true;
+    forgotContainer.hidden = false;
+    const currentEmail = $("#loginEmail").value.trim();
+    if (currentEmail) $("#forgotEmailInput").value = currentEmail;
+  });
+}
+
+if (backToLoginBtn && forgotContainer) {
+  backToLoginBtn.addEventListener("click", () => {
+    forgotContainer.hidden = true;
+    loginFormEl.hidden = false;
+    $("#forgotError").hidden = true;
+    $("#forgotSuccess").hidden = true;
+  });
+}
+
+if (forgotForm) {
+  forgotForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const emailVal = $("#forgotEmailInput").value.trim();
+    const errEl = $("#forgotError");
+    const succEl = $("#forgotSuccess");
+    const sendBtn = $("#sendResetBtn");
+    
+    errEl.hidden = true;
+    succEl.hidden = true;
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Enviando...";
+
+    try {
+      const res = await api("/api/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: emailVal }),
+      });
+      succEl.textContent = res.message || "Senha redefinida e enviada para o seu e-mail!";
+      succEl.hidden = false;
+      showToast("E-mail com nova senha enviado!");
+    } catch (err) {
+      errEl.textContent = err.message || "Erro ao solicitar recuperação de senha";
+      errEl.hidden = false;
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Enviar nova senha";
+    }
+  });
+}
 
 sessionButton.addEventListener("click", () => {
   if (!currentUser) loginLayer.classList.add("show");

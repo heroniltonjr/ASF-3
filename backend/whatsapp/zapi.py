@@ -20,8 +20,8 @@ from .base import InboundMessage, OutboundResult, ProviderConfig, ProviderError
 def _format_br_number(phone: str) -> str:
     """Adiciona o 9º dígito em celulares do Brasil caso esteja faltando."""
     p = re.sub(r'\D', '', phone)
-    # Se for BR (55) e tiver 12 dígitos (falta o 9)
-    if p.startswith("55") and len(p) == 12:
+    # Se for BR (55) e tiver 12 dígitos (falta o 9 apenas em celulares que começam com 6, 7, 8 ou 9)
+    if p.startswith("55") and len(p) == 12 and len(p) > 4 and p[4] in "6789":
         return f"55{p[2:4]}9{p[4:]}"
     return p
 

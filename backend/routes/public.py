@@ -157,7 +157,7 @@ def _active_stores() -> list[dict]:
     """Retorna apenas lojas do tipo 'Lojista' com status 'Ativo', com contagem de estoque e metadados."""
     with db.tx() as conn:
         db_rows = conn.execute(
-            "SELECT id, name, type, plan, status FROM stores WHERE type = 'Lojista' AND status = 'Ativo'"
+            "SELECT id, name, type, plan, status, logo_url FROM stores WHERE type = 'Lojista' AND status = 'Ativo'"
         ).fetchall()
 
     if not db_rows:
@@ -191,13 +191,14 @@ def _active_stores() -> list[dict]:
         active_count = counts_by_name.get(name.lower(), counts_by_norm.get(norm_name, 0))
         store_id = raw_store_names.get(name.lower(), raw_store_names.get(norm_name, name))
         meta = store_meta.lookup(name) or {}
+        store_logo = row_dict.get("logo_url") or meta.get("logo")
         stores.append({
             "id": store_id,
             "name": name,
             "type": row_dict.get("type", "Lojista"),
             "plan": row_dict.get("plan") or "Parceiro",
             "active_vehicles": active_count,
-            "logo": meta.get("logo"),
+            "logo": store_logo,
             "city": meta.get("city"),
             "address": meta.get("address"),
             "whatsapp": meta.get("whatsapp"),
@@ -286,9 +287,19 @@ def get_public_vehicle(vehicle_id: int):
     veh["doors"] = row.get("doors")
     veh["item_list"] = row.get("item_list") if isinstance(row.get("item_list"), list) else []
 
-    # Dados da loja (logo/cidade/WhatsApp próprio) — Fase 4.
-    meta = store_meta.lookup(_clean(row.get("store"))) or {}
-    veh["store_logo"] = meta.get("logo")
+    # Dados da loja (logo/cidade/WhatsApp próprio)
+    clean_store = _clean(row.get("store"))
+    meta = store_meta.lookup(clean_store) or {}
+    store_logo = meta.get("logo")
+    if clean_store:
+        try:
+            with db.tx() as conn:
+                s_row = conn.execute("SELECT logo_url FROM stores WHERE lower(name) = lower(?) LIMIT 1", (clean_store,)).fetchone()
+                if s_row and s_row["logo_url"]:
+                    store_logo = s_row["logo_url"]
+        except Exception:
+            pass
+    veh["store_logo"] = store_logo
     veh["store_city"] = meta.get("city")
 
     wa_number = re.sub(r"[^\d]", "", meta.get("whatsapp") or ASF_WHATSAPP)

@@ -2185,3 +2185,78 @@ select {
 
 
 
+
+
+/* ---------- Store Modal Logo (Site Pattern) ---------- */
+.store-modal-logo-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.store-modal-logo {
+  height: 54px;
+  min-height: 54px;
+  max-height: 54px;
+  overflow: hidden;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.store-modal-logo:not(.has-img) {
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #163a70, #1e4d94);
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 12px rgba(22, 58, 112, 0.22);
+}
+
+.store-modal-logo.has-img {
+  height: 54px;
+  min-height: 54px;
+  max-height: 54px;
+  width: auto;
+  min-width: 72px;
+  max-width: 160px;
+  background: #ffffff;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 10px;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.store-modal-logo.has-img:hover {
+  border-color: #94a3b8;
+}
+
+.store-modal-logo.has-img img {
+  height: 40px !important;
+  max-height: 40px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+.store-modal-row-3 {
+  display: grid;
+  grid-template-columns: 1.3fr 0.85fr 0.85fr;
+  gap: 10px;
+}
+
+@media (max-width: 520px) {
+  .store-modal-row-3 {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1880,72 +1880,317 @@ function openVehicleModal(vehicle = null) {
 function openStoreModal(store = null) {
   const isMaster = currentRole() === "master";
   const planOptions = isMaster ? ["Enterprise", "Pro", "Start"] : ["Start", "Pro"];
-  const defaultPlan = "Start";
-  const defaultStatus = "Ativo";
-  const fields = [
-    { label: isMaster ? "Nome do tenant" : "Nome da loja", name: "name", value: store?.name, placeholder: "Ex: Prime Motors", required: true },
-    { label: "WhatsApp / Telefone comercial", name: "phone", value: store?.phone, placeholder: "Ex: 5565999999999" },
-    { label: "Contato / Responsável focal", name: "focal_name", value: store?.focal_name, placeholder: "Ex: João Silva" },
-    {
-      label: "E-mail de acesso da loja",
-      name: "email",
-      type: "email",
-      value: store?.manager_email || "",
-      placeholder: "loja@asformula.com",
-      required: !store,
-    },
-    {
-      label: store ? "Nova senha da loja (opcional)" : "Senha inicial da loja (mín. 6 caracteres)",
-      name: "password",
-      type: "password",
-      placeholder: store ? "Deixe em branco para manter a atual" : "••••••",
-      required: !store,
-    },
-    { label: "URL do Logotipo da loja", name: "logo_url", value: store?.logo_url, placeholder: "https://... ou /assets/stores/loja.jpeg" },
-    {
-      label: "Plano",
-      name: "plan",
-      value: store?.plan || defaultPlan,
-      type: "select",
-      options: planOptions,
-      readonly: !isMaster,
-      required: true,
-    },
-    {
-      label: "Status",
-      name: "status",
-      value: store?.status || defaultStatus,
-      type: "select",
-      options: ["Ativo", "Atenção", "Inativo"],
-      readonly: !isMaster,
-      required: true,
-    },
-    { label: "Instruções do SDR (Prompt IA)", name: "sdr_prompt", value: store?.sdr_prompt, type: "textarea", placeholder: "Regras específicas de atendimento e tom de voz" },
-  ];
-  openModal(store ? (isMaster ? "Editar tenant" : "Editar lojista") : (isMaster ? "Adicionar tenant" : "Adicionar lojista"), fields, store ? "Salvar" : "Adicionar", async (data) => {
-    if (data.password && data.password.trim().length < 6) {
-      throw new Error("A senha da loja deve ter no mínimo 6 caracteres");
+  const defaultPlan = store?.plan || "Start";
+  const defaultStatus = store?.status || "Ativo";
+  const modalTitle = store
+    ? isMaster
+      ? "Editar tenant"
+      : "Editar lojista"
+    : isMaster
+      ? "Adicionar tenant"
+      : "Adicionar lojista";
+  const submitLabel = store ? "Salvar" : "Adicionar";
+
+  const initialName = store?.name || "";
+  const storeInitial = (initialName.trim() || "L").charAt(0).toUpperCase();
+  const initialSub =
+    store?.manager_email ||
+    (store?.phone ? `WhatsApp: ${store.phone}` : "Configure os dados comerciais e credenciais de acesso");
+
+  const renderLogoBoxContent = (logoUrl, nameText) => {
+    const cleanUrl = (logoUrl || "").trim();
+    const letter = ((nameText || "").trim() || "L").charAt(0).toUpperCase();
+    if (cleanUrl) {
+      return `<img src="${escapeAttr(cleanUrl)}" alt="${escapeAttr(nameText || "Logo da loja")}" />`;
     }
+    return escapeHtml(letter);
+  };
+
+  modalLayer.innerHTML = `
+    <div class="modal-backdrop" data-modal-close="true"></div>
+    <section class="modal-card profile-modal store-edit-modal" role="dialog" aria-modal="true" aria-label="${escapeAttr(modalTitle)}">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Formula OS</span>
+          <h3>${escapeHtml(modalTitle)}</h3>
+        </div>
+        <button class="icon-close" data-modal-close="true" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <form id="storeModalForm" style="padding: 20px; display: grid; gap: 0;">
+        <input type="hidden" id="storeLogoUrlInput" name="logo_url" value="${escapeAttr(store?.logo_url || "")}" />
+
+        <!-- Topo sombreado com logotipo no padrão do site e resumo da loja -->
+        <div class="profile-header-card">
+          <div class="store-modal-logo-wrap">
+            <div
+              class="store-modal-logo ${store?.logo_url ? "has-img" : ""}"
+              id="storeLogoPreviewContainer"
+              title="Clique para adicionar ou alterar o logotipo da loja"
+            >
+              ${renderLogoBoxContent(store?.logo_url, initialName)}
+            </div>
+            <label class="profile-avatar-edit-btn" title="Enviar ou atualizar logotipo da loja" aria-label="Enviar ou atualizar logotipo da loja">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <input type="file" id="storeLogoFileInput" accept="image/*" style="display: none;" />
+            </label>
+          </div>
+
+          <div class="profile-meta" style="flex: 1;">
+            <h4 id="storeModalDisplayName">${escapeHtml(initialName || (isMaster ? "Novo Tenant" : "Novo Lojista Parceiro"))}</h4>
+            <p id="storeModalDisplaySub">${escapeHtml(initialSub)}</p>
+            <div class="profile-badges">
+              <span class="profile-badge role-shopping" id="storeModalPlanBadge">Plano ${escapeHtml(defaultPlan)}</span>
+              <span class="profile-badge ${defaultStatus === "Ativo" ? "role-lojista" : "badge-store"}" id="storeModalStatusBadge">${escapeHtml(defaultStatus)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 1: Dados Comerciais & Operação -->
+        <div class="profile-section" style="border-top: 0; padding-top: 0; margin-top: 0;">
+          <div class="profile-section-title">
+            <span>🏪</span>
+            <span>Dados Comerciais & Operação</span>
+          </div>
+          <div style="display: grid; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <label class="form-field">
+                <span>${isMaster ? "Nome do tenant" : "Nome da loja"}</span>
+                <input id="storeNameInput" name="name" type="text" value="${escapeAttr(store?.name || "")}" placeholder="Ex: Prime Motors" required />
+              </label>
+              <label class="form-field">
+                <span>WhatsApp / Telefone comercial</span>
+                <input id="storePhoneInput" name="phone" type="text" value="${escapeAttr(store?.phone || "")}" placeholder="Ex: 5565999999999" />
+              </label>
+            </div>
+
+            <div class="store-modal-row-3">
+              <label class="form-field">
+                <span>Contato / Responsável focal</span>
+                <input id="storeFocalInput" name="focal_name" type="text" value="${escapeAttr(store?.focal_name || "")}" placeholder="Ex: João Silva" />
+              </label>
+              <label class="form-field">
+                <span>Plano</span>
+                ${
+                  isMaster
+                    ? `<select id="storePlanInput" name="plan" required>
+                        ${planOptions
+                          .map((opt) => `<option value="${escapeAttr(opt)}" ${opt === defaultPlan ? "selected" : ""}>${escapeHtml(opt)}</option>`)
+                          .join("")}
+                      </select>`
+                    : `<input id="storePlanInput" name="plan" type="text" value="${escapeAttr(defaultPlan)}" readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;" />`
+                }
+              </label>
+              <label class="form-field">
+                <span>Status</span>
+                ${
+                  isMaster
+                    ? `<select id="storeStatusInput" name="status" required>
+                        ${["Ativo", "Atenção", "Inativo"]
+                          .map((opt) => `<option value="${escapeAttr(opt)}" ${opt === defaultStatus ? "selected" : ""}>${escapeHtml(opt)}</option>`)
+                          .join("")}
+                      </select>`
+                    : `<input id="storeStatusInput" name="status" type="text" value="${escapeAttr(defaultStatus)}" readonly style="background: #f1f5f9; color: #64748b; cursor: not-allowed;" />`
+                }
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 2: Credenciais de Acesso da Loja -->
+        <div class="profile-section">
+          <div class="profile-section-title">
+            <span>🔒</span>
+            <span>Credenciais de Acesso da Loja</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <label class="form-field">
+              <span>E-mail de acesso da loja</span>
+              <input
+                id="storeEmailInput"
+                name="email"
+                type="email"
+                value="${escapeAttr(store?.manager_email || "")}"
+                placeholder="loja@asformula.com"
+                ${!store ? "required" : ""}
+              />
+            </label>
+            <label class="form-field">
+              <span>${store ? "Nova senha da loja (opcional)" : "Senha inicial da loja (mín. 6 caracteres)"}</span>
+              <div class="password-input-wrap">
+                <input
+                  id="storePasswordInput"
+                  name="password"
+                  type="password"
+                  placeholder="${store ? "Deixe em branco para manter a atual" : "Mínimo 6 caracteres"}"
+                  ${!store ? 'required minlength="6"' : ""}
+                  autocomplete="new-password"
+                />
+                <button type="button" class="password-toggle-btn" data-target="storePasswordInput" title="Mostrar/ocultar senha">👁️</button>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);">
+          <button class="ghost-button" type="button" data-modal-close="true">Cancelar</button>
+          <button class="primary-button" type="submit" id="saveStoreModalBtn">${escapeHtml(submitLabel)}</button>
+        </div>
+      </form>
+    </section>
+  `;
+
+  modalLayer.classList.add("show");
+  modalLayer.setAttribute("aria-hidden", "false");
+
+  // Toggle visibilidade de senha
+  modalLayer.querySelectorAll(".password-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.dataset.target;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "🙈";
+      } else {
+        input.type = "password";
+        btn.textContent = "👁️";
+      }
+    });
+  });
+
+  const logoContainer = modalLayer.querySelector("#storeLogoPreviewContainer");
+  const logoFileInput = modalLayer.querySelector("#storeLogoFileInput");
+  const logoUrlInput = modalLayer.querySelector("#storeLogoUrlInput");
+  const nameInput = modalLayer.querySelector("#storeNameInput");
+  const emailInput = modalLayer.querySelector("#storeEmailInput");
+  const phoneInput = modalLayer.querySelector("#storePhoneInput");
+  const planInput = modalLayer.querySelector("#storePlanInput");
+  const statusInput = modalLayer.querySelector("#storeStatusInput");
+  const displayName = modalLayer.querySelector("#storeModalDisplayName");
+  const displaySub = modalLayer.querySelector("#storeModalDisplaySub");
+  const planBadge = modalLayer.querySelector("#storeModalPlanBadge");
+  const statusBadge = modalLayer.querySelector("#storeModalStatusBadge");
+
+  // Atualiza cabeçalho e placeholder da letra ao digitar nome/email/telefone
+  const syncHeaderMeta = () => {
+    const currentName = nameInput.value.trim();
+    displayName.textContent = currentName || (isMaster ? "Novo Tenant" : "Novo Lojista Parceiro");
+    const currentEmail = emailInput.value.trim();
+    const currentPhone = phoneInput.value.trim();
+    displaySub.textContent =
+      currentEmail ||
+      (currentPhone ? `WhatsApp: ${currentPhone}` : "Configure os dados comerciais e credenciais de acesso");
+
+    if (!logoUrlInput.value.trim()) {
+      logoContainer.classList.remove("has-img");
+      logoContainer.textContent = (currentName || "L").charAt(0).toUpperCase();
+    }
+    if (planInput && planBadge) {
+      planBadge.textContent = `Plano ${planInput.value}`;
+    }
+    if (statusInput && statusBadge) {
+      statusBadge.textContent = statusInput.value;
+      statusBadge.className = `profile-badge ${statusInput.value === "Ativo" ? "role-lojista" : "badge-store"}`;
+    }
+  };
+
+  nameInput?.addEventListener("input", syncHeaderMeta);
+  emailInput?.addEventListener("input", syncHeaderMeta);
+  phoneInput?.addEventListener("input", syncHeaderMeta);
+  planInput?.addEventListener("change", syncHeaderMeta);
+  statusInput?.addEventListener("change", syncHeaderMeta);
+
+  // Clique no logotipo também abre o seletor de arquivo
+  if (logoContainer && logoFileInput) {
+    logoContainer.addEventListener("click", () => logoFileInput.click());
+  }
+
+  // Upload do Logotipo da Loja
+  if (logoFileInput) {
+    logoFileInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        showToast("Enviando logotipo da loja...");
+        const uploadRes = await fetch("/api/media/upload", {
+          method: "POST",
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.error || "Falha no upload do logotipo");
+        }
+        const uploaded = await uploadRes.json();
+        logoUrlInput.value = uploaded.url;
+        logoContainer.classList.add("has-img");
+        logoContainer.innerHTML = `<img src="${escapeAttr(uploaded.url)}" alt="${escapeAttr(nameInput.value.trim() || "Logo da loja")}" />`;
+
+        if (store?.id) {
+          await api(`/api/stores/${store.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ logo_url: uploaded.url }),
+          });
+          store.logo_url = uploaded.url;
+          showToast("Logotipo da loja atualizado!");
+        } else {
+          showToast("Logotipo carregado!");
+        }
+      } catch (err) {
+        showToast(err.message || "Erro no upload do logotipo");
+      }
+    });
+  }
+
+  // Submit do formulário de Adicionar/Editar Lojista
+  const form = modalLayer.querySelector("#storeModalForm");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const saveBtn = document.getElementById("saveStoreModalBtn");
+    const originalText = saveBtn.textContent;
+
+    const data = Object.fromEntries(new FormData(form).entries());
+    if (data.password && data.password.trim().length < 6) {
+      showToast("A senha da loja deve ter no mínimo 6 caracteres");
+      return;
+    }
+
     const payload = { ...data };
-    if (!payload.password) {
+    if (!payload.password || !payload.password.trim()) {
       delete payload.password;
     }
-    if (store && !payload.email) {
+    if (store && (!payload.email || !payload.email.trim())) {
       delete payload.email;
     }
-    if (store) {
-      await api(`/api/stores/${store.id}`, { method: "PATCH", body: JSON.stringify(payload) });
-      showToast("Cadastro atualizado");
-    } else {
-      const monthlyRevenue = payload.plan === "Enterprise" ? 18400 : payload.plan === "Pro" ? 1500 : 0;
-      await api("/api/stores", {
-        method: "POST",
-        body: JSON.stringify({ ...payload, type: isMaster ? "Auto Shopping" : "Lojista", monthly_revenue: monthlyRevenue }),
-      });
-      showToast(isMaster ? "Tenant adicionado" : "Lojista convidado");
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Salvando...";
+    try {
+      if (store) {
+        await api(`/api/stores/${store.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+        showToast("Cadastro atualizado");
+      } else {
+        const monthlyRevenue = payload.plan === "Enterprise" ? 18400 : payload.plan === "Pro" ? 1500 : 0;
+        await api("/api/stores", {
+          method: "POST",
+          body: JSON.stringify({ ...payload, type: isMaster ? "Auto Shopping" : "Lojista", monthly_revenue: monthlyRevenue }),
+        });
+        showToast(isMaster ? "Tenant adicionado" : "Lojista convidado");
+      }
+      closeModal();
+      await refreshAndRender();
+      showView("stores");
+    } catch (err) {
+      showToast(err.message || "Falha ao salvar lojista");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
     }
-    await refreshAndRender();
-    showView("stores");
   });
 }
 

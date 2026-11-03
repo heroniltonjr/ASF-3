@@ -20,7 +20,13 @@ def _scope_filter(user: dict) -> tuple[str, list]:
 
 
 def _resolve_and_sync_store_logo(conn, st: dict) -> dict:
-    """Garante que toda loja tenha logo_url sincronizado entre o banco e o site (store_meta)."""
+    """Garante que toda loja tenha logo_url e type sincronizados entre o banco e o site (store_meta)."""
+    if st.get("plan") != "Enterprise" and st.get("type") == "Auto Shopping":
+        st["type"] = "Lojista"
+        try:
+            conn.execute("UPDATE stores SET type = 'Lojista' WHERE id = ?", (st["id"],))
+        except Exception:
+            pass
     logo_url = (st.get("logo_url") or "").strip()
     if not logo_url:
         fallback_logo = store_meta.logo_for(st.get("name"))
@@ -98,6 +104,8 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
 
     if store_type == "Lojista" and plan == "Enterprise":
         raise HTTPException(400, "O plano Enterprise é exclusivo para Tenants")
+    if plan != "Enterprise" and store_type == "Auto Shopping":
+        store_type = "Lojista"
 
     if plan not in DEFAULT_PLAN_REVENUE:
         raise HTTPException(400, f"Plano inválido. Planos permitidos: {', '.join(DEFAULT_PLAN_REVENUE)}")

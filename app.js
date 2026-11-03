@@ -2272,11 +2272,12 @@ function openStoreModal(store = null) {
         showToast("Cadastro atualizado");
       } else {
         const monthlyRevenue = payload.plan === "Enterprise" ? 18400 : payload.plan === "Pro" ? 1500 : 0;
+        const storeType = payload.plan === "Enterprise" ? "Auto Shopping" : "Lojista";
         await api("/api/stores", {
           method: "POST",
-          body: JSON.stringify({ ...payload, type: isMaster ? "Auto Shopping" : "Lojista", monthly_revenue: monthlyRevenue }),
+          body: JSON.stringify({ ...payload, type: storeType, monthly_revenue: monthlyRevenue }),
         });
-        showToast(isMaster ? "Tenant adicionado" : "Lojista convidado");
+        showToast(storeType === "Auto Shopping" ? "Tenant adicionado" : "Lojista adicionado");
       }
       closeModal();
       await refreshAndRender();

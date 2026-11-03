@@ -1,10 +1,45 @@
 {
+  "amc": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/amc.jpg",
+    "name": "AMC Veículos",
+    "whatsapp": "5565999237542"
+  },
+  "atlas": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/atlas.png",
+    "name": "Atlas Automóveis",
+    "whatsapp": "65999000735"
+  },
+  "betania": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/betania.png",
+    "name": "Betania Automoveis",
+    "whatsapp": "556536941311"
+  },
   "betel": {
     "address": "AV. DA FEB, 2222, JD CERRADOS",
     "city": "Várzea Grande/MT",
     "logo": "/portal/assets/stores/betel.jpeg",
     "name": "BETEL AUTOMOVEIS",
     "whatsapp": "5565984686849"
+  },
+  "corsi": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/corsi.jpg",
+    "name": "Corsi Multimarcas",
+    "whatsapp": "5565981230659"
+  },
+  "dani": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/dani.png",
+    "name": "Dani Multimarcas",
+    "whatsapp": "5565984461776"
   },
   "ev": {
     "address": "AV. DA FEB, 2222, JD CERRADOS",
@@ -23,9 +58,16 @@
   "felix": {
     "address": null,
     "city": null,
-    "logo": null,
+    "logo": "/portal/assets/stores/felix.jpg",
     "name": "Felix Automoveis",
     "whatsapp": "5565996381202"
+  },
+  "fer car": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/fer-car.jpg",
+    "name": "Fer Car Automóveis",
+    "whatsapp": "5565984643225"
   },
   "gilson": {
     "address": null,
@@ -40,6 +82,13 @@
     "logo": "/portal/assets/stores/global.png",
     "name": "GLOBAL AUTOMOVEIS",
     "whatsapp": "5565999016007"
+  },
+  "gr car": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/gr-car.png",
+    "name": "GR Car",
+    "whatsapp": "5565992603043"
   },
   "gx": {
     "address": "Avenida da FEB, 2222, Ponte Nova",
@@ -68,6 +117,20 @@
     "logo": "/portal/assets/stores/luan.jpeg",
     "name": "Luan Multimarcas",
     "whatsapp": "5565992013346"
+  },
+  "mastercar": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/mastercar.png",
+    "name": "Mastercar Automóveis",
+    "whatsapp": "556593555080"
+  },
+  "meu": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/meu.png",
+    "name": "Meu Automóvel",
+    "whatsapp": "5565992461225"
   },
   "mundial": {
     "address": "AV. DA FEB, 2222, JD CERRADOS",
@@ -117,5 +180,12 @@
     "logo": "/portal/assets/stores/trinity.jpeg",
     "name": "TRINITY VEÍCULOS",
     "whatsapp": "5565992357917"
+  },
+  "villa prime": {
+    "address": "AV. DA FEB, 2222, JD CERRADOS",
+    "city": "Várzea Grande/MT",
+    "logo": "/portal/assets/stores/villa-prime.png",
+    "name": "Villa Prime Multimarcas",
+    "whatsapp": null
   }
 }

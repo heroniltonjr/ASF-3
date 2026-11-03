@@ -184,15 +184,25 @@ function normalizeVehicle(v) {
 const SITE_STORE_LOGOS = {
   "auto shopping formula": "/portal/assets/logo.png",
   "shopping formula": "/portal/assets/logo.png",
+  amc: "/portal/assets/stores/amc.jpg",
+  atlas: "/portal/assets/stores/atlas.png",
+  betania: "/portal/assets/stores/betania.png",
   betel: "/portal/assets/stores/betel.jpeg",
+  corsi: "/portal/assets/stores/corsi.jpg",
+  dani: "/portal/assets/stores/dani.png",
   ev: "/portal/assets/stores/ev.jpeg",
   evidence: "/portal/assets/stores/evidence.jpeg",
+  felix: "/portal/assets/stores/felix.jpg",
+  "fer car": "/portal/assets/stores/fer-car.jpg",
   gilson: "/portal/assets/stores/gilson.png",
   global: "/portal/assets/stores/global.png",
+  "gr car": "/portal/assets/stores/gr-car.png",
   gx: "/portal/assets/stores/gx-auto.png",
   kadosh: "/portal/assets/stores/kadosh.jpeg",
   kallicar: "/portal/assets/stores/kallicar.jpeg",
   luan: "/portal/assets/stores/luan.jpeg",
+  mastercar: "/portal/assets/stores/mastercar.png",
+  meu: "/portal/assets/stores/meu.png",
   mundial: "/portal/assets/stores/mundial.jpeg",
   radar: "/portal/assets/stores/radar.jpeg",
   rocha: "/portal/assets/stores/rocha-motors.jpeg",
@@ -200,6 +210,7 @@ const SITE_STORE_LOGOS = {
   "seminovos movida": "/portal/assets/stores/seminovos-movida.png",
   tex: "/portal/assets/stores/tex.jpeg",
   trinity: "/portal/assets/stores/trinity.jpeg",
+  "villa prime": "/portal/assets/stores/villa-prime.png",
 };
 
 const _STORE_SUFFIXES = [

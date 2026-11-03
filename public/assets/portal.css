@@ -575,8 +575,10 @@ section { padding: 64px 0; }
   height: 54px;
   min-height: 54px;
   max-height: 54px;
-  width: auto;
+  width: fit-content;
+  min-width: 72px;
   max-width: 160px;
+  align-self: flex-start;
   background: #fff;
   border: 1px solid var(--asf-border);
   border-radius: var(--radius-sm);
@@ -591,7 +593,7 @@ section { padding: 64px 0; }
   height: 40px !important;
   max-height: 40px !important;
   width: auto !important;
-  max-width: 100% !important;
+  max-width: 136px !important;
   object-fit: contain !important;
   display: block !important;
 }

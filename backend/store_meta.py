@@ -122,11 +122,17 @@ def save_store_logo_asset(
         target_path = _PUBLIC_STORES_DIR / target_name
         target_path.write_bytes(data)
 
+        # Salva também no volume persistente (/data/uploads/stores/) para sobreviver a rebuilds Docker
+        persistent_stores_dir = Path(settings.uploads_dir) / "stores"
+        persistent_stores_dir.mkdir(parents=True, exist_ok=True)
+        (persistent_stores_dir / target_name).write_bytes(data)
+
         # Se havia um arquivo anterior com outro nome/extensão (ex: rocha-motors.jpeg),
         # também sobrescreve o arquivo antigo para que referências diretas não exibam imagem antiga
         if old_file_path and old_file_path != target_path and old_file_path.exists():
             try:
                 old_file_path.write_bytes(data)
+                (persistent_stores_dir / old_file_path.name).write_bytes(data)
             except OSError:
                 pass
 
@@ -201,3 +207,19 @@ def whatsapp_for(store_name: Optional[str]) -> Optional[str]:
             pass
     meta = lookup(store_name)
     return meta.get("whatsapp") if meta else None
+
+
+def restore_persistent_store_logos() -> None:
+    """Restaura logotipos de lojas do volume persistente (/data/uploads/stores) para public/assets/stores no boot."""
+    try:
+        from .settings import settings
+        persistent_dir = Path(settings.uploads_dir) / "stores"
+        if not persistent_dir.exists():
+            return
+        _PUBLIC_STORES_DIR.mkdir(parents=True, exist_ok=True)
+        for src in persistent_dir.iterdir():
+            if src.is_file():
+                dst = _PUBLIC_STORES_DIR / src.name
+                dst.write_bytes(src.read_bytes())
+    except Exception:
+        pass

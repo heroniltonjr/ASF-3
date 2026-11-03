@@ -1,454 +1,489 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portal Auto Shopping Formula</title>
-    <link rel="stylesheet" href="styles.css?v=2.5" />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#2563eb" />
-    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-mark">F</div>
-          <div>
-            <strong>Formula OS</strong>
-            <span>Portal comercial</span>
-          </div>
-        </div>
 
-        <nav class="nav-list" aria-label="Menu principal">
-          <button class="active" data-view="overview" data-nav-default="Visão geral" type="button">
-            <span class="nav-icon dashboard-icon"></span>
-            <span class="nav-label">Visão geral</span>
-          </button>
-          <button data-view="crm" data-nav-default="CRM de leads" type="button">
-            <span class="nav-icon funnel-icon"></span>
-            <span class="nav-label">CRM de leads</span>
-          </button>
-          <button data-view="inbox" data-nav-default="Multi-atendimento" type="button">
-            <span class="nav-icon chat-icon"></span>
-            <span class="nav-label">Multi-atendimento</span>
-          </button>
-          <button data-view="vehicles" data-nav-default="Veículos" type="button">
-            <span class="nav-icon car-icon"></span>
-            <span class="nav-label">Veículos</span>
-          </button>
-          <button data-view="stores" data-nav-default="Lojistas" type="button">
-            <span class="nav-icon store-icon"></span>
-            <span class="nav-label">Lojistas</span>
-          </button>
-          <button data-view="team" data-nav-default="Equipe" type="button">
-            <span class="nav-icon team-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
-            </span>
-            <span class="nav-label">Equipe</span>
-          </button>
-          <button data-view="billing" data-nav-default="Custos e cobrança" type="button">
-            <span class="nav-icon cost-icon"></span>
-            <span class="nav-label">Custos e cobrança</span>
-          </button>
-          <div class="nav-divider" style="margin: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.08);"></div>
-          <button id="navProfileBtn" type="button" title="Meu Perfil e configurações" hidden style="display: none;">
-            <span class="nav-icon user-nav-icon" style="display: flex; align-items: center; justify-content: center; font-size: 14px;">👤</span>
-            <span class="nav-label">Meu Perfil</span>
-          </button>
-          <button id="navLogoutBtn" class="nav-logout" type="button" title="Encerrar sessão no portal" hidden style="display: none;">
-            <span class="nav-icon logout-nav-icon" style="display: flex; align-items: center; justify-content: center; font-size: 14px;">🚪</span>
-            <span class="nav-label">Sair da conta</span>
-          </button>
-        </nav>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal Auto Shopping Formula</title>
+  <link rel="stylesheet" href="styles.css?v=2.5" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+</head>
 
-        <div class="sidebar-card">
-          <span class="status-dot"></span>
-          <div>
-            <strong>SDR IA ativo</strong>
-            <span>42 conversas em andamento</span>
-          </div>
-        </div>
-      </aside>
-
-      <main class="main">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow" id="roleEyebrow">Camada Master</p>
-            <h1 id="pageTitle">Comando comercial do ecossistema</h1>
-          </div>
-          <div class="topbar-actions">
-            <div class="session-chip session-store-indicator" id="sessionButton" title="Loja atual">Carregando...</div>
-            <label class="search">
-              <span></span>
-              <input id="globalSearch" type="search" placeholder="Buscar lead, carro ou lojista" />
-            </label>
-            <button class="icon-button" id="notificationButton" type="button" aria-label="Notificações">
-              <span class="bell-icon"></span>
-              <i id="notificationBadge" style="display: none;">0</i>
-            </button>
-          </div>
-        </header>
-
-        <section class="hero-band" aria-label="Resumo do Auto Shopping Formula">
-          <img
-            src="assets/asf-hero.jpeg"
-            alt="Fachada e estrutura do Auto Shopping Formula"
-          />
-          <div class="hero-content">
-            <span id="heroKicker">Auto Shopping Formula</span>
-            <h2 id="heroTitle">A operação de IA, CRM, estoque e atendimento em um só painel.</h2>
-            <p id="heroText">Avenida da FEB, 2222, Várzea Grande. Mais de 30 lojas, mais de 1.500 carros e uma esteira de leads pronta para escalar.</p>
-          </div>
-        </section>
-
-        <section class="workspace">
-          <div class="view active" id="overview">
-            <div class="metric-grid" id="metricsGrid"></div>
-
-            <div class="role-command-grid" id="roleCommandGrid"></div>
-
-            <!-- Painel de Insights e Gráficos Analíticos (Story 5.2) -->
-            <section class="insights-panel panel" id="insightsSection" style="margin-bottom: 24px;">
-              <div class="panel-header" style="flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-                <div>
-                  <span class="eyebrow">Inteligência de Mercado & Demanda</span>
-                  <h3>Insights Analíticos de Leads</h3>
-                </div>
-                <div class="insights-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                  <div class="period-pill-group" id="insightsPeriodGroup">
-                    <button type="button" class="period-pill" data-period="today">Hoje</button>
-                    <button type="button" class="period-pill" data-period="7days">7 Dias</button>
-                    <button type="button" class="period-pill active" data-period="30days">30 Dias</button>
-                    <button type="button" class="period-pill" data-period="thisMonth">Mês Atual</button>
-                    <button type="button" class="period-pill" data-period="lastMonth">Mês Anterior</button>
-                    <button type="button" class="period-pill" data-period="total">Todos</button>
-                  </div>
-                  <a id="insightsExportCsv" class="ghost-button" href="/api/leads/export.csv?period=30days" download style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
-                    <span>📥</span> Exportar CSV
-                  </a>
-                </div>
-              </div>
-
-              <div class="insights-kpi-grid" id="insightsKpiGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;"></div>
-
-              <div class="insights-charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
-                <div class="chart-box" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;">
-                  <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted, #94a3b8); font-weight: 600;">💳 Formas de Pagamento</h4>
-                  <div style="position: relative; height: 230px;">
-                    <canvas id="paymentChart"></canvas>
-                  </div>
-                </div>
-
-                <div class="chart-box" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;">
-                  <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted, #94a3b8); font-weight: 600;">📍 Top Cidades</h4>
-                  <div style="position: relative; height: 230px;">
-                    <canvas id="cityChart"></canvas>
-                  </div>
-                </div>
-
-                <div class="chart-box" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;">
-                  <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted, #94a3b8); font-weight: 600;">🚗 Marcas Mais Desejadas</h4>
-                  <div style="position: relative; height: 230px;">
-                    <canvas id="brandChart"></canvas>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <div class="split-layout">
-              <article class="panel">
-                <div class="panel-header">
-                  <div>
-                    <span class="eyebrow">Saúde da operação</span>
-                    <h3>Performance por etapa</h3>
-                  </div>
-                  <button class="ghost-button" type="button">Exportar</button>
-                </div>
-                <div class="pipeline-bars" id="pipelineBars"></div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-header">
-                  <div>
-                    <span class="eyebrow">Alertas úteis</span>
-                    <h3>Fila de decisões</h3>
-                  </div>
-                </div>
-                <div class="decision-list" id="decisionList"></div>
-              </article>
-            </div>
-          </div>
-
-          <div class="view" id="crm">
-            <div class="board-toolbar">
-              <div>
-                <span class="eyebrow">CRM consolidado</span>
-                <h3>Leads qualificados pelo SDR</h3>
-              </div>
-              <div class="filter-row">
-                <select id="storeFilter" aria-label="Filtrar por lojista">
-                  <option value="todos">Todos os lojistas</option>
-                </select>
-                <select id="sellerFilter" aria-label="Filtrar por vendedor">
-                  <option value="todos">Todos os vendedores</option>
-                </select>
-                <select id="stageFilter" aria-label="Filtrar por estágio">
-                  <option value="todos">Todos os estágios</option>
-                  <option value="Novo">Novo</option>
-                  <option value="Qualificado">Qualificado</option>
-                  <option value="Humano">Humano</option>
-                  <option value="Visita">Visita</option>
-                  <option value="Fechado">Fechado</option>
-                </select>
-                <a id="crmExportCsv" class="ghost-button" href="/api/leads/export.csv?period=total" download style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 7px 12px; font-size: 13px;">
-                  <span>📥</span> Exportar CSV
-                </a>
-              </div>
-            </div>
-            <div class="kanban" id="kanban"></div>
-          </div>
-
-          <div class="view" id="inbox">
-            <div class="inbox-layout">
-              <aside class="conversation-list" id="conversationList"></aside>
-              <section class="chat-window">
-                <div class="chat-header">
-                  <div>
-                    <span class="eyebrow" id="chatStore">Betania Automoveis</span>
-                    <h3 id="chatLead">Mariana Souza</h3>
-                  </div>
-                  <div class="chat-actions">
-                    <button class="mini-button" id="assumeConversationButton" type="button">Assumir</button>
-                    <button class="mini-button" id="closeConversationButton" type="button">Encerrar</button>
-                    <button class="mini-button" style="background:var(--accent);color:#fff;border-color:var(--accent);" id="sendToCrmButton" type="button">Enviar para CRM</button>
-                  </div>
-                </div>
-                <div class="messages" id="messages"></div>
-                <form class="reply-box" id="replyForm">
-                  <input type="text" id="replyInput" placeholder="Responder como atendente humano" />
-                  <button class="primary-button" type="submit">Enviar</button>
-                </form>
-              </section>
-              <aside class="lead-context">
-                <span class="eyebrow">Contexto do lead</span>
-                <h3 id="leadIntent">Honda City Touring</h3>
-                <dl id="leadDetails"></dl>
-              </aside>
-            </div>
-          </div>
-
-          <div class="view" id="vehicles">
-            <div class="board-toolbar">
-              <div>
-                <span class="eyebrow">Estoque conectado</span>
-                <h3>Cadastro central de veículos</h3>
-              </div>
-              <button class="primary-button" id="newVehicleButton" type="button">Cadastrar veículo</button>
-            </div>
-            <div class="vehicle-grid" id="vehicleGrid"></div>
-          </div>
-
-          <div class="view" id="stores">
-            <div class="board-toolbar">
-              <div>
-                <span class="eyebrow">Gestão de lojistas</span>
-                <h3>Rede de lojas e agentes vinculados</h3>
-              </div>
-              <button class="primary-button" id="newStoreButton" type="button">Convidar lojista</button>
-            </div>
-            <div class="store-table" id="storeTable"></div>
-          </div>
-
-          <div class="view" id="team">
-            <div class="board-toolbar">
-              <div>
-                <span class="eyebrow">Desempenho</span>
-                <h3>Dashboard da Equipe</h3>
-              </div>
-              <button class="primary-button" id="newSellerButton" type="button">Adicionar Vendedor</button>
-            </div>
-            
-            <div class="billing-grid" style="margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
-              <article class="panel" style="padding: 20px;">
-                <span class="eyebrow">Total da Equipe</span>
-                <h3 id="teamTotalLeads" style="font-size: 28px; margin: 4px 0 0; color: var(--accent);">0</h3>
-                <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Leads gerados</p>
-              </article>
-              <article class="panel" style="padding: 20px;">
-                <span class="eyebrow">Em Andamento</span>
-                <h3 id="teamActiveLeads" style="font-size: 28px; margin: 4px 0 0; color: #b45309;">0</h3>
-                <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Em negociação ou visita</p>
-              </article>
-              <article class="panel" style="padding: 20px;">
-                <span class="eyebrow">Sucesso</span>
-                <h3 id="teamClosedLeads" style="font-size: 28px; margin: 4px 0 0; color: #16a34a;">0</h3>
-                <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Leads fechados</p>
-              </article>
-            </div>
-
-            <div class="store-table" id="teamTable"></div>
-          </div>
-
-          <div class="view" id="billing">
-            <div class="billing-grid">
-              <article class="panel">
-                <div class="panel-header">
-                  <div>
-                    <span class="eyebrow">Custos variáveis</span>
-                    <h3>WhatsApp e IA por tenant</h3>
-                  </div>
-                </div>
-                <div class="cost-list" id="costList"></div>
-              </article>
-              <article class="panel qr-panel">
-                <span class="eyebrow">Vincular WhatsApp</span>
-                <h3>QR Code do lojista</h3>
-                <div class="qr-code" aria-label="QR code demonstrativo">
-                  <span></span><span></span><span></span><span></span><span></span><span></span>
-                  <span></span><span></span><span></span><span></span><span></span><span></span>
-                  <span></span><span></span><span></span><span></span><span></span><span></span>
-                  <span></span><span></span><span></span><span></span><span></span><span></span>
-                </div>
-                <p>O lojista escaneia, conecta o WhatsApp e autoriza o agente a captar e qualificar leads usando a estrutura central.</p>
-                <button class="primary-button" id="qrActionButton" type="button">Gerar novo QR</button>
-              </article>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <div class="modal-layer" id="modalLayer" aria-hidden="true"></div>
-    <section class="login-layer" id="loginLayer" aria-label="Entrar no portal">
-      <div class="login-card">
-        <div class="brand">
-          <div class="brand-mark">F</div>
-          <div>
-            <strong>Formula OS</strong>
-            <span>Entrar no portal</span>
-          </div>
-        </div>
-        <p>Entre com seu e-mail e senha para acessar o painel administrativo.</p>
-        <form class="login-form" id="loginForm">
-          <label class="form-field">
-            <span>E-mail</span>
-            <input id="loginEmail" name="email" type="email" required placeholder="seu@email.com" autocomplete="username" />
-          </label>
-          <label class="form-field">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span>Senha</span>
-              <a href="#" id="forgotPasswordLink" style="font-size: 12px; color: #60a5fa; text-decoration: none;">Esqueci minha senha</a>
-            </div>
-            <input id="loginPassword" name="password" type="password" required placeholder="••••••" autocomplete="current-password" />
-          </label>
-          <p class="login-error" id="loginError" hidden></p>
-          <button class="primary-button" type="submit">Entrar</button>
-        </form>
-
-        <!-- Formulário de Recuperação de Senha -->
-        <div id="forgotPasswordContainer" hidden style="margin-top: 15px;">
-          <p style="font-size: 13px; color: var(--text-muted, #94a3b8); margin-bottom: 12px;">
-            Digite o e-mail cadastrado na sua conta. Você receberá uma nova senha de acesso.
-          </p>
-          <form class="login-form" id="forgotPasswordForm">
-            <label class="form-field">
-              <span>E-mail cadastrado</span>
-              <input id="forgotEmailInput" name="email" type="email" required placeholder="seu@email.com" />
-            </label>
-            <p class="login-error" id="forgotError" hidden></p>
-            <p class="login-success" id="forgotSuccess" style="font-size: 13px; color: #10b981; margin: 0 0 10px;" hidden></p>
-            <div style="display: flex; gap: 10px;">
-              <button class="ghost-button" type="button" id="backToLoginBtn" style="flex: 1;">Voltar</button>
-              <button class="primary-button" type="submit" id="sendResetBtn" style="flex: 2;">Enviar nova senha</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </section>
-
-    <!-- Drawer Lateral de Detalhes do Lead (Story 5.3) -->
-    <div class="drawer-backdrop" id="leadDrawerBackdrop"></div>
-    <aside class="lead-drawer" id="leadDrawer" aria-label="Detalhes do Lead">
-      <div class="lead-drawer-header">
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">F</div>
         <div>
-          <span class="eyebrow" id="drawerLeadStore">Auto Shopping Formula</span>
-          <h2 id="drawerLeadName" style="margin: 4px 0 0; font-size: 20px;">Detalhes do Lead</h2>
+          <strong>Formula OS</strong>
+          <span>Portal comercial</span>
         </div>
-        <button class="icon-button" id="closeDrawerBtn" type="button" aria-label="Fechar">✕</button>
       </div>
 
-      <div class="lead-drawer-content" style="padding: 20px; overflow-y: auto; height: calc(100% - 70px);">
-        <!-- Ações Rápidas -->
-        <div class="drawer-action-bar" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-          <a id="drawerWhatsappBtn" href="#" target="_blank" rel="noopener noreferrer" class="primary-button" style="background: #10b981; border-color: #10b981; display: inline-flex; align-items: center; gap: 8px; flex: 1; justify-content: center; text-decoration: none; font-size: 13px; min-width: 180px;">
-            <span>💬</span> Conversar no WhatsApp
-          </a>
-          <div style="flex: 1; min-width: 140px;">
-            <select id="drawerStageSelect" style="width: 100%; height: 40px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff; padding: 0 10px; font-weight: 700;">
-              <option value="Novo">Novo</option>
-              <option value="Qualificado">Qualificado</option>
-              <option value="Humano">Humano</option>
-              <option value="Visita">Visita</option>
-              <option value="Fechado">Fechado</option>
-              <option value="Perdido">Perdido</option>
-            </select>
-          </div>
-        </div>
+      <nav class="nav-list" aria-label="Menu principal">
+        <button class="active" data-view="overview" data-nav-default="Visão geral" type="button">
+          <span class="nav-icon dashboard-icon"></span>
+          <span class="nav-label">Visão geral</span>
+        </button>
+        <button data-view="crm" data-nav-default="CRM de leads" type="button">
+          <span class="nav-icon funnel-icon"></span>
+          <span class="nav-label">CRM de leads</span>
+        </button>
+        <button data-view="inbox" data-nav-default="Multi-atendimento" type="button">
+          <span class="nav-icon chat-icon"></span>
+          <span class="nav-label">Multi-atendimento</span>
+        </button>
+        <button data-view="vehicles" data-nav-default="Veículos" type="button">
+          <span class="nav-icon car-icon"></span>
+          <span class="nav-label">Veículos</span>
+        </button>
+        <button data-view="stores" data-nav-default="Lojistas" type="button">
+          <span class="nav-icon store-icon"></span>
+          <span class="nav-label">Lojistas</span>
+        </button>
+        <button data-view="team" data-nav-default="Equipe" type="button">
+          <span class="nav-icon team-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </span>
+          <span class="nav-label">Equipe</span>
+        </button>
+        <button data-view="billing" data-nav-default="Custos e cobrança" type="button">
+          <span class="nav-icon cost-icon"></span>
+          <span class="nav-label">Custos e cobrança</span>
+        </button>
+        <div class="nav-divider" style="margin: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.08);"></div>
+        <button id="navProfileBtn" type="button" title="Meu Perfil e configurações" hidden style="display: none;">
+          <span class="nav-icon user-nav-icon"
+            style="display: flex; align-items: center; justify-content: center; font-size: 14px;">👤</span>
+          <span class="nav-label">Meu Perfil</span>
+        </button>
+        <button id="navLogoutBtn" class="nav-logout" type="button" title="Encerrar sessão no portal" hidden
+          style="display: none;">
+          <span class="nav-icon logout-nav-icon"
+            style="display: flex; align-items: center; justify-content: center; font-size: 14px;">🚪</span>
+          <span class="nav-label">Sair da conta</span>
+        </button>
+      </nav>
 
-        <!-- Dados Cadastrais -->
-        <div class="drawer-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-          <h4 style="font-size: 12px; text-transform: uppercase; color: var(--text-muted, #94a3b8); margin-bottom: 12px; letter-spacing: 0.05em; font-weight: 800;">Informações Cadastrais</h4>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
-            <div>
-              <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">TELEFONE</span>
-              <a id="drawerLeadPhone" href="#" style="color: #60a5fa; text-decoration: none; font-weight: 700;">—</a>
-            </div>
-            <div>
-              <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">CIDADE</span>
-              <strong id="drawerLeadCity">—</strong>
-            </div>
-            <div>
-              <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">VEÍCULO DE INTERESSE</span>
-              <strong id="drawerLeadCar">—</strong>
-            </div>
-            <div>
-              <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">FORMA DE PAGAMENTO</span>
-              <strong id="drawerLeadPayment">—</strong>
-            </div>
-            <div>
-              <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">SCORE DO LEAD</span>
-              <span id="drawerLeadScore" class="pill" style="display: inline-block; margin-top: 2px;">50</span>
-            </div>
-            <div>
-              <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">DATA DE CADASTRO</span>
-              <span id="drawerLeadDate" style="color: var(--text-muted, #94a3b8);">—</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Linha do Tempo de Notas -->
-        <div class="drawer-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;">
-          <h4 style="font-size: 12px; text-transform: uppercase; color: var(--text-muted, #94a3b8); margin-bottom: 12px; letter-spacing: 0.05em; font-weight: 800;">Histórico de Atendimento</h4>
-          <div id="drawerNotesList" class="drawer-notes-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; max-height: 250px; overflow-y: auto;">
-            <p style="font-size: 12px; color: var(--text-muted, #94a3b8);">Nenhuma anotação registrada ainda.</p>
-          </div>
-
-          <form id="drawerAddNoteForm" style="display: flex; gap: 8px;">
-            <input id="drawerNoteInput" type="text" placeholder="Adicionar anotação..." style="flex: 1; border-radius: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px; color: #fff; font-size: 13px;" required />
-            <button type="submit" class="primary-button" style="padding: 8px 16px; font-size: 13px;">Salvar</button>
-          </form>
+      <div class="sidebar-card">
+        <span class="status-dot"></span>
+        <div>
+          <strong>SDR IA ativo</strong>
+          <span>42 conversas em andamento</span>
         </div>
       </div>
     </aside>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-    <script src="app.js?v=2.7"></script>
-  </body>
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="roleEyebrow">Camada Master</p>
+          <h1 id="pageTitle">Comando comercial do ecossistema</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="session-chip session-store-indicator" id="sessionButton" title="Loja atual">Carregando...</div>
+          <label class="search">
+            <span></span>
+            <input id="globalSearch" type="search" placeholder="Buscar lead, carro ou lojista" />
+          </label>
+          <button class="icon-button" id="notificationButton" type="button" aria-label="Notificações">
+            <span class="bell-icon"></span>
+            <i id="notificationBadge" style="display: none;">0</i>
+          </button>
+        </div>
+      </header>
+
+      <section class="hero-band" aria-label="Resumo do Auto Shopping Formula">
+        <img src="assets/asf-hero.jpeg" alt="Fachada e estrutura do Auto Shopping Formula" />
+        <div class="hero-content">
+          <span id="heroKicker">Auto Shopping Formula</span>
+          <h2 id="heroTitle">A operação de IA, CRM, estoque e atendimento em um só painel.</h2>
+          <p id="heroText">Avenida da FEB, 2222, Várzea Grande. Mais de 30 lojas, mais de 1.500 carros e uma esteira de
+            leads pronta para escalar.</p>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <div class="view active" id="overview">
+          <div class="metric-grid" id="metricsGrid"></div>
+
+          <div class="role-command-grid" id="roleCommandGrid"></div>
+
+          <!-- Painel de Insights e Gráficos Analíticos (Story 5.2) -->
+          <section class="insights-panel panel" id="insightsSection" style="margin-bottom: 24px;">
+            <div class="panel-header" style="flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <span class="eyebrow">Inteligência de Mercado & Demanda</span>
+                <h3>Insights Analíticos de Leads</h3>
+              </div>
+              <div class="insights-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div class="period-pill-group" id="insightsPeriodGroup">
+                  <button type="button" class="period-pill" data-period="today">Hoje</button>
+                  <button type="button" class="period-pill" data-period="7days">7 Dias</button>
+                  <button type="button" class="period-pill active" data-period="30days">30 Dias</button>
+                  <button type="button" class="period-pill" data-period="thisMonth">Mês Atual</button>
+                  <button type="button" class="period-pill" data-period="lastMonth">Mês Anterior</button>
+                  <button type="button" class="period-pill" data-period="total">Todos</button>
+                </div>
+                <a id="insightsExportCsv" class="ghost-button" href="/api/leads/export.csv?period=30days" download
+                  style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                  <span>📥</span> Exportar CSV
+                </a>
+              </div>
+            </div>
+
+            <div class="insights-kpi-grid" id="insightsKpiGrid"
+              style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+            </div>
+
+            <div class="insights-charts-grid"
+              style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+              <div class="chart-box"
+                style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;">
+                <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted, #94a3b8); font-weight: 600;">
+                  💳 Formas de Pagamento</h4>
+                <div style="position: relative; height: 230px;">
+                  <canvas id="paymentChart"></canvas>
+                </div>
+              </div>
+
+              <div class="chart-box"
+                style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;">
+                <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted, #94a3b8); font-weight: 600;">
+                  📍 Top Cidades</h4>
+                <div style="position: relative; height: 230px;">
+                  <canvas id="cityChart"></canvas>
+                </div>
+              </div>
+
+              <div class="chart-box"
+                style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;">
+                <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted, #94a3b8); font-weight: 600;">
+                  🚗 Marcas Mais Desejadas</h4>
+                <div style="position: relative; height: 230px;">
+                  <canvas id="brandChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="split-layout">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">Saúde da operação</span>
+                  <h3>Performance por etapa</h3>
+                </div>
+                <button class="ghost-button" type="button">Exportar</button>
+              </div>
+              <div class="pipeline-bars" id="pipelineBars"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">Alertas úteis</span>
+                  <h3>Fila de decisões</h3>
+                </div>
+              </div>
+              <div class="decision-list" id="decisionList"></div>
+            </article>
+          </div>
+        </div>
+
+        <div class="view" id="crm">
+          <div class="board-toolbar">
+            <div>
+              <span class="eyebrow">CRM consolidado</span>
+              <h3>Leads qualificados pelo SDR</h3>
+            </div>
+            <div class="filter-row">
+              <select id="storeFilter" aria-label="Filtrar por lojista">
+                <option value="todos">Todos os lojistas</option>
+              </select>
+              <select id="sellerFilter" aria-label="Filtrar por vendedor">
+                <option value="todos">Todos os vendedores</option>
+              </select>
+              <select id="stageFilter" aria-label="Filtrar por estágio">
+                <option value="todos">Todos os estágios</option>
+                <option value="Novo">Novo</option>
+                <option value="Qualificado">Qualificado</option>
+                <option value="Humano">Humano</option>
+                <option value="Visita">Visita</option>
+                <option value="Fechado">Fechado</option>
+              </select>
+              <a id="crmExportCsv" class="ghost-button" href="/api/leads/export.csv?period=total" download
+                style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 7px 12px; font-size: 13px;">
+                <span>📥</span> Exportar CSV
+              </a>
+            </div>
+          </div>
+          <div class="kanban" id="kanban"></div>
+        </div>
+
+        <div class="view" id="inbox">
+          <div class="inbox-layout">
+            <aside class="conversation-list" id="conversationList"></aside>
+            <section class="chat-window">
+              <div class="chat-header">
+                <div>
+                  <span class="eyebrow" id="chatStore">Betania Automoveis</span>
+                  <h3 id="chatLead">Mariana Souza</h3>
+                </div>
+                <div class="chat-actions">
+                  <button class="mini-button" id="assumeConversationButton" type="button">Assumir</button>
+                  <button class="mini-button" id="closeConversationButton" type="button">Encerrar</button>
+                  <button class="mini-button" style="background:var(--accent);color:#fff;border-color:var(--accent);"
+                    id="sendToCrmButton" type="button">Enviar para CRM</button>
+                </div>
+              </div>
+              <div class="messages" id="messages"></div>
+              <form class="reply-box" id="replyForm">
+                <input type="text" id="replyInput" placeholder="Responder como atendente humano" />
+                <button class="primary-button" type="submit">Enviar</button>
+              </form>
+            </section>
+            <aside class="lead-context">
+              <span class="eyebrow">Contexto do lead</span>
+              <h3 id="leadIntent">Honda City Touring</h3>
+              <dl id="leadDetails"></dl>
+            </aside>
+          </div>
+        </div>
+
+        <div class="view" id="vehicles">
+          <div class="board-toolbar">
+            <div>
+              <span class="eyebrow">Estoque conectado</span>
+              <h3>Cadastro central de veículos</h3>
+            </div>
+            <button class="primary-button" id="newVehicleButton" type="button">Cadastrar veículo</button>
+          </div>
+          <div class="vehicle-grid" id="vehicleGrid"></div>
+        </div>
+
+        <div class="view" id="stores">
+          <div class="board-toolbar">
+            <div>
+              <span class="eyebrow">Gestão de lojistas</span>
+              <h3>Rede de lojas e agentes vinculados</h3>
+            </div>
+            <button class="primary-button" id="newStoreButton" type="button">Convidar lojista</button>
+          </div>
+          <div class="store-table" id="storeTable"></div>
+        </div>
+
+        <div class="view" id="team">
+          <div class="board-toolbar">
+            <div>
+              <span class="eyebrow">Desempenho</span>
+              <h3>Dashboard da Equipe</h3>
+            </div>
+            <button class="primary-button" id="newSellerButton" type="button">Adicionar Vendedor</button>
+          </div>
+
+          <div class="billing-grid"
+            style="margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+            <article class="panel" style="padding: 20px;">
+              <span class="eyebrow">Total da Equipe</span>
+              <h3 id="teamTotalLeads" style="font-size: 28px; margin: 4px 0 0; color: var(--accent);">0</h3>
+              <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Leads gerados</p>
+            </article>
+            <article class="panel" style="padding: 20px;">
+              <span class="eyebrow">Em Andamento</span>
+              <h3 id="teamActiveLeads" style="font-size: 28px; margin: 4px 0 0; color: #b45309;">0</h3>
+              <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Em negociação ou visita</p>
+            </article>
+            <article class="panel" style="padding: 20px;">
+              <span class="eyebrow">Sucesso</span>
+              <h3 id="teamClosedLeads" style="font-size: 28px; margin: 4px 0 0; color: #16a34a;">0</h3>
+              <p style="font-size: 13px; color: var(--text-soft); margin: 4px 0 0;">Leads fechados</p>
+            </article>
+          </div>
+
+          <div class="store-table" id="teamTable"></div>
+        </div>
+
+        <div class="view" id="billing">
+          <div class="billing-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">Custos variáveis</span>
+                  <h3>WhatsApp e IA por tenant</h3>
+                </div>
+              </div>
+              <div class="cost-list" id="costList"></div>
+            </article>
+            <article class="panel qr-panel">
+              <span class="eyebrow">Vincular WhatsApp</span>
+              <h3>QR Code do lojista</h3>
+              <div class="qr-code" aria-label="QR code demonstrativo">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <p>O lojista escaneia, conecta o WhatsApp e autoriza o agente a captar e qualificar leads usando a
+                estrutura central.</p>
+              <button class="primary-button" id="qrActionButton" type="button">Gerar novo QR</button>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-layer" id="modalLayer" aria-hidden="true"></div>
+  <section class="login-layer" id="loginLayer" aria-label="Entrar no portal">
+    <div class="login-card">
+      <div class="brand">
+        <div class="brand-mark">F</div>
+        <div>
+          <strong>Formula OS</strong>
+          <span>Entrar no portal</span>
+        </div>
+      </div>
+      <p>Entre com seu e-mail e senha para acessar o painel administrativo.</p>
+      <form class="login-form" id="loginForm">
+        <label class="form-field">
+          <span>E-mail</span>
+          <input id="loginEmail" name="email" type="email" required placeholder="seu@email.com"
+            autocomplete="username" />
+        </label>
+        <label class="form-field">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Senha</span>
+            <a href="#" id="forgotPasswordLink" style="font-size: 12px; color: #60a5fa; text-decoration: none;">Esqueci
+              minha senha</a>
+          </div>
+          <input id="loginPassword" name="password" type="password" required placeholder="••••••"
+            autocomplete="current-password" />
+        </label>
+        <p class="login-error" id="loginError" hidden></p>
+        <button class="primary-button" type="submit">Entrar</button>
+      </form>
+
+      <!-- Formulário de Recuperação de Senha -->
+      <div id="forgotPasswordContainer" hidden style="margin-top: 15px;">
+        <p style="font-size: 13px; color: var(--text-muted, #94a3b8); margin-bottom: 12px;">
+          Digite o e-mail cadastrado na sua conta. Você receberá uma nova senha de acesso.
+        </p>
+        <form class="login-form" id="forgotPasswordForm">
+          <label class="form-field">
+            <span>E-mail cadastrado</span>
+            <input id="forgotEmailInput" name="email" type="email" required placeholder="seu@email.com" />
+          </label>
+          <p class="login-error" id="forgotError" hidden></p>
+          <p class="login-success" id="forgotSuccess" style="font-size: 13px; color: #10b981; margin: 0 0 10px;" hidden>
+          </p>
+          <div style="display: flex; gap: 10px;">
+            <button class="ghost-button" type="button" id="backToLoginBtn" style="flex: 1;">Voltar</button>
+            <button class="primary-button" type="submit" id="sendResetBtn" style="flex: 2;">Enviar nova senha</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drawer Lateral de Detalhes do Lead (Story 5.3) -->
+  <div class="drawer-backdrop" id="leadDrawerBackdrop"></div>
+  <aside class="lead-drawer" id="leadDrawer" aria-label="Detalhes do Lead">
+    <div class="lead-drawer-header">
+      <div>
+        <span class="eyebrow" id="drawerLeadStore">Auto Shopping Formula</span>
+        <h2 id="drawerLeadName" style="margin: 4px 0 0; font-size: 20px;">Detalhes do Lead</h2>
+      </div>
+      <button class="icon-button" id="closeDrawerBtn" type="button" aria-label="Fechar">✕</button>
+    </div>
+
+    <div class="lead-drawer-content" style="padding: 20px; overflow-y: auto; height: calc(100% - 70px);">
+      <!-- Ações Rápidas -->
+      <div class="drawer-action-bar" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+        <a id="drawerWhatsappBtn" href="#" target="_blank" rel="noopener noreferrer" class="primary-button"
+          style="background: #10b981; border-color: #10b981; display: inline-flex; align-items: center; gap: 8px; flex: 1; justify-content: center; text-decoration: none; font-size: 13px; min-width: 180px;">
+          <span>💬</span> Conversar no WhatsApp
+        </a>
+        <div style="flex: 1; min-width: 140px;">
+          <select id="drawerStageSelect"
+            style="width: 100%; height: 40px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff; padding: 0 10px; font-weight: 700;">
+            <option value="Novo">Novo</option>
+            <option value="Qualificado">Qualificado</option>
+            <option value="Humano">Humano</option>
+            <option value="Visita">Visita</option>
+            <option value="Fechado">Fechado</option>
+            <option value="Perdido">Perdido</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Dados Cadastrais -->
+      <div class="drawer-card"
+        style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <h4
+          style="font-size: 12px; text-transform: uppercase; color: var(--text-muted, #94a3b8); margin-bottom: 12px; letter-spacing: 0.05em; font-weight: 800;">
+          Informações Cadastrais</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+          <div>
+            <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">TELEFONE</span>
+            <a id="drawerLeadPhone" href="#" style="color: #60a5fa; text-decoration: none; font-weight: 700;">—</a>
+          </div>
+          <div>
+            <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">CIDADE</span>
+            <strong id="drawerLeadCity">—</strong>
+          </div>
+          <div>
+            <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">VEÍCULO DE
+              INTERESSE</span>
+            <strong id="drawerLeadCar">—</strong>
+          </div>
+          <div>
+            <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">FORMA DE PAGAMENTO</span>
+            <strong id="drawerLeadPayment">—</strong>
+          </div>
+          <div>
+            <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">SCORE DO LEAD</span>
+            <span id="drawerLeadScore" class="pill" style="display: inline-block; margin-top: 2px;">50</span>
+          </div>
+          <div>
+            <span style="color: var(--text-muted, #94a3b8); display: block; font-size: 11px;">DATA DE CADASTRO</span>
+            <span id="drawerLeadDate" style="color: var(--text-muted, #94a3b8);">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Linha do Tempo de Notas -->
+      <div class="drawer-card"
+        style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px;">
+        <h4
+          style="font-size: 12px; text-transform: uppercase; color: var(--text-muted, #94a3b8); margin-bottom: 12px; letter-spacing: 0.05em; font-weight: 800;">
+          Histórico de Atendimento</h4>
+        <div id="drawerNotesList" class="drawer-notes-list"
+          style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; max-height: 250px; overflow-y: auto;">
+          <p style="font-size: 12px; color: var(--text-muted, #94a3b8);">Nenhuma anotação registrada ainda.</p>
+        </div>
+
+        <form id="drawerAddNoteForm" style="display: flex; gap: 8px;">
+          <input id="drawerNoteInput" type="text" placeholder="Adicionar anotação..."
+            style="flex: 1; border-radius: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px; color: #fff; font-size: 13px;"
+            required />
+          <button type="submit" class="primary-button" style="padding: 8px 16px; font-size: 13px;">Salvar</button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="app.js?v=2.7"></script>
+</body>
+
 </html>

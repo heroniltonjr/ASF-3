@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, db, seed
+import mimetypes
+from . import auth, db, seed, store_meta
 from .routes import (
     auth_routes,
     billing,
@@ -37,6 +38,7 @@ STATIC_ROOT = Path(__file__).resolve().parent.parent
 
 
 def boot() -> None:
+    store_meta.restore_persistent_store_logos()
     applied = db.run_migrations()
     if applied:
         print(f"Migrations aplicadas: {', '.join(applied)}")
@@ -125,9 +127,22 @@ def create_app() -> FastAPI:
     def get_manifest():
         return FileResponse(STATIC_ROOT / "manifest.json", media_type="application/manifest+json")
 
-    # --- Retrocompatibilidade /portal ---------------------------------------
+    # --- Retrocompatibilidade /portal + Persistência de Logos de Lojas ------
     public_root = STATIC_ROOT / "public"
     public_assets = public_root / "assets"
+
+    @app.get("/portal/assets/stores/{filename}", include_in_schema=False)
+    @app.get("/assets/stores/{filename}", include_in_schema=False)
+    def serve_store_logo(filename: str):
+        safe_name = Path(filename).name
+        persistent_file = Path(settings.uploads_dir) / "stores" / safe_name
+        static_file = public_assets / "stores" / safe_name
+        target = persistent_file if persistent_file.is_file() else (static_file if static_file.is_file() else None)
+        if not target:
+            raise HTTPException(404, "Logo não encontrado")
+        media_type, _ = mimetypes.guess_type(str(target))
+        return FileResponse(str(target), media_type=media_type or "image/png")
+
     if public_assets.exists():
         app.mount("/portal/assets", StaticFiles(directory=str(public_assets)), name="portal_assets_compat")
 

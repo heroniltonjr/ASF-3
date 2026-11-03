@@ -180,9 +180,72 @@ function normalizeVehicle(v) {
     meta: [v.mileage, v.transmission, v.fuel].filter(Boolean),
   };
 }
+// Mapa de logotipos existentes no site (sincronizado com backend/data/stores.json e public/assets/stores/)
+const SITE_STORE_LOGOS = {
+  "auto shopping formula": "/portal/assets/logo.png",
+  "shopping formula": "/portal/assets/logo.png",
+  betel: "/portal/assets/stores/betel.jpeg",
+  ev: "/portal/assets/stores/ev.jpeg",
+  evidence: "/portal/assets/stores/evidence.jpeg",
+  gilson: "/portal/assets/stores/gilson.png",
+  global: "/portal/assets/stores/global.png",
+  gx: "/portal/assets/stores/gx-auto.png",
+  kadosh: "/portal/assets/stores/kadosh.jpeg",
+  kallicar: "/portal/assets/stores/kallicar.jpeg",
+  luan: "/portal/assets/stores/luan.jpeg",
+  mundial: "/portal/assets/stores/mundial.jpeg",
+  radar: "/portal/assets/stores/radar.jpeg",
+  rocha: "/portal/assets/stores/rocha-motors.jpeg",
+  rs: "/portal/assets/stores/rs-motors.png",
+  "seminovos movida": "/portal/assets/stores/seminovos-movida.png",
+  tex: "/portal/assets/stores/tex.jpeg",
+  trinity: "/portal/assets/stores/trinity.jpeg",
+};
+
+const _STORE_SUFFIXES = [
+  "automoveis",
+  "automóveis",
+  "automovel",
+  "automóvel",
+  "multimarcas",
+  "veiculos",
+  "veículos",
+  "motors",
+  "auto",
+];
+
+function normStoreName(name) {
+  let s = (name || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  for (const suffix of _STORE_SUFFIXES) {
+    const token = suffix.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    s = s.replace(new RegExp(`\\b${token}\\b`, "g"), "");
+  }
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function lookupSiteStoreLogo(name) {
+  const key = normStoreName(name);
+  return key && SITE_STORE_LOGOS[key] ? SITE_STORE_LOGOS[key] : null;
+}
+
+const _syncedStoreLogoIds = new Set();
+
 function normalizeStore(s) {
+  const dbLogo = (s.logo_url || "").trim();
+  const siteLogo = lookupSiteStoreLogo(s.name);
+  const resolvedLogo = dbLogo || siteLogo || null;
+  if (dbLogo && s.name) {
+    const k = normStoreName(s.name);
+    if (k) SITE_STORE_LOGOS[k] = dbLogo;
+  }
   return {
     ...s,
+    logo_url: resolvedLogo,
+    _needs_logo_sync: !dbLogo && Boolean(siteLogo),
     response: s.response_time || "—",
     cost: s.monthly_cost,
     revenue: s.monthly_revenue,
@@ -250,6 +313,19 @@ async function fetchAll() {
     api(`/api/dashboard/insights?period=${currentInsightsPeriod}`).catch(() => null),
   ]);
   stores = (s.stores || []).map(normalizeStore);
+  // Persiste no banco de dados os logotipos já existentes no site caso ainda estivessem nulos
+  const canSyncStores = currentUser && (currentUser.role === "master" || currentUser.role === "shopping");
+  if (canSyncStores) {
+    stores.forEach((st) => {
+      if (st.id && st._needs_logo_sync && st.logo_url && !_syncedStoreLogoIds.has(st.id)) {
+        _syncedStoreLogoIds.add(st.id);
+        api(`/api/stores/${st.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ logo_url: st.logo_url }),
+        }).catch(() => {});
+      }
+    });
+  }
   vehicles = (v.vehicles || []).map(normalizeVehicle);
   leads = (l.leads || []).map(normalizeLead);
   funnelData = f || { metrics: {}, total_leads: 0 };
@@ -1892,7 +1968,7 @@ function openStoreModal(store = null) {
   const submitLabel = store ? "Salvar" : "Adicionar";
 
   const initialName = store?.name || "";
-  const storeInitial = (initialName.trim() || "L").charAt(0).toUpperCase();
+  const initialLogo = (store?.logo_url || lookupSiteStoreLogo(initialName) || "").trim();
   const initialSub =
     store?.manager_email ||
     (store?.phone ? `WhatsApp: ${store.phone}` : "Configure os dados comerciais e credenciais de acesso");
@@ -1901,7 +1977,7 @@ function openStoreModal(store = null) {
     const cleanUrl = (logoUrl || "").trim();
     const letter = ((nameText || "").trim() || "L").charAt(0).toUpperCase();
     if (cleanUrl) {
-      return `<img src="${escapeAttr(cleanUrl)}" alt="${escapeAttr(nameText || "Logo da loja")}" />`;
+      return `<img src="${escapeAttr(cleanUrl)}" alt="${escapeAttr(nameText || "Logo da loja")}" style="height:40px;max-height:40px;width:auto;max-width:100%;object-fit:contain;display:block;" />`;
     }
     return escapeHtml(letter);
   };
@@ -1918,17 +1994,17 @@ function openStoreModal(store = null) {
       </div>
 
       <form id="storeModalForm" style="padding: 20px; display: grid; gap: 0;">
-        <input type="hidden" id="storeLogoUrlInput" name="logo_url" value="${escapeAttr(store?.logo_url || "")}" />
+        <input type="hidden" id="storeLogoUrlInput" name="logo_url" value="${escapeAttr(initialLogo)}" />
 
         <!-- Topo sombreado com logotipo no padrão do site e resumo da loja -->
         <div class="profile-header-card">
           <div class="store-modal-logo-wrap">
             <div
-              class="store-modal-logo ${store?.logo_url ? "has-img" : ""}"
+              class="store-modal-logo ${initialLogo ? "has-img" : ""}"
               id="storeLogoPreviewContainer"
               title="Clique para adicionar ou alterar o logotipo da loja"
             >
-              ${renderLogoBoxContent(store?.logo_url, initialName)}
+              ${renderLogoBoxContent(initialLogo, initialName)}
             </div>
             <label class="profile-avatar-edit-btn" title="Enviar ou atualizar logotipo da loja" aria-label="Enviar ou atualizar logotipo da loja">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -2075,7 +2151,9 @@ function openStoreModal(store = null) {
   const planBadge = modalLayer.querySelector("#storeModalPlanBadge");
   const statusBadge = modalLayer.querySelector("#storeModalStatusBadge");
 
-  // Atualiza cabeçalho e placeholder da letra ao digitar nome/email/telefone
+  let customUploadedLogo = false;
+
+  // Atualiza cabeçalho e logotipo/placeholder ao digitar nome/email/telefone
   const syncHeaderMeta = () => {
     const currentName = nameInput.value.trim();
     displayName.textContent = currentName || (isMaster ? "Novo Tenant" : "Novo Lojista Parceiro");
@@ -2085,10 +2163,22 @@ function openStoreModal(store = null) {
       currentEmail ||
       (currentPhone ? `WhatsApp: ${currentPhone}` : "Configure os dados comerciais e credenciais de acesso");
 
-    if (!logoUrlInput.value.trim()) {
+    if (!customUploadedLogo && !store?.logo_url) {
+      const matchedSiteLogo = lookupSiteStoreLogo(currentName);
+      if (matchedSiteLogo) {
+        logoUrlInput.value = matchedSiteLogo;
+        logoContainer.classList.add("has-img");
+        logoContainer.innerHTML = renderLogoBoxContent(matchedSiteLogo, currentName);
+      } else {
+        logoUrlInput.value = "";
+        logoContainer.classList.remove("has-img");
+        logoContainer.textContent = (currentName || "L").charAt(0).toUpperCase();
+      }
+    } else if (!logoUrlInput.value.trim()) {
       logoContainer.classList.remove("has-img");
       logoContainer.textContent = (currentName || "L").charAt(0).toUpperCase();
     }
+
     if (planInput && planBadge) {
       planBadge.textContent = `Plano ${planInput.value}`;
     }
@@ -2127,20 +2217,26 @@ function openStoreModal(store = null) {
           throw new Error(errData.detail || errData.error || "Falha no upload do logotipo");
         }
         const uploaded = await uploadRes.json();
-        logoUrlInput.value = uploaded.url;
-        logoContainer.classList.add("has-img");
-        logoContainer.innerHTML = `<img src="${escapeAttr(uploaded.url)}" alt="${escapeAttr(nameInput.value.trim() || "Logo da loja")}" />`;
+        customUploadedLogo = true;
+        let finalLogoUrl = uploaded.url;
 
         if (store?.id) {
-          await api(`/api/stores/${store.id}`, {
+          const patchRes = await api(`/api/stores/${store.id}`, {
             method: "PATCH",
             body: JSON.stringify({ logo_url: uploaded.url }),
           });
-          store.logo_url = uploaded.url;
-          showToast("Logotipo da loja atualizado!");
+          finalLogoUrl = patchRes?.store?.logo_url || uploaded.url;
+          store.logo_url = finalLogoUrl;
+          const normKey = normStoreName(nameInput.value.trim() || store.name);
+          if (normKey) SITE_STORE_LOGOS[normKey] = finalLogoUrl;
+          showToast("Logotipo da loja atualizado no sistema e no site!");
         } else {
           showToast("Logotipo carregado!");
         }
+
+        logoUrlInput.value = finalLogoUrl;
+        logoContainer.classList.add("has-img");
+        logoContainer.innerHTML = renderLogoBoxContent(finalLogoUrl, nameInput.value.trim() || store?.name);
       } catch (err) {
         showToast(err.message || "Erro no upload do logotipo");
       }

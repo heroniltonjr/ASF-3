@@ -2209,14 +2209,13 @@ select {
 .store-modal-logo:not(.has-img) {
   width: 54px;
   height: 54px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: linear-gradient(135deg, #163a70, #1e4d94);
   color: #ffffff;
   font-weight: 900;
   font-size: 22px;
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 12px rgba(22, 58, 112, 0.22);
 }
 
 .store-modal-logo.has-img {
@@ -2224,16 +2223,16 @@ select {
   min-height: 54px;
   max-height: 54px;
   width: auto;
-  min-width: 72px;
   max-width: 160px;
   background: #ffffff;
-  border: 1px solid var(--line, #e2e8f0);
-  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   padding: 6px 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .store-modal-logo.has-img:hover {

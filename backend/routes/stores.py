@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from .. import db
+from .. import db, store_meta
 from ..deps import STORE_SCOPED_ROLES, require_roles
 
 router = APIRouter()
@@ -19,6 +19,22 @@ def _scope_filter(user: dict) -> tuple[str, list]:
     return "", []
 
 
+def _resolve_and_sync_store_logo(conn, st: dict) -> dict:
+    """Garante que toda loja tenha logo_url sincronizado entre o banco e o site (store_meta)."""
+    logo_url = (st.get("logo_url") or "").strip()
+    if not logo_url:
+        fallback_logo = store_meta.logo_for(st.get("name"))
+        if fallback_logo:
+            st["logo_url"] = fallback_logo
+            try:
+                conn.execute("UPDATE stores SET logo_url = ? WHERE id = ?", (fallback_logo, st["id"]))
+            except Exception:
+                pass
+    else:
+        store_meta.sync_store_meta(st["name"], logo=logo_url, whatsapp=st.get("phone"))
+    return st
+
+
 @router.get("/stores")
 def list_stores(user: dict = Depends(_ALL)):
     where, params = _scope_filter(user)
@@ -26,7 +42,7 @@ def list_stores(user: dict = Depends(_ALL)):
         rows = conn.execute(f"SELECT * FROM stores {where} ORDER BY name", params).fetchall()
         stores_list = []
         for r in rows:
-            st = dict(r)
+            st = _resolve_and_sync_store_logo(conn, dict(r))
             # Busca o e-mail do usuário gestor da loja (role lojista ou gestor)
             u_row = conn.execute(
                 "SELECT email FROM users WHERE store_id = ? AND role IN ('lojista', 'gestor') ORDER BY id ASC LIMIT 1",
@@ -45,7 +61,7 @@ def get_store(store_id: int, user: dict = Depends(_ALL)):
         row = conn.execute("SELECT * FROM stores WHERE id = ?", (store_id,)).fetchone()
         if not row:
             raise HTTPException(404, "Loja não encontrada")
-        st = dict(row)
+        st = _resolve_and_sync_store_logo(conn, dict(row))
         u_row = conn.execute(
             "SELECT email FROM users WHERE store_id = ? AND role IN ('lojista', 'gestor') ORDER BY id ASC LIMIT 1",
             (store_id,),
@@ -101,6 +117,9 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
         if password and len(password) < 6:
             raise HTTPException(400, "A senha da loja deve ter no mínimo 6 caracteres")
 
+    raw_logo = (payload.get("logo_url") or "").strip() or store_meta.logo_for(name)
+    final_logo = store_meta.save_store_logo_asset(name, raw_logo) if raw_logo else None
+
     fields = {
         "name": name, "tenant_id": tenant_id,
         "type": store_type,
@@ -108,7 +127,7 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
         "status": status,
         "phone": (payload.get("phone") or "").strip() or None,
         "focal_name": (payload.get("focal_name") or "").strip() or None,
-        "logo_url": (payload.get("logo_url") or "").strip() or None,
+        "logo_url": final_logo,
         "response_time": payload.get("response_time"),
         "monthly_cost": payload.get("monthly_cost") or 0,
         "monthly_revenue": monthly_revenue,
@@ -136,6 +155,7 @@ def create_store(payload: dict, user: dict = Depends(_MGMT)):
         row = conn.execute("SELECT * FROM stores WHERE id = ?", (new_store_id,)).fetchone()
         res_store = dict(row)
         res_store["manager_email"] = email or None
+        store_meta.sync_store_meta(name, logo=res_store.get("logo_url"), whatsapp=res_store.get("phone"))
     return {"store": res_store}
 
 
@@ -172,9 +192,19 @@ def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
         raise HTTPException(400, "Nada a atualizar")
 
     with db.tx() as conn:
-        current = conn.execute("SELECT id, tenant_id, name, type, plan, monthly_revenue, status, is_active FROM stores WHERE id = ?", (store_id,)).fetchone()
+        current = conn.execute("SELECT id, tenant_id, name, type, plan, monthly_revenue, status, is_active, logo_url, phone FROM stores WHERE id = ?", (store_id,)).fetchone()
         if not current:
             raise HTTPException(404, "Loja não encontrada")
+
+        target_name = (updates.get("name") or current["name"]).strip()
+        if "logo_url" in updates and updates["logo_url"]:
+            updates["logo_url"] = store_meta.save_store_logo_asset(
+                target_name, updates["logo_url"], old_name=current["name"]
+            )
+        elif not current["logo_url"] and "logo_url" not in updates:
+            fallback_logo = store_meta.logo_for(target_name)
+            if fallback_logo:
+                updates["logo_url"] = fallback_logo
 
         new_type = updates.get("type", current["type"])
         new_plan = updates.get("plan", current["plan"])
@@ -248,6 +278,12 @@ def update_store(store_id: int, payload: dict, user: dict = Depends(_MGMT)):
             (store_id,),
         ).fetchone()
         res_store["manager_email"] = u_row["email"] if u_row else None
+        store_meta.sync_store_meta(
+            res_store["name"],
+            logo=res_store.get("logo_url"),
+            whatsapp=res_store.get("phone"),
+            old_name=current["name"],
+        )
     return {"store": res_store}
 
 

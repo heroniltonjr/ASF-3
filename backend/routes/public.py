@@ -157,17 +157,20 @@ def _active_stores() -> list[dict]:
     """Retorna apenas lojas do tipo 'Lojista' com status 'Ativo', com contagem de estoque e metadados."""
     with db.tx() as conn:
         db_rows = conn.execute(
-            "SELECT id, name, type, plan, status, logo_url FROM stores WHERE type = 'Lojista' AND status = 'Ativo'"
+            "SELECT id, name, type, plan, status, logo_url, phone FROM stores WHERE type = 'Lojista' AND status = 'Ativo'"
         ).fetchall()
 
     if not db_rows:
         return []
 
-    rows, _ = sb.select(
-        sb.VEHICLES,
-        params=[("select", "store"), ("active", "eq.true"), ("sold", "eq.false"),
-                ("limit", "10000")],
-    )
+    try:
+        rows, _ = sb.select(
+            sb.VEHICLES,
+            params=[("select", "store"), ("active", "eq.true"), ("sold", "eq.false"),
+                    ("limit", "10000")],
+        )
+    except sb.SupabaseError:
+        rows = []
     counts_by_name: dict[str, int] = {}
     counts_by_norm: dict[str, int] = {}
     raw_store_names: dict[str, str] = {}
@@ -191,7 +194,7 @@ def _active_stores() -> list[dict]:
         active_count = counts_by_name.get(name.lower(), counts_by_norm.get(norm_name, 0))
         store_id = raw_store_names.get(name.lower(), raw_store_names.get(norm_name, name))
         meta = store_meta.lookup(name) or {}
-        store_logo = row_dict.get("logo_url") or meta.get("logo")
+        store_logo = row_dict.get("logo_url") or meta.get("logo") or store_meta.logo_for(name)
         stores.append({
             "id": store_id,
             "name": name,
@@ -201,7 +204,7 @@ def _active_stores() -> list[dict]:
             "logo": store_logo,
             "city": meta.get("city"),
             "address": meta.get("address"),
-            "whatsapp": meta.get("whatsapp"),
+            "whatsapp": row_dict.get("phone") or meta.get("whatsapp"),
         })
     stores.sort(key=lambda s: (-s["active_vehicles"], s["name"].lower()))
     return stores
@@ -290,19 +293,33 @@ def get_public_vehicle(vehicle_id: int):
     # Dados da loja (logo/cidade/WhatsApp próprio)
     clean_store = _clean(row.get("store"))
     meta = store_meta.lookup(clean_store) or {}
-    store_logo = meta.get("logo")
+    store_logo = meta.get("logo") or store_meta.logo_for(clean_store)
+    store_phone = meta.get("whatsapp")
     if clean_store:
+        target_norm = store_meta.norm(clean_store)
         try:
             with db.tx() as conn:
-                s_row = conn.execute("SELECT logo_url FROM stores WHERE lower(name) = lower(?) LIMIT 1", (clean_store,)).fetchone()
-                if s_row and s_row["logo_url"]:
-                    store_logo = s_row["logo_url"]
+                s_rows = conn.execute("SELECT name, logo_url, phone FROM stores").fetchall()
+                matched_row = None
+                for sr in s_rows:
+                    sr_dict = dict(sr)
+                    sr_name = (sr_dict.get("name") or "").strip()
+                    if sr_name.lower() == clean_store.lower():
+                        matched_row = sr_dict
+                        break
+                    if target_norm and store_meta.norm(sr_name) == target_norm:
+                        matched_row = sr_dict
+                if matched_row:
+                    if matched_row.get("logo_url"):
+                        store_logo = matched_row["logo_url"]
+                    if matched_row.get("phone"):
+                        store_phone = matched_row["phone"]
         except Exception:
             pass
     veh["store_logo"] = store_logo
     veh["store_city"] = meta.get("city")
 
-    wa_number = re.sub(r"[^\d]", "", meta.get("whatsapp") or ASF_WHATSAPP)
+    wa_number = re.sub(r"[^\d]", "", store_phone or ASF_WHATSAPP)
     msg = quote(f"Olá! Vi o {veh['name']} no portal do Auto Shopping Fórmula. Está disponível?")
     veh["whatsapp_link"] = f"https://wa.me/{wa_number}?text={msg}"
     veh["whatsapp_number"] = wa_number
